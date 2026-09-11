@@ -1,0 +1,77 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Gastos del mes{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Gastos adicionales del mes</h4>
+<p class="text-muted small">Gastos puntuales de un mes específico. Los recurrentes van en
+  <a href="{% url 'gastos_fijos' %}">Gastos fijos</a>. El prorrateo de abajo ya combina ambos.</p>
+
+<form method="get" class="row g-2 align-items-end mb-4">
+  <div class="col-auto"><label class="form-label">Mes</label>{{ periodo_form.mes }}</div>
+  <div class="col-auto"><label class="form-label">Año</label>{{ periodo_form.anio }}</div>
+  <div class="col-auto"><button class="btn btn-success">Ver mes</button></div>
+</form>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white"><strong>Gastos de {{ periodo|date:"F Y" }}</strong></div>
+      <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+          <thead class="table-light"><tr><th>Descripción</th><th>Categoría</th><th>Modo</th><th class="text-end">Monto</th><th></th></tr></thead>
+          <tbody>
+            {% for g in gastos %}
+            <tr>
+              <td>{{ g.descripcion }}</td>
+              <td>{% if g.categoria == 'AGUA_COMUN' %}<span class="badge bg-info text-dark">Agua común</span>{% else %}<span class="badge bg-secondary">General</span>{% endif %}</td>
+              <td>{% if g.compartido %}<span class="badge bg-success">Compartido</span>{% else %}<span class="badge bg-warning text-dark">Por depto</span>{% endif %}</td>
+              <td class="text-end">S/ {{ g.monto }}</td>
+              <td class="text-end">
+                <form method="post" onsubmit="return confirm('¿Eliminar este gasto?')">
+                  {% csrf_token %}
+                  <input type="hidden" name="accion" value="eliminar">
+                  <input type="hidden" name="gasto_id" value="{{ g.pk }}">
+                  <button class="btn btn-sm btn-outline-danger">✕</button>
+                </form>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-3">Sin gastos adicionales este mes.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white"><strong>Agregar gasto</strong></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="accion" value="agregar">
+          <div class="mb-2"><label class="form-label">Descripción</label>{{ gasto_form.descripcion }}</div>
+          <div class="mb-2"><label class="form-label">Monto</label>{{ gasto_form.monto }}</div>
+          <div class="mb-2"><label class="form-label">Categoría</label>{{ gasto_form.categoria }}</div>
+          <div class="mb-3 form-check">
+            {{ gasto_form.compartido }}
+            <label class="form-check-label" for="{{ gasto_form.compartido.id_for_label }}">Compartido (÷ deptos)</label>
+          </div>
+          <button class="btn btn-success w-100">Agregar gasto</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h6 class="text-muted">Prorrateo del mes ({{ datos.n }} deptos)</h6>
+        <div class="d-flex justify-content-between"><span>Mantenimiento por depto</span><strong>S/ {{ datos.mantenimiento }}</strong></div>
+        <div class="d-flex justify-content-between"><span>Área común por depto</span><strong>S/ {{ datos.area_comun }}</strong></div>
+        <hr class="my-2">
+        <div class="small text-muted">Total general S/ {{ datos.total_general }} · Agua común S/ {{ datos.total_agua_comun }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

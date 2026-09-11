@@ -1,0 +1,76 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Importar Excel{% endblock %}
+
+{% block content %}
+<h4 class="mb-3">Importar datos desde Excel</h4>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header card-header-verde"><strong>Subir archivo</strong></div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+          <p class="text-muted small">Elige a qué <strong>mes</strong> corresponden las lecturas del archivo.</p>
+          <div class="row g-2 mb-3">
+            <div class="col"><label class="form-label">Mes</label>{{ form.mes }}</div>
+            <div class="col"><label class="form-label">Año</label>{{ form.anio }}</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.archivo.label }}</label>
+            {{ form.archivo }}
+            {% for e in form.archivo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+          <button type="submit" class="btn btn-success w-100">Subir e importar</button>
+        </form>
+
+        {% if resumen %}
+        <div class="alert alert-info mt-3 mb-0">
+          <strong>{{ resumen.departamentos }}</strong> departamentos y
+          <strong>{{ resumen.lecturas }}</strong> lecturas procesadas.
+          {% if resumen.errores %}
+          <hr>
+          <div class="small">Filas con problemas:</div>
+          <ul class="small mb-0">
+            {% for err in resumen.errores %}<li>{{ err }}</li>{% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong>Formato del Excel</strong>
+        <a href="{% url 'plantilla_excel' %}" class="btn btn-sm btn-outline-success">⬇️ Descargar plantilla</a>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-2">Usa la <strong>primera hoja</strong>. La fila 1 son los encabezados
+          (en mayúsculas) y desde la fila 2, un departamento por fila:</p>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered">
+            <thead class="table-light">
+              <tr><th>DEPARTAMENTO</th><th>LECTURA_ANTERIOR</th><th>LECTURA_ACTUAL</th><th>COCHERA</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>101</td><td>1330.54</td><td>1334.34</td><td>0</td></tr>
+              <tr><td>104</td><td>625.27</td><td>627.50</td><td>5</td></tr>
+              <tr><td>201</td><td>800.57</td><td>809.94</td><td>0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="small text-muted mb-0">
+          <li><strong>DEPARTAMENTO</strong>: obligatorio (ej. 101 o T6-301).</li>
+          <li><strong>LECTURA_ANTERIOR / LECTURA_ACTUAL</strong>: lectura del medidor en m³.
+            Si dejas la anterior vacía, el sistema toma la del mes previo automáticamente.</li>
+          <li><strong>COCHERA</strong>: monto de cochera del depto (0 si no tiene). Opcional.</li>
+          <li>Si un departamento no existe, se crea; si ya existe, se actualiza.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

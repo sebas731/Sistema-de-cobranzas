@@ -1,0 +1,68 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Gastos fijos{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Gastos fijos</h4>
+<p class="text-muted">Se registran una vez y aplican <strong>todos los meses</strong>. Cada gasto puede ser
+  <em>por departamento</em> (cada depto paga el monto) o <em>compartido</em> (se divide entre todos).</p>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white"><strong>Gastos fijos registrados</strong></div>
+      <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+          <thead class="table-light">
+            <tr><th>Descripción</th><th>Categoría</th><th class="text-end">Monto</th><th>Modo</th><th>Activo</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for g in gastos %}
+            <tr>
+              <td>{{ g.descripcion }}</td>
+              <td>{% if g.categoria == 'AGUA_COMUN' %}<span class="badge bg-info text-dark">Agua común</span>{% else %}<span class="badge bg-secondary">Mantenimiento</span>{% endif %}</td>
+              <td class="text-end">S/ {{ g.monto }}</td>
+              <td>{% if g.compartido %}<span class="badge bg-success">Compartido (÷ deptos)</span>{% else %}<span class="badge bg-warning text-dark">Por departamento</span>{% endif %}</td>
+              <td>{% if g.activo %}Sí{% else %}<span class="text-muted">No</span>{% endif %}</td>
+              <td class="text-end">
+                <div class="d-flex gap-1 justify-content-end">
+                  <a href="{% url 'gasto_fijo_editar' g.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                  <form method="post" onsubmit="return confirm('¿Eliminar este gasto fijo?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="eliminar">
+                    <input type="hidden" name="gasto_id" value="{{ g.pk }}">
+                    <button class="btn btn-sm btn-outline-danger">✕</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-3">Aún no hay gastos fijos.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white"><strong>Agregar gasto fijo</strong></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="accion" value="agregar">
+          <div class="mb-2"><label class="form-label">Descripción</label>{{ form.descripcion }}</div>
+          <div class="mb-2"><label class="form-label">Monto</label>{{ form.monto }}</div>
+          <div class="mb-2"><label class="form-label">Categoría</label>{{ form.categoria }}</div>
+          <div class="mb-3 form-check">
+            {{ form.compartido }}
+            <label class="form-check-label" for="{{ form.compartido.id_for_label }}">
+              Compartido (dividir entre todos los deptos)</label>
+          </div>
+          <button class="btn btn-success w-100">Agregar gasto fijo</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

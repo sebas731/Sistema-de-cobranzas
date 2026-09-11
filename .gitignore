@@ -1,0 +1,43 @@
+# === Base de datos (NO subir a producción) ===
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+
+# === Secretos / configuración local ===
+.env
+*.env
+.env.*
+!.env.example
+local_settings.py
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# === Entornos virtuales (por si el repo se crea un nivel más arriba) ===
+venv/
+.venv/
+env/
+ENV/
+
+# === Django ===
+media/
+staticfiles/
+/static_root/
+*.log
+
+# === Archivos subidos por usuarios (Excel importados, etc.) ===
+uploads/
+*.xlsx~
+
+# === Editores / SO ===
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

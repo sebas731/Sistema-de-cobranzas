@@ -1,0 +1,65 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Balance{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="mb-0">VISTA GENERAL</h4>
+  <form method="get" action="{% url 'buscar_departamento' %}" class="d-flex gap-2">
+    <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar N° depto...">
+    <button class="btn btn-sm btn-success">BUSCAR</button>
+  </form>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm text-center"><div class="card-body">
+      <div class="text-muted small">Facturado</div>
+      <div class="fs-4 fw-bold">S/ {{ total_facturado|floatformat:2 }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm text-center"><div class="card-body">
+      <div class="text-muted small">Cobrado</div>
+      <div class="fs-4 fw-bold text-success">S/ {{ total_cobrado|floatformat:2 }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm text-center"><div class="card-body">
+      <div class="text-muted small">Pendiente por cobrar</div>
+      <div class="fs-4 fw-bold text-danger">S/ {{ total_saldo|floatformat:2 }}</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-striped table-hover mb-0 align-middle">
+      <thead class="table-success">
+        <tr>
+          <th>N° Depto</th><th>Propietario</th>
+          <th class="text-end">Facturado</th><th class="text-end">Cobrado</th>
+          <th class="text-end">Saldo</th><th class="text-center">Recibos pend.</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in filas %}
+        <tr>
+          <td class="fw-semibold">{{ f.departamento.numero_domicilio }}</td>
+          <td>{{ f.departamento.propietario }}</td>
+          <td class="text-end">S/ {{ f.facturado|floatformat:2 }}</td>
+          <td class="text-end text-success">S/ {{ f.cobrado|floatformat:2 }}</td>
+          <td class="text-end fw-bold {% if f.saldo > 0 %}text-danger{% else %}text-success{% endif %}">S/ {{ f.saldo|floatformat:2 }}</td>
+          <td class="text-center">
+            {% if f.pendientes %}<span class="badge bg-danger">{{ f.pendientes }}</span>
+            {% else %}<span class="badge bg-success">Al día</span>{% endif %}
+          </td>
+          <td class="text-end"><a href="{% url 'departamento_detalle' f.departamento.pk %}" class="btn btn-sm btn-outline-success">Ver</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No hay departamentos activos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

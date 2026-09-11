@@ -1,0 +1,31 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Tarifa de agua{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Tarifa de agua (por tramos)</h4>
+  <a href="{% url 'tarifa_nueva' %}" class="btn btn-success">+ Nuevo tramo</a>
+</div>
+<p class="text-muted small">El consumo se cobra por tramos: cada m³ paga la tarifa del tramo donde cae.
+  El último tramo debe quedar <strong>sin tope</strong> para cubrir el excedente.</p>
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-success"><tr><th>Tramo</th><th class="text-end">Hasta (m³)</th><th class="text-end">S/ por m³</th><th>Activo</th><th></th></tr></thead>
+      <tbody>
+        {% for t in tarifas %}
+        <tr>
+          <td>{{ t.nombre }}</td>
+          <td class="text-end">{{ t.consumo_limite|default:"sin tope" }}</td>
+          <td class="text-end">{{ t.tarifa }}</td>
+          <td>{% if t.activo %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+          <td class="text-end"><a href="{% url 'tarifa_editar' t.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-3">Sin tramos de tarifa.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

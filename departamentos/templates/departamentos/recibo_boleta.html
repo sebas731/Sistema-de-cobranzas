@@ -1,0 +1,109 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Boleta {{ departamento.numero_domicilio }} {{ recibo.periodo|date:"m/Y" }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+  <a href="{% url 'departamento_detalle' departamento.pk %}" class="btn btn-link px-0">&larr; Volver</a>
+  <button onclick="window.print()" class="btn btn-success">🖨️ Imprimir</button>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm" id="boleta">
+      <div class="card-header card-header-verde text-center py-3">
+        <h5 class="mb-0">Boleta de cobranza</h5>
+        <div class="small">Periodo: {{ recibo.periodo|date:"F Y" }}</div>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-3">
+          <div>
+            <div><strong>Departamento:</strong> {{ departamento.numero_domicilio }}</div>
+            <div><strong>Propietario:</strong> {{ departamento.propietario }}</div>
+          </div>
+          <div class="text-end">
+            <div><strong>Vence:</strong> {{ recibo.fecha_vencimiento|date:"d/m/Y" }}</div>
+            <div>
+              {% if recibo.estado == 'PAGADO' %}<span class="badge bg-success">Pagado</span>
+              {% elif recibo.estado == 'VENCIDO' %}<span class="badge bg-danger">Vencido</span>
+              {% else %}<span class="badge bg-warning text-dark">Pendiente</span>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <table class="table table-sm">
+          <tbody>
+            <tr>
+              <td>Consumo de agua <span class="text-muted">({{ recibo.m3_consumidos }} m³)</span></td>
+              <td class="text-end">S/ {{ recibo.monto_agua }}</td>
+            </tr>
+            <tr>
+              <td>Área común</td>
+              <td class="text-end">S/ {{ recibo.monto_area_comun }}</td>
+            </tr>
+            <tr>
+              <td>Mantenimiento</td>
+              <td class="text-end">S/ {{ recibo.monto_mantenimiento }}</td>
+            </tr>
+            {% if recibo.monto_cochera %}
+            <tr>
+              <td>Cochera</td>
+              <td class="text-end">S/ {{ recibo.monto_cochera }}</td>
+            </tr>
+            {% endif %}
+            {% if recibo.gastos_adicionales %}
+            <tr>
+              <td>
+                Gastos adicionales
+                {% if adicionales_items %}
+                <ul class="small text-muted mb-0">
+                  {% for it in adicionales_items %}
+                  <li>{{ it.descripcion }}: S/ {{ it.monto }}{% if it.compartido %} <span class="text-muted">(compartido)</span>{% endif %}</li>
+                  {% endfor %}
+                </ul>
+                {% endif %}
+              </td>
+              <td class="text-end align-top">S/ {{ recibo.gastos_adicionales }}</td>
+            </tr>
+            {% endif %}
+            {% if recibo.mora %}
+            <tr>
+              <td>Mora</td>
+              <td class="text-end">S/ {{ recibo.mora }}</td>
+            </tr>
+            {% endif %}
+          </tbody>
+          <tfoot>
+            <tr class="table-success">
+              <th>TOTAL A PAGAR</th>
+              <th class="text-end">S/ {{ recibo.total|floatformat:2 }}</th>
+            </tr>
+            {% if recibo.total_pagado %}
+            <tr>
+              <td class="text-success">Pagado</td>
+              <td class="text-end text-success">S/ {{ recibo.total_pagado|floatformat:2 }}</td>
+            </tr>
+            <tr>
+              <th>Saldo</th>
+              <th class="text-end">S/ {{ recibo.saldo|floatformat:2 }}</th>
+            </tr>
+            {% endif %}
+          </tfoot>
+        </table>
+
+        <div class="small text-muted border-top pt-2">
+          <div>CTA. CTE - BCP: 191-XXXXXXX-0-XX</div>
+          <div>Su pago oportuno ayuda al mantenimiento del edificio. ¡Gracias!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  @media print {
+    .no-print, nav, .alert { display: none !important; }
+    body { background: #fff; }
+    #boleta { box-shadow: none !important; border: 1px solid #ccc !important; }
+  }
+</style>
+{% endblock %}

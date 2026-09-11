@@ -1,0 +1,34 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Generar recibos{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="card shadow-sm border-0">
+      <div class="card-header card-header-verde text-center py-3">
+        <h4 class="mb-0">Generar recibos del mes</h4>
+      </div>
+      <div class="card-body p-4">
+        <p class="text-muted small">
+          Arma el recibo de cada departamento activo con el desglose completo:
+          agua (según la lectura y la tarifa por tramos), área común y mantenimiento
+          (prorrateados de los gastos del mes) y cochera. Es seguro repetirlo: no
+          duplica ni modifica lo ya pagado.
+        </p>
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <div class="row g-2">
+            <div class="col"><label class="form-label">Mes</label>{{ form.mes }}</div>
+            <div class="col"><label class="form-label">Año</label>{{ form.anio }}</div>
+          </div>
+          <div class="my-3">
+            <label class="form-label">{{ form.dia_vencimiento.label }}</label>
+            {{ form.dia_vencimiento }}
+          </div>
+          <button type="submit" class="btn btn-success w-100">Generar recibos</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

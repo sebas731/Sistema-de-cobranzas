@@ -1,0 +1,38 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Departamentos{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Departamentos</h4>
+  <a href="{% url 'departamento_nuevo' %}" class="btn btn-success">+ Nuevo departamento</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-striped table-hover mb-0 align-middle">
+      <thead class="table-success">
+        <tr><th>N° Depto</th><th>Tipo</th><th>Propietario</th><th>Celular</th><th class="text-end">Cochera</th><th>Activo</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for d in departamentos %}
+        <tr>
+          <td class="fw-semibold">{{ d.numero_domicilio }}</td>
+          <td>{{ d.get_tipo_domicilio_display }}</td>
+          <td>{{ d.propietario }}</td>
+          <td>{{ d.celular|default:"—" }}</td>
+          <td class="text-end">{% if d.tiene_cochera %}S/ {{ d.cochera_monto }}{% else %}—{% endif %}</td>
+          <td>{% if d.activo %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+          <td class="text-end">
+            <div class="d-flex gap-1 justify-content-end">
+              <a href="{% url 'departamento_editar' d.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+              <a href="{% url 'departamento_detalle' d.pk %}" class="btn btn-sm btn-outline-success">Ver recibos</a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No hay departamentos registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

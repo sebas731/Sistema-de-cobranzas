@@ -1,0 +1,136 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Balance del mes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="mb-0">Balance del mes — {{ periodo|date:"F Y" }}</h4>
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-auto">{{ periodo_form.mes }}</div>
+    <div class="col-auto">{{ periodo_form.anio }}</div>
+    <div class="col-auto"><button class="btn btn-success">Ver mes</button></div>
+  </form>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center h-100"><div class="card-body">
+      <div class="text-muted small">Facturado</div>
+      <div class="fs-5 fw-bold">S/ {{ tot_facturado|floatformat:2 }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center h-100"><div class="card-body">
+      <div class="text-muted small">Pagado</div>
+      <div class="fs-5 fw-bold text-success">S/ {{ tot_pagado|floatformat:2 }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center h-100"><div class="card-body">
+      <div class="text-muted small">Pendiente</div>
+      <div class="fs-5 fw-bold text-danger">S/ {{ tot_pendiente|floatformat:2 }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center h-100"><div class="card-body">
+      <div class="text-muted small">Agua (todos)</div>
+      <div class="fs-5 fw-bold">S/ {{ tot_agua|floatformat:2 }}</div>
+      <div class="small text-muted">{{ tot_m3|floatformat:2 }} m³</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header card-header-verde"><strong>Gastos del mes ({{ datos.n }} deptos)</strong></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr><th>Descripción</th><th class="text-end">Total edificio</th><th class="text-end">Por depto</th></tr>
+          </thead>
+          <tbody>
+            <tr class="table-secondary"><td colspan="3"><strong>Servicios / mantenimiento</strong></td></tr>
+            {% for it in gastos.general %}
+            <tr>
+              <td>{{ it.descripcion }}{% if it.adicional %} <span class="badge bg-warning text-dark">adic.</span>{% endif %}
+                {% if not it.compartido %}<span class="badge bg-secondary">por depto</span>{% endif %}</td>
+              <td class="text-end">S/ {{ it.total }}</td>
+              <td class="text-end">S/ {{ it.por_depto }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted small">Sin gastos de mantenimiento este mes.</td></tr>
+            {% endfor %}
+            <tr class="table-secondary"><td colspan="3"><strong>Agua área común</strong></td></tr>
+            {% for it in gastos.agua_comun %}
+            <tr>
+              <td>{{ it.descripcion }}{% if it.adicional %} <span class="badge bg-warning text-dark">adic.</span>{% endif %}</td>
+              <td class="text-end">S/ {{ it.total }}</td>
+              <td class="text-end">S/ {{ it.por_depto }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted small">Sin agua de área común este mes.</td></tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="table-success"><th colspan="2">Mantenimiento por depto</th><th class="text-end">S/ {{ datos.mantenimiento }}</th></tr>
+            <tr class="table-success"><th colspan="2">Área común por depto</th><th class="text-end">S/ {{ datos.area_comun }}</th></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <p class="text-muted small mt-2">Cuando registres los gastos (fijos o del mes), aparecen aquí
+      itemizados con su total y su aporte por departamento, como en tu hoja de cálculo.</p>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white"><strong>Por departamento</strong></div>
+      <div class="table-responsive" style="max-height:70vh;overflow-y:auto">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-success" style="position:sticky;top:0">
+            <tr>
+              <th>Depto</th><th class="text-end">Agua</th><th class="text-end">Á. común</th>
+              <th class="text-end">Manten.</th><th class="text-end">Cochera</th>
+              <th class="text-end">Adic.</th><th class="text-end">Total</th>
+              <th class="text-end">Pagado</th><th class="text-end">Saldo</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in recibos %}
+            <tr>
+              <td class="fw-semibold">{{ r.departamento.numero_domicilio }}</td>
+              <td class="text-end">{{ r.monto_agua }}</td>
+              <td class="text-end">{{ r.monto_area_comun }}</td>
+              <td class="text-end">{{ r.monto_mantenimiento }}</td>
+              <td class="text-end">{{ r.monto_cochera }}</td>
+              <td class="text-end">{{ r.extras }}</td>
+              <td class="text-end fw-semibold">{{ r.total|floatformat:2 }}</td>
+              <td class="text-end text-success">{{ r.total_pagado|floatformat:2 }}</td>
+              <td class="text-end {% if r.saldo > 0 %}text-danger{% endif %}">{{ r.saldo|floatformat:2 }}</td>
+              <td class="text-end"><a href="{% url 'recibo_boleta' r.pk %}" class="btn btn-sm btn-outline-secondary" title="Ver boleta">🧾</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="10" class="text-center text-muted py-4">
+              No hay recibos de este mes. Usa <a href="{% url 'generar_recibos' %}">Generar recibos</a>.
+            </td></tr>
+            {% endfor %}
+          </tbody>
+          {% if recibos %}
+          <tfoot class="table-light">
+            <tr class="fw-bold">
+              <td>TOTAL</td>
+              <td class="text-end">{{ tot_agua|floatformat:2 }}</td>
+              <td colspan="4"></td>
+              <td class="text-end">{{ tot_facturado|floatformat:2 }}</td>
+              <td class="text-end text-success">{{ tot_pagado|floatformat:2 }}</td>
+              <td class="text-end text-danger">{{ tot_pendiente|floatformat:2 }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
