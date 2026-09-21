@@ -63,6 +63,7 @@ if not DEBUG:
 # Application definition
 
 INSTALLED_APPS = [
+    'whitenoise.runserver_nostatic',  # sirve estáticos con WhiteNoise también en dev
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

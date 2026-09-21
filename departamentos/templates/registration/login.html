@@ -1,31 +1,155 @@
 {% extends 'departamentos/base.html' %}
-{% block title %}Ingresar{% endblock %}
+{% load static %}
+{% block title %}Ingresar · Sistema de Cobranzas{% endblock %}
+
+{% block extra_head %}
+<style>
+  .login{ display:flex; min-height:100vh; }
+  /* -------- Izquierda: imagen + overlay + contenido -------- */
+  .login__left{ flex:1; position:relative; display:flex;
+    background:url("/static/img/login-building.webp") center/cover no-repeat; }
+  .login__overlay{ position:absolute; inset:0;
+    background:linear-gradient(155deg, rgba(6,58,38,.86) 0%, rgba(9,45,30,.62) 55%, rgba(12,40,28,.55) 100%); }
+  .login__lc{ position:relative; z-index:1; color:#fff; padding:3rem 3.2rem;
+    display:flex; flex-direction:column; justify-content:space-between; gap:2rem; width:100%; }
+  .login__brand{ display:flex; align-items:center; gap:.65rem; font-weight:700; font-size:1.05rem; }
+  .login__brand .logo{ width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35); display:grid; place-items:center; font-weight:800; }
+  .login__hero h1{ font-size:2rem; font-weight:700; line-height:1.2; letter-spacing:-.01em; margin:0 0 .8rem; max-width:14ch; }
+  .login__hero p{ color:rgba(255,255,255,.82); max-width:38ch; margin:0; }
+  .login__benefits{ display:flex; flex-direction:column; gap:1rem; margin-top:1.8rem; }
+  .benefit{ display:flex; gap:.8rem; align-items:flex-start; }
+  .benefit__ic{ width:38px; height:38px; border-radius:11px; flex:none; display:grid; place-items:center;
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.2); }
+  .benefit__ic svg{ width:18px; height:18px; color:#fff; }
+  .benefit b{ display:block; font-size:.95rem; }
+  .benefit span{ color:rgba(255,255,255,.75); font-size:.83rem; }
+  .login__quote{ font-size:1.1rem; font-weight:600; color:rgba(255,255,255,.92); }
+  /* -------- Derecha: card de login -------- */
+  .login__right{ flex:1; position:relative; display:flex; align-items:center; justify-content:center;
+    padding:2rem; background:var(--bg); }
+  .login__topright{ position:absolute; top:1.4rem; right:2rem; color:var(--text-muted); font-size:.85rem;
+    display:flex; align-items:center; gap:.4rem; }
+  .login__card{ width:100%; max-width:500px; background:#fff; border:1px solid var(--border);
+    border-radius:var(--radius-lg); box-shadow:var(--shadow-md); padding:2.6rem 2.4rem; }
+  .login__logo{ width:46px; height:46px; border-radius:13px; background:var(--primary-soft);
+    color:var(--primary-strong); display:grid; place-items:center; font-weight:800; font-size:1.2rem; }
+  .login__card .form-control{ height:48px; }
+  .login__card .input-group .btn{ border-color:var(--gray-300); color:var(--text-muted); }
+  .pw-toggle:hover{ color:var(--primary-strong)!important; }
+  @media (max-width: 991.98px){ .login__left{ flex:0 0 42%; } .login__lc{ padding:2rem; } .login__hero h1{ font-size:1.55rem; } }
+  @media (max-width: 767.98px){ .login__left{ display:none; } }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-  <div class="col-md-5 col-lg-4">
-    <div class="card shadow-sm border-0">
-      <div class="card-header card-header-verde text-center py-3">
-        <h4 class="mb-0">SISTEMA AUTOMATIZADO DE COBRANZAS</h4>
-      </div>
-      <div class="card-body p-4">
-        {% if form.errors %}
-          <div class="alert alert-danger">Usuario o contraseña incorrectos.</div>
-        {% endif %}
-        <form method="post">
-          {% csrf_token %}
-          <div class="mb-3">
-            <label class="form-label" for="{{ form.username.id_for_label }}">Usuario</label>
-            <input type="text" name="username" id="{{ form.username.id_for_label }}" class="form-control" autofocus required>
+<div class="login">
+  {# ---------------- Izquierda ---------------- #}
+  <div class="login__left">
+    <div class="login__overlay"></div>
+    <div class="login__lc">
+      <div class="login__brand"><span class="logo">C</span> Sistema de Cobranzas</div>
+
+      <div class="login__hero">
+        <h1>Administra las cuentas de tu edificio de forma fácil y segura</h1>
+        <p>Controla pagos, gestiona deudores, registra gastos y mantén un mejor orden financiero.</p>
+        <div class="login__benefits">
+          <div class="benefit">
+            <span class="benefit__ic"><svg><use href="#i-check"/></svg></span>
+            <div><b>Información segura</b><span>Tus datos siempre protegidos</span></div>
           </div>
-          <div class="mb-3">
-            <label class="form-label" for="{{ form.password.id_for_label }}">Contraseña</label>
-            <input type="password" name="password" id="{{ form.password.id_for_label }}" class="form-control" required>
+          <div class="benefit">
+            <span class="benefit__ic"><svg><use href="#i-grid"/></svg></span>
+            <div><b>Gestión rápida</b><span>Todo en un solo lugar</span></div>
           </div>
-          <button type="submit" class="btn btn-success w-100">Ingresar</button>
-        </form>
+          <div class="benefit">
+            <span class="benefit__ic"><svg><use href="#i-wallet"/></svg></span>
+            <div><b>Mayor control</b><span>Reportes y balances al instante</span></div>
+          </div>
+        </div>
       </div>
+
+      <div class="login__quote">Juntos por una mejor convivencia</div>
+    </div>
+  </div>
+
+  {# ---------------- Derecha ---------------- #}
+  <div class="login__right">
+    <div class="login__topright"><svg width="15" height="15" style="color:var(--primary)"><use href="#i-building"/></svg> Un edificio, una comunidad</div>
+
+    <div class="login__card">
+      <div class="d-flex align-items-center gap-2 mb-4">
+        <span class="login__logo">C</span>
+        <span class="fw-semibold">Sistema de Cobranzas</span>
+      </div>
+
+      <h3 class="fw-bold mb-1">¡Bienvenido!</h3>
+      <p class="text-muted mb-4">Inicia sesión para acceder a tu cuenta.</p>
+
+      {% if form.errors %}
+        <div class="alert alert-danger border-0 d-flex align-items-center gap-2 py-2">
+          <svg width="16" height="16"><use href="#i-alert"/></svg> Usuario o contraseña incorrectos.
+        </div>
+      {% endif %}
+
+      <form method="post" id="loginForm" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label" for="id_username">Usuario o correo electrónico</label>
+          <input type="text" name="username" id="id_username" class="form-control"
+                 placeholder="tucorreo@ejemplo.com" autocomplete="username" autofocus required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="id_password">Contraseña</label>
+          <div class="input-group">
+            <input type="password" name="password" id="id_password" class="form-control"
+                   placeholder="••••••••" autocomplete="current-password" required>
+            <button class="btn btn-outline-secondary pw-toggle" type="button" id="pwToggle" tabindex="-1" aria-label="Mostrar contraseña">
+              <svg id="pwIcon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <label class="form-check d-flex align-items-center gap-2 mb-0" style="cursor:pointer">
+            <input type="checkbox" name="remember" class="form-check-input mt-0">
+            <span class="small">Recordar mi sesión</span>
+          </label>
+          <a href="#" class="small text-decoration-none" style="color:var(--primary-strong)">¿Olvidaste tu contraseña?</a>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100 py-2" id="loginBtn">
+          <span class="btn-label">Iniciar sesión →</span>
+          <span class="btn-loading d-none"><span class="spinner-border spinner-border-sm me-1"></span> Ingresando...</span>
+        </button>
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      </form>
+
+      <hr class="my-4">
+      <p class="text-center text-muted small mb-0">¿Necesitas ayuda? Contacta al administrador del edificio.</p>
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const pw = document.getElementById('id_password');
+  const toggle = document.getElementById('pwToggle');
+  toggle.addEventListener('click', function () {
+    const show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    toggle.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    toggle.classList.toggle('text-success', show);
+  });
+  document.getElementById('loginForm').addEventListener('submit', function () {
+    const btn = document.getElementById('loginBtn');
+    if (!this.checkValidity()) return;
+    btn.disabled = true;
+    btn.querySelector('.btn-label').classList.add('d-none');
+    btn.querySelector('.btn-loading').classList.remove('d-none');
+  });
+})();
+</script>
 {% endblock %}
