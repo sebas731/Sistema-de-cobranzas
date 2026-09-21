@@ -8,7 +8,8 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from .models import (
-    Departamento, GastoEdificio, GastoFijo, LecturaMedidor, Pago, Recibo, TarifaAgua,
+    Cargo, Concepto, Departamento, GastoEdificio, GastoFijo, Imputacion,
+    LecturaMedidor, Pago, TarifaAgua,
 )
 
 CENTIMOS = Decimal('0.01')
@@ -104,7 +105,9 @@ def prorrateo_mes(periodo):
         return vacio
 
     fijos = GastoFijo.objects.filter(activo=True)
-    mes = GastoEdificio.objects.filter(periodo=periodo)
+    # Solo gastos del mes NO dirigidos (los personalizados se aplican por depto
+    # en la generación, no en el prorrateo uniforme).
+    mes = GastoEdificio.objects.filter(periodo=periodo, departamentos__isnull=True)
 
     def suma(categoria, compartido):
         f = fijos.filter(categoria=categoria, compartido=compartido).aggregate(
@@ -145,18 +148,21 @@ def desglose_gastos_mes(periodo):
     """
     n = Departamento.objects.filter(activo=True).count() or 1
 
-    def item(g, adicional):
-        share = (g.monto / n) if g.compartido else g.monto
+    def item(g, adicional, objetivos=0):
+        divisor = objetivos if objetivos else n
+        share = (g.monto / divisor) if g.compartido else g.monto
         return {'descripcion': g.descripcion, 'total': g.monto,
                 'por_depto': _redondear(share), 'compartido': g.compartido,
-                'adicional': adicional}
+                'adicional': adicional, 'objetivos': objetivos}
 
     general, agua_comun = [], []
-    fuentes = ([(g, False) for g in GastoFijo.objects.filter(activo=True)]
-               + [(g, True) for g in GastoEdificio.objects.filter(periodo=periodo)])
-    for g, adicional in fuentes:
+    for g in GastoFijo.objects.filter(activo=True):
         (agua_comun if g.categoria == GastoEdificio.Categoria.AGUA_COMUN else general).append(
-            item(g, adicional))
+            item(g, False))
+    for g in GastoEdificio.objects.filter(periodo=periodo).prefetch_related('departamentos'):
+        objetivos = g.departamentos.count()
+        (agua_comun if g.categoria == GastoEdificio.Categoria.AGUA_COMUN else general).append(
+            item(g, True, objetivos))
 
     return {'n': n, 'general': general, 'agua_comun': agua_comun}
 
@@ -176,56 +182,111 @@ def desglose_adicionales(periodo):
     return items
 
 
-# ---------------------------------------------- Generación de recibos
+# ---------------------------------------------- Conceptos de deuda
+
+# (código, nombre, orden, es_recurrente)
+CONCEPTOS_ESTANDAR = [
+    ('MANTENIMIENTO', 'Mantenimiento', 10, True),
+    ('AGUA', 'Agua', 20, True),
+    ('AREA_COMUN', 'Área común', 30, True),
+    ('COCHERA', 'Cochera', 40, True),
+    ('GASTO_ADIC', 'Gastos adicionales', 50, True),
+    ('PUERTAS', 'Puertas', 60, False),
+    ('CAMARA', 'Cámaras', 70, False),
+    ('ASCENSORES', 'Ascensores', 80, False),
+    ('CUOTA', 'Cuota extraordinaria', 90, False),
+    ('MULTA', 'Multa', 100, False),
+    ('MORA', 'Mora', 110, False),
+    ('OTRO', 'Otro', 120, False),
+]
+
+# Conceptos recurrentes → de dónde sale su monto por depto.
+_RECURRENTES = ['MANTENIMIENTO', 'AGUA', 'AREA_COMUN', 'COCHERA', 'GASTO_ADIC']
+
+
+def sembrar_conceptos():
+    """Crea los conceptos estándar si faltan (idempotente)."""
+    for codigo, nombre, orden, recurrente in CONCEPTOS_ESTANDAR:
+        Concepto.objects.get_or_create(
+            codigo=codigo,
+            defaults={'nombre': nombre, 'orden': orden, 'es_recurrente': recurrente})
+
+
+# ---------------------------------------------- Generación de cargos
 
 @transaction.atomic
-def generar_recibos_mes(periodo, dia_vencimiento=5):
-    """Genera (o actualiza) el recibo de cada departamento activo para el mes.
+def generar_cargos_mes(periodo, dia_vencimiento=5):
+    """Genera (o actualiza) los cargos recurrentes del mes por cada depto activo.
 
-    Idempotente: no duplica ni pisa recibos ya pagados. Conserva los ajustes
-    manuales (gastos adicionales y mora) de recibos existentes.
+    Un cargo por concepto (mantenimiento, agua, área común, cochera, adicionales).
+    Idempotente: no duplica; no toca cargos que ya recibieron pagos.
     """
+    sembrar_conceptos()
     datos = prorrateo_mes(periodo)
     vencimiento = _fecha_vencimiento(periodo, dia_vencimiento)
+    conceptos = {c.codigo: c for c in Concepto.objects.filter(codigo__in=_RECURRENTES)}
     resumen = {'creados': 0, 'actualizados': 0, 'omitidos_pagados': 0, 'n': datos['n']}
+
+    # Gastos personalizados del mes: aporte extra por depto seleccionado.
+    extra_por_dep = {}
+    dirigidos = (GastoEdificio.objects.filter(periodo=periodo)
+                 .filter(departamentos__isnull=False).distinct().prefetch_related('departamentos'))
+    for g in dirigidos:
+        objetivos = list(g.departamentos.all())
+        if not objetivos:
+            continue
+        aporte = (g.monto / len(objetivos)) if g.compartido else g.monto
+        for d in objetivos:
+            extra_por_dep[d.id] = extra_por_dep.get(d.id, Decimal('0.00')) + aporte
 
     for dep in Departamento.objects.filter(activo=True):
         lectura = LecturaMedidor.objects.filter(departamento=dep, periodo=periodo).first()
         m3 = lectura.m3_consumidos if lectura else Decimal('0.00')
-        monto_agua = costo_agua(m3)
 
-        recibo = Recibo.objects.filter(departamento=dep, periodo=periodo).first()
-        if recibo and recibo.estado == Recibo.Estado.PAGADO:
-            resumen['omitidos_pagados'] += 1
-            continue
+        montos = {
+            'MANTENIMIENTO': datos['mantenimiento'],
+            'AGUA': costo_agua(m3),
+            'AREA_COMUN': datos['area_comun'],
+            'COCHERA': _redondear(dep.cochera_monto or 0),
+            'GASTO_ADIC': _redondear(datos['adicionales'] + extra_por_dep.get(dep.id, Decimal('0.00'))),
+        }
+        for codigo, monto in montos.items():
+            concepto = conceptos[codigo]
+            cargo = Cargo.objects.filter(departamento=dep, concepto=concepto, periodo=periodo).first()
 
-        campos = dict(
-            m3_consumidos=m3,
-            monto_agua=monto_agua,
-            monto_area_comun=datos['area_comun'],
-            monto_mantenimiento=datos['mantenimiento'],
-            gastos_adicionales=datos['adicionales'],
-            monto_cochera=_redondear(dep.cochera_monto or 0),
-            fecha_vencimiento=vencimiento,
-        )  # nota: `mora` no se toca aquí (es ajuste manual)
-        if recibo is None:
-            Recibo.objects.create(departamento=dep, periodo=periodo,
-                                  estado=Recibo.Estado.PENDIENTE, **campos)
-            resumen['creados'] += 1
-        else:
-            for k, v in campos.items():
-                setattr(recibo, k, v)
-            recibo.save()
-            resumen['actualizados'] += 1
+            if monto <= 0:
+                # Sin monto: si existe un cargo sin pagos, se elimina; si tiene pagos, se deja.
+                if cargo and cargo.total_imputado == 0:
+                    cargo.delete()
+                continue
+
+            if cargo is None:
+                Cargo.objects.create(departamento=dep, concepto=concepto, periodo=periodo,
+                                     monto=monto, fecha_vencimiento=vencimiento)
+                resumen['creados'] += 1
+            elif cargo.total_imputado > 0:
+                resumen['omitidos_pagados'] += 1
+            else:
+                cargo.monto = monto
+                cargo.fecha_vencimiento = vencimiento
+                cargo.save(update_fields=['monto', 'fecha_vencimiento'])
+                resumen['actualizados'] += 1
 
     return resumen
 
 
-def marcar_vencidos(hoy=None):
-    hoy = hoy or timezone.localdate()
-    return Recibo.objects.filter(
-        estado=Recibo.Estado.PENDIENTE, fecha_vencimiento__lt=hoy
-    ).update(estado=Recibo.Estado.VENCIDO)
+@transaction.atomic
+def crear_cargo(departamento, concepto, periodo, monto, descripcion='', dia_vencimiento=5):
+    """Crea o actualiza un cargo (puertas, cámara, cuota, multa, mora, etc.).
+
+    Idempotente por (depto, concepto, periodo): si ya existe, reemplaza el monto
+    y la descripción (evita duplicados y el error de unicidad).
+    """
+    cargo, _ = Cargo.objects.update_or_create(
+        departamento=departamento, concepto=concepto, periodo=periodo,
+        defaults={'monto': _redondear(monto), 'descripcion': descripcion,
+                  'fecha_vencimiento': _fecha_vencimiento(periodo, dia_vencimiento)})
+    return cargo
 
 
 # ---------------------------------------------- Importación de Excel
@@ -316,11 +377,84 @@ def importar_lecturas_excel(fileobj, periodo):
 
 
 @transaction.atomic
-def registrar_pago(recibo, monto, metodo=''):
-    """Registra un pago sobre un recibo y lo marca PAGADO si queda saldado."""
+def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', periodo=None):
+    """Registra un pago y lo imputa a los cargos del depto (más antiguos primero).
+
+    Si `concepto` está definido (ej. Mantenimiento), solo cancela cargos de ese
+    concepto. Si `periodo` está definido, solo los de ese mes.
+    """
     monto = _redondear(monto)
-    pago = Pago.objects.create(recibo=recibo, monto=monto, metodo=metodo)
-    if recibo.saldo <= 0 and recibo.estado != Recibo.Estado.PAGADO:
-        recibo.estado = Recibo.Estado.PAGADO
-        recibo.save(update_fields=['estado'])
+    pago = Pago.objects.create(departamento=departamento, monto=monto, metodo=metodo,
+                               concepto=concepto, nota=nota)
+
+    cargos = departamento.cargos.all().order_by('periodo', 'concepto__orden')
+    if concepto is not None:
+        cargos = cargos.filter(concepto=concepto)
+    if periodo is not None:
+        cargos = cargos.filter(periodo=periodo)
+
+    restante = monto
+    for cargo in cargos:
+        if restante <= 0:
+            break
+        saldo = cargo.saldo
+        if saldo <= 0:
+            continue
+        aplicar = min(restante, saldo)
+        Imputacion.objects.create(pago=pago, cargo=cargo, monto=aplicar)
+        restante -= aplicar
+
     return pago
+
+
+# ---------------------------------------------- Consultas de deuda
+
+def saldo_departamento(departamento):
+    """Deuda total (saldo) de un departamento = Σ saldos de sus cargos."""
+    return sum((c.saldo for c in departamento.cargos.all()), Decimal('0.00'))
+
+
+def deuda_anterior(departamento, periodo):
+    """Saldo acumulado de meses anteriores al `periodo` (deuda arrastrada)."""
+    return sum((c.saldo for c in departamento.cargos.all() if c.periodo < periodo),
+               Decimal('0.00'))
+
+
+def saldos_por_concepto(departamento):
+    """Dict {codigo_concepto: saldo} de un departamento (para el desglose DEUDORES)."""
+    acum = {}
+    for c in departamento.cargos.all():
+        if c.saldo != 0:
+            acum[c.concepto.codigo] = acum.get(c.concepto.codigo, Decimal('0.00')) + c.saldo
+    return acum
+
+
+def deudores(periodo=None):
+    """Lista de departamentos con deuda > 0 y el desglose de su saldo.
+
+    Devuelve dicts con: departamento, total, anterior, mes (saldo del `periodo`),
+    por_concepto. Ordenado de mayor a menor deuda.
+    """
+    filas = []
+    deps = (Departamento.objects.filter(activo=True)
+            .prefetch_related('cargos__concepto', 'cargos__imputaciones'))
+    for dep in deps:
+        total = sum((c.saldo for c in dep.cargos.all()), Decimal('0.00'))
+        if total <= 0:
+            continue
+        anterior = Decimal('0.00')
+        mes = Decimal('0.00')
+        por_concepto = {}
+        for c in dep.cargos.all():
+            if c.saldo == 0:
+                continue
+            por_concepto[c.concepto.codigo] = por_concepto.get(c.concepto.codigo, Decimal('0.00')) + c.saldo
+            if periodo is not None:
+                if c.periodo < periodo:
+                    anterior += c.saldo
+                elif c.periodo == periodo:
+                    mes += c.saldo
+        filas.append({'departamento': dep, 'total': total, 'anterior': anterior,
+                      'mes': mes, 'por_concepto': por_concepto})
+    filas.sort(key=lambda f: f['total'], reverse=True)
+    return filas

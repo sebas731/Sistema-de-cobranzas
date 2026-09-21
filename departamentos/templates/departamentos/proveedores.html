@@ -1,0 +1,63 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Proveedores{% endblock %}
+
+{% block content %}
+<h4 class="mb-1">Proveedores y contactos</h4>
+<p class="text-muted">Gasfitero, seguridad, limpieza, cámaras, bombas, cobranza, técnico J.V., etc.</p>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white"><strong>Registrados</strong></div>
+      <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+          <thead class="table-light">
+            <tr><th>Nombre</th><th>Rol / servicio</th><th>Teléfono</th><th>Nota</th><th>Activo</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for p in proveedores %}
+            <tr>
+              <td class="fw-semibold">{{ p.nombre }}</td>
+              <td>{% if p.rol %}<span class="badge bg-secondary">{{ p.rol }}</span>{% else %}—{% endif %}</td>
+              <td>{% if p.telefono %}<a href="tel:{{ p.telefono }}">{{ p.telefono }}</a>{% else %}—{% endif %}</td>
+              <td class="text-muted small">{{ p.nota|default:"" }}</td>
+              <td>{% if p.activo %}Sí{% else %}<span class="text-muted">No</span>{% endif %}</td>
+              <td class="text-end">
+                <div class="d-flex gap-1 justify-content-end">
+                  <a href="{% url 'proveedor_editar' p.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                  <form method="post" onsubmit="return confirm('¿Eliminar este proveedor?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="eliminar">
+                    <input type="hidden" name="proveedor_id" value="{{ p.pk }}">
+                    <button class="btn btn-sm btn-outline-danger">✕</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-3">Aún no hay proveedores.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white"><strong>Agregar proveedor</strong></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="accion" value="agregar">
+          <div class="mb-2"><label class="form-label">Nombre</label>{{ form.nombre }}</div>
+          <div class="mb-2"><label class="form-label">Rol / servicio</label>{{ form.rol }}</div>
+          <div class="mb-2"><label class="form-label">Teléfono</label>{{ form.telefono }}</div>
+          <div class="mb-3"><label class="form-label">Nota (opcional)</label>{{ form.nota }}</div>
+          <button class="btn btn-success w-100">Agregar proveedor</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

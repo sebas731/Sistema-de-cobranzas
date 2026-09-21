@@ -1,0 +1,5 @@
+{% comment %}
+Amount · uso: include amount.html with value=1234.5 tone="danger"
+tone opcional: danger (deuda) | success (a favor) | muted
+{% endcomment %}
+<span class="amount {% if tone %}amount--{{ tone }}{% endif %}">S/ {{ value|floatformat:2 }}</span>

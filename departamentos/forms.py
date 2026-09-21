@@ -2,7 +2,7 @@ from datetime import date
 
 from django import forms
 
-from .models import Departamento, GastoEdificio, GastoFijo, TarifaAgua
+from .models import Concepto, Departamento, GastoEdificio, GastoFijo, Proveedor, TarifaAgua
 
 MESES = [
     (1, 'Enero'), (2, 'Febrero'), (3, 'Marzo'), (4, 'Abril'),
@@ -47,16 +47,38 @@ class DepartamentoForm(forms.ModelForm):
     class Meta:
         model = Departamento
         fields = ['numero_domicilio', 'tipo_domicilio', 'nombres', 'apellidos',
-                  'dni', 'celular', 'correo', 'cochera_monto']
+                  'dni', 'celular', 'correo', 'tiene_inquilino', 'celular_inquilino',
+                  'cochera_monto']
         widgets = {
             'numero_domicilio': forms.TextInput(attrs={**_control, 'placeholder': '101'}),
             'tipo_domicilio': forms.Select(attrs=_select),
             'nombres': forms.TextInput(attrs=_control),
             'apellidos': forms.TextInput(attrs=_control),
             'dni': forms.TextInput(attrs={**_control, 'maxlength': 8}),
-            'celular': forms.TextInput(attrs={**_control, 'maxlength': 9}),
+            'celular': forms.TextInput(attrs={**_control, 'maxlength': 15}),
             'correo': forms.EmailInput(attrs=_control),
+            'tiene_inquilino': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'celular_inquilino': forms.TextInput(attrs={**_control, 'maxlength': 15}),
             'cochera_monto': forms.NumberInput(attrs={**_control, 'step': '0.01'}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get('tiene_inquilino'):
+            cleaned['celular_inquilino'] = ''
+        return cleaned
+
+
+class ProveedorForm(forms.ModelForm):
+    class Meta:
+        model = Proveedor
+        fields = ['nombre', 'rol', 'telefono', 'nota', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={**_control, 'placeholder': 'Navarro'}),
+            'rol': forms.TextInput(attrs={**_control, 'placeholder': 'Gasfitero'}),
+            'telefono': forms.TextInput(attrs={**_control, 'maxlength': 15}),
+            'nota': forms.TextInput(attrs=_control),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
@@ -98,7 +120,23 @@ class TarifaAguaForm(forms.ModelForm):
 
 
 class PagoForm(forms.Form):
+    """Pago imputado. `concepto` vacío = pago general (cancela lo más antiguo)."""
     monto = forms.DecimalField(max_digits=10, decimal_places=2, min_value=0.01,
                                widget=forms.NumberInput(attrs={**_control, 'step': '0.01'}))
+    concepto = forms.ModelChoiceField(
+        queryset=Concepto.objects.filter(activo=True), required=False,
+        empty_label='General (lo más antiguo primero)',
+        widget=forms.Select(attrs=_select))
     metodo = forms.CharField(max_length=50, required=False,
                              widget=forms.TextInput(attrs={**_control, 'placeholder': 'Efectivo, Yape...'}))
+
+
+class CargoForm(MesAnioForm):
+    """Alta de un cargo manual (puertas, cámara, cuota, multa, etc.)."""
+    concepto = forms.ModelChoiceField(
+        queryset=Concepto.objects.filter(activo=True),
+        widget=forms.Select(attrs=_select))
+    monto = forms.DecimalField(max_digits=10, decimal_places=2, min_value=0.01,
+                               widget=forms.NumberInput(attrs={**_control, 'step': '0.01'}))
+    descripcion = forms.CharField(max_length=150, required=False,
+                                  widget=forms.TextInput(attrs={**_control, 'placeholder': 'Detalle (opcional)'}))

@@ -96,26 +96,26 @@
             </tr>
           </thead>
           <tbody>
-            {% for r in recibos %}
+            {% for f in filas %}
             <tr>
-              <td class="fw-semibold">{{ r.departamento.numero_domicilio }}</td>
-              <td class="text-end">{{ r.monto_agua }}</td>
-              <td class="text-end">{{ r.monto_area_comun }}</td>
-              <td class="text-end">{{ r.monto_mantenimiento }}</td>
-              <td class="text-end">{{ r.monto_cochera }}</td>
-              <td class="text-end">{{ r.extras }}</td>
-              <td class="text-end fw-semibold">{{ r.total|floatformat:2 }}</td>
-              <td class="text-end text-success">{{ r.total_pagado|floatformat:2 }}</td>
-              <td class="text-end {% if r.saldo > 0 %}text-danger{% endif %}">{{ r.saldo|floatformat:2 }}</td>
-              <td class="text-end"><a href="{% url 'recibo_boleta' r.pk %}" class="btn btn-sm btn-outline-secondary" title="Ver boleta">🧾</a></td>
+              <td class="fw-semibold">{{ f.departamento.numero_domicilio }}</td>
+              <td class="text-end">{{ f.AGUA }}</td>
+              <td class="text-end">{{ f.AREA_COMUN }}</td>
+              <td class="text-end">{{ f.MANTENIMIENTO }}</td>
+              <td class="text-end">{{ f.COCHERA }}</td>
+              <td class="text-end">{{ f.extras }}</td>
+              <td class="text-end fw-semibold">{{ f.total|floatformat:2 }}</td>
+              <td class="text-end text-success">{{ f.pagado|floatformat:2 }}</td>
+              <td class="text-end {% if f.saldo > 0 %}text-danger{% endif %}">{{ f.saldo|floatformat:2 }}</td>
+              <td class="text-end"><a href="{% url 'recibo_boleta' f.departamento.pk %}?mes={{ periodo.month }}&anio={{ periodo.year }}" class="btn btn-sm btn-outline-secondary" title="Ver boleta">🧾</a></td>
             </tr>
             {% empty %}
             <tr><td colspan="10" class="text-center text-muted py-4">
-              No hay recibos de este mes. Usa <a href="{% url 'generar_recibos' %}">Generar recibos</a>.
+              No hay cargos de este mes. Usa <a href="{% url 'generar_recibos' %}">Generar recibos</a>.
             </td></tr>
             {% endfor %}
           </tbody>
-          {% if recibos %}
+          {% if filas %}
           <tfoot class="table-light">
             <tr class="fw-bold">
               <td>TOTAL</td>

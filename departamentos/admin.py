@@ -1,14 +1,25 @@
 from django.contrib import admin
 
 from .models import (
+    Cargo,
+    Concepto,
     Departamento,
     GastoEdificio,
     GastoFijo,
+    Imputacion,
     LecturaMedidor,
     Pago,
-    Recibo,
+    Proveedor,
     TarifaAgua,
 )
+
+
+@admin.register(Proveedor)
+class ProveedorAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'rol', 'telefono', 'activo')
+    list_editable = ('telefono', 'activo')
+    list_filter = ('rol', 'activo')
+    search_fields = ('nombre', 'rol', 'telefono')
 
 
 @admin.register(GastoFijo)
@@ -22,10 +33,10 @@ class GastoFijoAdmin(admin.ModelAdmin):
 @admin.register(Departamento)
 class DepartamentoAdmin(admin.ModelAdmin):
     list_display = ('numero_domicilio', 'tipo_domicilio', 'nombres', 'apellidos',
-                    'cochera_monto', 'activo')
+                    'celular', 'tiene_inquilino', 'celular_inquilino', 'cochera_monto', 'activo')
     list_editable = ('cochera_monto', 'activo')
-    list_filter = ('tipo_domicilio', 'activo')
-    search_fields = ('numero_domicilio', 'nombres', 'apellidos', 'dni')
+    list_filter = ('tipo_domicilio', 'tiene_inquilino', 'activo')
+    search_fields = ('numero_domicilio', 'nombres', 'apellidos', 'dni', 'celular', 'celular_inquilino')
 
 
 @admin.register(GastoEdificio)
@@ -49,21 +60,28 @@ class LecturaMedidorAdmin(admin.ModelAdmin):
     search_fields = ('departamento__numero_domicilio',)
 
 
-class PagoInline(admin.TabularInline):
-    model = Pago
+@admin.register(Concepto)
+class ConceptoAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nombre', 'orden', 'es_recurrente', 'activo')
+    list_editable = ('orden', 'es_recurrente', 'activo')
+
+
+class ImputacionInline(admin.TabularInline):
+    model = Imputacion
     extra = 0
 
 
-@admin.register(Recibo)
-class ReciboAdmin(admin.ModelAdmin):
-    list_display = ('departamento', 'periodo', 'monto_agua', 'monto_area_comun',
-                    'monto_mantenimiento', 'monto_cochera', 'total', 'estado')
-    list_filter = ('estado', 'periodo')
+@admin.register(Cargo)
+class CargoAdmin(admin.ModelAdmin):
+    list_display = ('departamento', 'concepto', 'periodo', 'monto', 'saldo', 'estado')
+    list_filter = ('concepto', 'periodo')
     search_fields = ('departamento__numero_domicilio',)
-    inlines = [PagoInline]
+    inlines = [ImputacionInline]
 
 
 @admin.register(Pago)
 class PagoAdmin(admin.ModelAdmin):
-    list_display = ('recibo', 'monto', 'fecha_pago', 'metodo')
-    list_filter = ('fecha_pago',)
+    list_display = ('departamento', 'monto', 'concepto', 'fecha_pago', 'metodo')
+    list_filter = ('fecha_pago', 'concepto')
+    search_fields = ('departamento__numero_domicilio',)
+    inlines = [ImputacionInline]

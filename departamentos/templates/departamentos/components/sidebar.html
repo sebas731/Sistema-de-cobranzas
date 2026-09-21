@@ -1,0 +1,46 @@
+{# Sidebar (navegación principal). Estado activo por url_name. #}
+{% with cur=request.resolver_match.url_name %}
+<aside class="sidebar">
+  <a href="{% url 'balance' %}" class="sidebar__brand">
+    <span class="logo">C</span> Cobranzas
+  </a>
+  <nav class="sidebar__nav">
+    <a href="{% url 'balance' %}" class="nav-item-ds {% if cur == 'balance' %}active{% endif %}">
+      <svg><use href="#i-grid"/></svg> Balance</a>
+
+    <div class="sidebar__group">Cobranzas</div>
+    <a href="{% url 'deudores' %}" class="nav-item-ds {% if cur == 'deudores' %}active{% endif %}">
+      <svg><use href="#i-people"/></svg> Deudores</a>
+    <a href="{% url 'registrar_pagos' %}" class="nav-item-ds {% if cur == 'registrar_pagos' %}active{% endif %}">
+      <svg><use href="#i-cash"/></svg> Registrar pagos</a>
+    <a href="{% url 'registrar_cargos' %}" class="nav-item-ds {% if cur == 'registrar_cargos' %}active{% endif %}">
+      <svg><use href="#i-alert"/></svg> Multas / cargos</a>
+    <a href="{% url 'balance_mes' %}" class="nav-item-ds {% if cur == 'balance_mes' %}active{% endif %}">
+      <svg><use href="#i-calendar"/></svg> Balance del mes</a>
+
+    <div class="sidebar__group">Registro mensual</div>
+    <a href="{% url 'lecturas_mes' %}" class="nav-item-ds {% if cur == 'lecturas_mes' %}active{% endif %}">
+      <svg><use href="#i-droplet"/></svg> Lecturas de agua</a>
+    <a href="{% url 'generar_recibos' %}" class="nav-item-ds {% if cur == 'generar_recibos' %}active{% endif %}">
+      <svg><use href="#i-receipt"/></svg> Generar recibos</a>
+    <a href="{% url 'gastos_mes' %}" class="nav-item-ds {% if cur == 'gastos_mes' %}active{% endif %}">
+      <svg><use href="#i-file"/></svg> Gastos del mes</a>
+
+    <div class="sidebar__group">Configuración</div>
+    <a href="{% url 'gastos_fijos' %}" class="nav-item-ds {% if cur == 'gastos_fijos' or cur == 'gasto_fijo_editar' %}active{% endif %}">
+      <svg><use href="#i-sliders"/></svg> Gastos fijos</a>
+    <a href="{% url 'tarifas' %}" class="nav-item-ds {% if cur == 'tarifas' or cur == 'tarifa_nueva' or cur == 'tarifa_editar' %}active{% endif %}">
+      <svg><use href="#i-droplet"/></svg> Tarifa de agua</a>
+    <a href="{% url 'departamento_lista' %}" class="nav-item-ds {% if cur == 'departamento_lista' or cur == 'departamento_detalle' or cur == 'departamento_editar' or cur == 'departamento_nuevo' %}active{% endif %}">
+      <svg><use href="#i-building"/></svg> Departamentos</a>
+    <a href="{% url 'proveedores' %}" class="nav-item-ds {% if cur == 'proveedores' or cur == 'proveedor_editar' %}active{% endif %}">
+      <svg><use href="#i-truck"/></svg> Proveedores</a>
+    <a href="{% url 'importar_excel' %}" class="nav-item-ds {% if cur == 'importar_excel' %}active{% endif %}">
+      <svg><use href="#i-upload"/></svg> Importar Excel</a>
+
+    <div class="sidebar__group">Sistema</div>
+    <a href="{% url 'estilos' %}" class="nav-item-ds {% if cur == 'estilos' %}active{% endif %}">
+      <svg><use href="#i-magic"/></svg> Design system</a>
+  </nav>
+</aside>
+{% endwith %}

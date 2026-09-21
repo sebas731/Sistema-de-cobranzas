@@ -1,23 +1,18 @@
 {% extends 'departamentos/base.html' %}
-{% block title %}{{ titulo|default:"Registro de Departamento" }}{% endblock %}
+{% block title %}{{ titulo }}{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-md-6 col-lg-5">
     <div class="card shadow-sm border-0">
-      <div class="card-header card-header-verde text-center py-3">
-        <h4 class="mb-0">{{ titulo|default:"Registro de Departamento" }}</h4>
-      </div>
+      <div class="card-header card-header-verde text-center py-3"><h5 class="mb-0">{{ titulo }}</h5></div>
       <div class="card-body p-4">
-        <p class="text-muted small">Solo el <strong>N° de domicilio</strong> es obligatorio; los datos del propietario son opcionales.</p>
         <form method="post" novalidate>
           {% csrf_token %}
           {% for field in form %}
             {% if field.field.widget.input_type == 'checkbox' %}
-              <div class="mb-3 form-check">
-                {{ field }}
-                <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-              </div>
+              <div class="mb-3 form-check">{{ field }}
+                <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
             {% else %}
               <div class="mb-3">
                 <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -26,8 +21,8 @@
               </div>
             {% endif %}
           {% endfor %}
-          <div class="d-flex gap-2 mt-4">
-            <a href="{% url 'departamento_lista' %}" class="btn btn-outline-success flex-fill">CANCELAR</a>
+          <div class="d-flex gap-2 mt-3">
+            <a href="{% url 'proveedores' %}" class="btn btn-outline-success flex-fill">CANCELAR</a>
             <button type="submit" class="btn btn-success flex-fill">GUARDAR</button>
           </div>
         </form>

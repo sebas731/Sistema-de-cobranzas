@@ -1,0 +1,6 @@
+{% comment %}
+StatusBadge · uso: include status_badge.html with text="Pagado" tone="success"
+tones: success | warning | danger | info | neutral
+{% endcomment %}
+<span class="badge-soft badge-soft--{{ tone|default:'neutral' }}">
+  <span class="dot" style="background:currentColor;opacity:.75"></span>{{ text }}</span>

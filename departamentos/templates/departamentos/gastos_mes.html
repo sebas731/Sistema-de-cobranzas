@@ -24,7 +24,10 @@
             <tr>
               <td>{{ g.descripcion }}</td>
               <td>{% if g.categoria == 'AGUA_COMUN' %}<span class="badge bg-info text-dark">Agua común</span>{% else %}<span class="badge bg-secondary">General</span>{% endif %}</td>
-              <td>{% if g.compartido %}<span class="badge bg-success">Compartido</span>{% else %}<span class="badge bg-warning text-dark">Por depto</span>{% endif %}</td>
+              <td>
+                {% if g.compartido %}<span class="badge bg-success">Compartido</span>{% else %}<span class="badge bg-warning text-dark">Por depto</span>{% endif %}
+                {% if g.es_personalizado %}<span class="badge-soft badge-soft--info" title="Solo estos deptos">🎯 {{ g.departamentos.count }}</span>{% else %}<span class="text-muted small">Todos</span>{% endif %}
+              </td>
               <td class="text-end">S/ {{ g.monto }}</td>
               <td class="text-end">
                 <form method="post" onsubmit="return confirm('¿Eliminar este gasto?')">
@@ -54,9 +57,28 @@
           <div class="mb-2"><label class="form-label">Descripción</label>{{ gasto_form.descripcion }}</div>
           <div class="mb-2"><label class="form-label">Monto</label>{{ gasto_form.monto }}</div>
           <div class="mb-2"><label class="form-label">Categoría</label>{{ gasto_form.categoria }}</div>
-          <div class="mb-3 form-check">
+          <div class="mb-2 form-check">
             {{ gasto_form.compartido }}
             <label class="form-check-label" for="{{ gasto_form.compartido.id_for_label }}">Compartido (÷ deptos)</label>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Aplicar a</label>
+            <div class="dropdown">
+              <button class="btn btn-outline-secondary w-100 dropdown-toggle text-start" type="button"
+                      data-bs-toggle="dropdown" data-bs-auto-close="outside" id="gmApplyBtn">Todos los departamentos</button>
+              <div class="dropdown-menu p-2" style="width:100%">
+                <input type="text" id="gmSearch" class="form-control form-control-sm mb-2" placeholder="🔍 Buscar depto...">
+                <div style="max-height:210px; overflow-y:auto" id="gmList">
+                  {% for d in departamentos %}
+                  <label class="d-flex align-items-center gap-2 px-1 py-1 gm-item" data-s="{{ d.numero_domicilio|lower }} {{ d.propietario|lower }}">
+                    <input type="checkbox" class="form-check-input mt-0 gm-chk" name="deptos" value="{{ d.pk }}">
+                    <span class="small">{{ d.numero_domicilio }} <span class="text-muted">{{ d.propietario }}</span></span>
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+            <div class="form-text">Vacío = a todos. Marca algunos para personalizar.</div>
           </div>
           <button class="btn btn-success w-100">Agregar gasto</button>
         </form>
@@ -74,4 +96,25 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const list = document.getElementById('gmList');
+  const search = document.getElementById('gmSearch');
+  const btn = document.getElementById('gmApplyBtn');
+  if (!list) return;
+  search.addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    list.querySelectorAll('.gm-item').forEach(el => {
+      el.style.display = el.dataset.s.includes(q) ? '' : 'none';
+    });
+  });
+  list.addEventListener('change', function () {
+    const n = list.querySelectorAll('.gm-chk:checked').length;
+    btn.textContent = n ? `Personalizado · ${n} depto${n > 1 ? 's' : ''}` : 'Todos los departamentos';
+  });
+})();
+</script>
 {% endblock %}

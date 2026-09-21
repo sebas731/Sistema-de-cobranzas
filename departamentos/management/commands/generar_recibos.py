@@ -8,7 +8,7 @@ from datetime import date
 
 from django.core.management.base import BaseCommand, CommandError
 
-from departamentos.servicios import generar_recibos_mes, marcar_vencidos
+from departamentos.servicios import generar_cargos_mes
 
 
 class Command(BaseCommand):
@@ -26,8 +26,7 @@ class Command(BaseCommand):
         except (ValueError, TypeError):
             raise CommandError('Periodo inválido. Usa YYYY-MM, ej: 2026-07.')
 
-        resumen = generar_recibos_mes(periodo, dia_vencimiento=opts['vencimiento'])
-        marcar_vencidos()
+        resumen = generar_cargos_mes(periodo, dia_vencimiento=opts['vencimiento'])
         self.stdout.write(self.style.SUCCESS(
             f"Periodo {periodo:%Y-%m} ({resumen['n']} deptos): "
             f"{resumen['creados']} creados, {resumen['actualizados']} actualizados, "

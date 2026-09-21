@@ -1,0 +1,13 @@
+{% comment %}
+StatCard · uso: include stat_card.html with label="Facturado" value="9,897" prefix="S/ " tone="success" icon="wallet" sub="12 deptos" value_color="danger"
+- tone: color del icono (success|danger|info|warning)
+- value_color: color del número (danger|warning|info|primary) — usar solo cuando aporte significado
+{% endcomment %}
+<div class="stat-card {% if tone %}stat-card--{{ tone }}{% endif %}">
+  {% if icon %}<div class="stat-card__icon"><svg><use href="#i-{{ icon }}"/></svg></div>{% endif %}
+  <div>
+    <div class="stat-card__label">{{ label }}</div>
+    <div class="stat-card__value"{% if value_color %} style="color:var(--{{ value_color }})"{% endif %}>{{ prefix }}{{ value }}{{ suffix }}</div>
+    {% if sub %}<div class="stat-card__sub">{{ sub }}</div>{% endif %}
+  </div>
+</div>

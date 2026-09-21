@@ -1,0 +1,108 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Design system{% endblock %}
+
+{% block content %}
+{% include 'departamentos/components/page_header.html' with title="Design system" subtitle="Tokens y componentes reutilizables. Toda pantalla se construye combinando estas piezas." %}
+
+<div class="section-title">Colores / estados</div>
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <span class="badge-soft badge-soft--success">Primary / Success</span>
+  <span class="badge-soft badge-soft--warning">Warning</span>
+  <span class="badge-soft badge-soft--danger">Danger</span>
+  <span class="badge-soft badge-soft--info">Info</span>
+  <span class="badge-soft badge-soft--neutral">Neutral</span>
+</div>
+<div class="d-flex flex-wrap gap-2 mb-4">
+  <span style="width:64px;height:40px;border-radius:8px;background:var(--primary)"></span>
+  <span style="width:64px;height:40px;border-radius:8px;background:var(--warning)"></span>
+  <span style="width:64px;height:40px;border-radius:8px;background:var(--danger)"></span>
+  <span style="width:64px;height:40px;border-radius:8px;background:var(--info)"></span>
+  <span style="width:64px;height:40px;border-radius:8px;background:var(--gray-400)"></span>
+  <span style="width:64px;height:40px;border-radius:8px;background:var(--gray-200)"></span>
+</div>
+
+<div class="section-title">StatCard</div>
+<div class="row g-3 mb-2">
+  <div class="col-sm-6 col-lg-3">{% include 'departamentos/components/stat_card.html' with label="Facturado" value="S/ 9,897" icon="wallet" %}</div>
+  <div class="col-sm-6 col-lg-3">{% include 'departamentos/components/stat_card.html' with label="Cobrado" value="S/ 4,120" tone="success" icon="check" %}</div>
+  <div class="col-sm-6 col-lg-3">{% include 'departamentos/components/stat_card.html' with label="Pendiente" value="S/ 5,777" tone="danger" icon="alert" %}</div>
+  <div class="col-sm-6 col-lg-3">{% include 'departamentos/components/stat_card.html' with label="Deudores" value="21" tone="info" icon="people" sub="de 89 deptos" %}</div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="section-title">Botones</div>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <button class="btn btn-success">Primario</button>
+      <button class="btn btn-outline-success">Secundario</button>
+      <button class="btn btn-outline-secondary">Neutro</button>
+      <button class="btn btn-sm btn-success">Pequeño</button>
+    </div>
+
+    <div class="section-title">StatusBadge</div>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      {% include 'departamentos/components/status_badge.html' with text="Pagado" tone="success" %}
+      {% include 'departamentos/components/status_badge.html' with text="Pendiente" tone="warning" %}
+      {% include 'departamentos/components/status_badge.html' with text="Vencido" tone="danger" %}
+      {% include 'departamentos/components/status_badge.html' with text="Parcial" tone="info" %}
+      {% include 'departamentos/components/status_badge.html' with text="Inactivo" tone="neutral" %}
+    </div>
+
+    <div class="section-title">Amount</div>
+    <div class="d-flex flex-wrap gap-3 mb-3">
+      {% include 'departamentos/components/amount.html' with value=194.65 %}
+      {% include 'departamentos/components/amount.html' with value=194.65 tone="danger" %}
+      {% include 'departamentos/components/amount.html' with value=120 tone="success" %}
+    </div>
+
+    <div class="section-title">Chips / Tags</div>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <span class="chip">101 <span class="chip__x">&times;</span></span>
+      <span class="chip">102 <span class="chip__x">&times;</span></span>
+      <span class="tag">Gasfitero</span>
+      <span class="tag">Seguridad</span>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="section-title">Inputs</div>
+    <div class="mb-2"><input class="form-control" placeholder="Input de texto"></div>
+    <div class="mb-2"><select class="form-select"><option>Select</option></select></div>
+    <div class="input-group mb-3">
+      <span class="input-group-text">🔍</span>
+      <input class="form-control" placeholder="SearchInput">
+    </div>
+
+    <div class="section-title">FilterBar</div>
+    <div class="filter-bar mb-3">
+      <div class="input-group" style="max-width:240px"><span class="input-group-text">🔍</span><input class="form-control" placeholder="Buscar..."></div>
+      <button class="btn btn-outline-secondary btn-sm">Tipo ▾</button>
+      <button class="btn btn-outline-secondary btn-sm">Filtros ▾</button>
+    </div>
+
+    <div class="section-title">DataTable</div>
+    <div class="card border-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead><tr><th>Depto</th><th>Estado</th><th class="text-end">Saldo</th></tr></thead>
+          <tbody>
+            <tr><td>101</td><td>{% include 'departamentos/components/status_badge.html' with text="Vencido" tone="danger" %}</td><td class="text-end">{% include 'departamentos/components/amount.html' with value=91.07 tone="danger" %}</td></tr>
+            <tr><td>102</td><td>{% include 'departamentos/components/status_badge.html' with text="Pagado" tone="success" %}</td><td class="text-end">{% include 'departamentos/components/amount.html' with value=0 tone="muted" %}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">EmptyState</div>
+<div class="card border-0 shadow-sm mb-4">
+  {% include 'departamentos/components/empty_state.html' with icon="inbox" title="No hay resultados" text="Prueba con otros filtros o registra el primer elemento." %}
+</div>
+
+<div class="section-title">Alerts</div>
+<div class="alert alert-success border-0 shadow-sm">Éxito — operación registrada.</div>
+<div class="alert alert-warning border-0 shadow-sm">Advertencia — revisa los datos.</div>
+<div class="alert alert-danger border-0 shadow-sm">Error — no se pudo guardar.</div>
+<div class="alert alert-info border-0 shadow-sm">Información — cómo funciona esta pantalla.</div>
+{% endblock %}

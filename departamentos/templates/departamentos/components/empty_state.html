@@ -1,0 +1,6 @@
+{# EmptyState · uso: {% include 'departamentos/components/empty_state.html' with icon="inbox" title="Sin resultados" text="..." %} #}
+<div class="empty-state">
+  <div class="empty-state__icon"><svg width="24" height="24"><use href="#i-{{ icon|default:'inbox' }}"/></svg></div>
+  <div class="fw-semibold text-body">{{ title }}</div>
+  {% if text %}<div class="small">{{ text }}</div>{% endif %}
+</div>
