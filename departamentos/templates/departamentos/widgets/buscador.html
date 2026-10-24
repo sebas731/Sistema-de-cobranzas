@@ -1,0 +1,16 @@
+{% comment %}
+BuscadorWidget (forms.py) · input de texto + datalist: se escribe el código o el nombre
+y se elige de la lista. El valor real (pk) va en el input oculto; el JS de base.html lo
+sincroniza y dispara "change" sobre él para que la página reaccione.
+{% endcomment %}
+<div class="buscador" data-buscador>
+  <input type="hidden" name="{{ widget.name }}" value="{{ widget.value|first|default:'' }}" data-buscador-valor>
+  <input type="text" list="{{ widget.attrs.id }}_lista" autocomplete="off" data-buscador-texto
+         value="{% for grupo, opciones, indice in widget.optgroups %}{% for o in opciones %}{% if o.selected and o.value != '' %}{{ o.label }}{% endif %}{% endfor %}{% endfor %}"
+         {% include "django/forms/widgets/attrs.html" %}>
+  <datalist id="{{ widget.attrs.id }}_lista">
+    {% for grupo, opciones, indice in widget.optgroups %}{% for o in opciones %}{% if o.value != '' %}
+    <option value="{{ o.label }}" data-valor="{{ o.value }}"></option>
+    {% endif %}{% endfor %}{% endfor %}
+  </datalist>
+</div>

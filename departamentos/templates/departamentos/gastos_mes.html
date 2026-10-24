@@ -1,120 +1,208 @@
 {% extends 'departamentos/base.html' %}
 {% block title %}Gastos del mes{% endblock %}
 
+{% block extra_head %}
+<style>
+  .main { background:#fff; }
+  .gm-card { background:#fff; border:1px solid var(--border); border-radius:14px; }
+  .gm-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .gm-table th { text-align:left; font-size:.76rem; font-weight:600; color:var(--text-muted);
+    padding:10px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .gm-table td { padding:5px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .gm-table td.idx { color:var(--text-muted); text-align:center; width:38px; font-size:.78rem; }
+  .gm-table .num input { text-align:right; }
+  .gm-table .form-control, .gm-table .form-select { height:34px; font-size:13px; }
+  .gm-table tbody tr:hover { background:var(--gray-50); }
+  .gm-scroll { max-height:62vh; overflow:auto; border-radius:0 0 14px 14px; }
+  .gm-comp-lbl { color:var(--text-muted); white-space:nowrap; }
+  .cargo-item { cursor:pointer; }
+</style>
+{% endblock %}
+
 {% block content %}
-<h4 class="mb-1">Gastos adicionales del mes</h4>
-<p class="text-muted small">Gastos puntuales de un mes específico. Los recurrentes van en
-  <a href="{% url 'gastos_fijos' %}">Gastos fijos</a>. El prorrateo de abajo ya combina ambos.</p>
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+  <div>
+    <h1 style="font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin:0">Gastos del mes</h1>
+    <p class="text-muted mb-0" style="font-size:.9rem">Registra los gastos de {{ periodo|date:"F Y" }} en la tabla. El interruptor define si el gasto se divide entre todos o lo paga cada departamento completo.</p>
+  </div>
+  <form method="get" class="d-flex align-items-end gap-2">
+    {{ periodo_form.mes }}{{ periodo_form.anio }}<button class="btn btn-outline-secondary">Ver mes</button>
+  </form>
+</div>
 
-<form method="get" class="row g-2 align-items-end mb-4">
-  <div class="col-auto"><label class="form-label">Mes</label>{{ periodo_form.mes }}</div>
-  <div class="col-auto"><label class="form-label">Año</label>{{ periodo_form.anio }}</div>
-  <div class="col-auto"><button class="btn btn-success">Ver mes</button></div>
-</form>
-
-<div class="row g-4">
-  <div class="col-lg-7">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white"><strong>Gastos de {{ periodo|date:"F Y" }}</strong></div>
-      <div class="table-responsive">
-        <table class="table mb-0 align-middle">
-          <thead class="table-light"><tr><th>Descripción</th><th>Categoría</th><th>Modo</th><th class="text-end">Monto</th><th></th></tr></thead>
-          <tbody>
-            {% for g in gastos %}
-            <tr>
-              <td>{{ g.descripcion }}</td>
-              <td>{% if g.categoria == 'AGUA_COMUN' %}<span class="badge bg-info text-dark">Agua común</span>{% else %}<span class="badge bg-secondary">General</span>{% endif %}</td>
-              <td>
-                {% if g.compartido %}<span class="badge bg-success">Compartido</span>{% else %}<span class="badge bg-warning text-dark">Por depto</span>{% endif %}
-                {% if g.es_personalizado %}<span class="badge-soft badge-soft--info" title="Solo estos deptos">🎯 {{ g.departamentos.count }}</span>{% else %}<span class="text-muted small">Todos</span>{% endif %}
-              </td>
-              <td class="text-end">S/ {{ g.monto }}</td>
-              <td class="text-end">
-                <form method="post" onsubmit="return confirm('¿Eliminar este gasto?')">
-                  {% csrf_token %}
-                  <input type="hidden" name="accion" value="eliminar">
-                  <input type="hidden" name="gasto_id" value="{{ g.pk }}">
-                  <button class="btn btn-sm btn-outline-danger">✕</button>
-                </form>
-              </td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5" class="text-center text-muted py-3">Sin gastos adicionales este mes.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+<div class="gm-card mb-3">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-3" style="border-bottom:1px solid var(--border)">
+    <div class="d-flex gap-2">
+      <button id="gmAdd" class="btn btn-sm btn-outline-secondary" type="button">+ Agregar fila</button>
+      <span class="text-muted small align-self-center" id="gmInfo"></span>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <span id="gmMsg" class="small fw-semibold" style="color:var(--primary-strong)"></span>
+      <button id="gmSave" class="btn btn-success">💾 Guardar gastos</button>
     </div>
   </div>
 
-  <div class="col-lg-5">
-    <div class="card border-0 shadow-sm mb-3">
-      <div class="card-header bg-white"><strong>Agregar gasto</strong></div>
-      <div class="card-body">
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="accion" value="agregar">
-          <div class="mb-2"><label class="form-label">Descripción</label>{{ gasto_form.descripcion }}</div>
-          <div class="mb-2"><label class="form-label">Monto</label>{{ gasto_form.monto }}</div>
-          <div class="mb-2"><label class="form-label">Categoría</label>{{ gasto_form.categoria }}</div>
-          <div class="mb-2 form-check">
-            {{ gasto_form.compartido }}
-            <label class="form-check-label" for="{{ gasto_form.compartido.id_for_label }}">Compartido (÷ deptos)</label>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Aplicar a</label>
-            <div class="dropdown">
-              <button class="btn btn-outline-secondary w-100 dropdown-toggle text-start" type="button"
-                      data-bs-toggle="dropdown" data-bs-auto-close="outside" id="gmApplyBtn">Todos los departamentos</button>
-              <div class="dropdown-menu p-2" style="width:100%">
-                <input type="text" id="gmSearch" class="form-control form-control-sm mb-2" placeholder="🔍 Buscar depto...">
-                <div style="max-height:210px; overflow-y:auto" id="gmList">
-                  {% for d in departamentos %}
-                  <label class="d-flex align-items-center gap-2 px-1 py-1 gm-item" data-s="{{ d.numero_domicilio|lower }} {{ d.propietario|lower }}">
-                    <input type="checkbox" class="form-check-input mt-0 gm-chk" name="deptos" value="{{ d.pk }}">
-                    <span class="small">{{ d.numero_domicilio }} <span class="text-muted">{{ d.propietario }}</span></span>
-                  </label>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-            <div class="form-text">Vacío = a todos. Marca algunos para personalizar.</div>
-          </div>
-          <button class="btn btn-success w-100">Agregar gasto</button>
-        </form>
-      </div>
-    </div>
+  <div class="gm-scroll">
+    <table class="gm-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th style="min-width:220px">Descripción</th>
+          <th style="width:120px" class="num">Monto S/</th>
+          <th style="width:150px">Categoría</th>
+          <th style="width:180px">Modo</th>
+          <th style="width:160px">Aplicar a</th>
+          <th style="width:40px"></th>
+        </tr>
+      </thead>
+      <tbody id="gmBody"></tbody>
+    </table>
+  </div>
+</div>
 
-    <div class="card border-0 shadow-sm">
-      <div class="card-body">
-        <h6 class="text-muted">Prorrateo del mes ({{ datos.n }} deptos)</h6>
-        <div class="d-flex justify-content-between"><span>Mantenimiento por depto</span><strong>S/ {{ datos.mantenimiento }}</strong></div>
-        <div class="d-flex justify-content-between"><span>Área común por depto</span><strong>S/ {{ datos.area_comun }}</strong></div>
-        <hr class="my-2">
-        <div class="small text-muted">Total general S/ {{ datos.total_general }} · Agua común S/ {{ datos.total_agua_comun }}</div>
+<p class="text-muted small">
+  <strong>Modo:</strong> activado = el gasto se <strong>divide entre todos</strong> los departamentos ·
+  desactivado = <strong>cada departamento</strong> lo paga completo.
+  <strong>Aplicar a:</strong> “Todos” o elige algunos departamentos (solo a ellos se cobra).
+</p>
+
+{# Modal selector de departamentos #}
+<div class="modal fade" id="gmDeptoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">¿A qué departamentos aplica?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-2 mb-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="gmAll">Marcar todos</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="gmNone">Ninguno (= Todos)</button>
+        </div>
+        <input type="text" id="gmSearch" class="form-control form-control-sm mb-2" placeholder="🔍 Buscar depto...">
+        <div style="max-height:300px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:6px" id="gmDeptoList"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="gmApply">Aplicar selección</button>
       </div>
     </div>
   </div>
 </div>
+
+{{ gastos_json|json_script:"gmGastos" }}
+{{ deptos_json|json_script:"gmDeptos" }}
+{{ categorias|json_script:"gmCats" }}
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function () {
-  const list = document.getElementById('gmList');
-  const search = document.getElementById('gmSearch');
-  const btn = document.getElementById('gmApplyBtn');
-  if (!list) return;
-  search.addEventListener('input', function () {
+  const CSRF = '{{ csrf_token }}';
+  const GASTOS = JSON.parse(document.getElementById('gmGastos').textContent);
+  const DEPTOS = JSON.parse(document.getElementById('gmDeptos').textContent);
+  const CATS = JSON.parse(document.getElementById('gmCats').textContent);
+  const tbody = document.getElementById('gmBody');
+  const MIN_ROWS = 50;
+  let rid = 0;
+  const deptoSel = {};               // rid -> [ids]
+  const modal = new bootstrap.Modal(document.getElementById('gmDeptoModal'));
+  let currentRid = null;
+
+  const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const catOptions = (sel) => CATS.map(c => `<option value="${c[0]}" ${c[0] === sel ? 'selected' : ''}>${c[1]}</option>`).join('');
+
+  function aplicarLabel(id) {
+    const n = (deptoSel[id] || []).length;
+    return n ? `${n} depto${n > 1 ? 's' : ''}` : 'Todos';
+  }
+  function compLabel(on) { return on ? 'Entre todos (÷)' : 'Cada depto (c/u)'; }
+
+  function addRow(data) {
+    const id = rid++;
+    deptoSel[id] = (data && data.deptos) ? data.deptos.slice() : [];
+    const on = data ? !!data.compartido : true;
+    const tr = document.createElement('tr');
+    tr.dataset.id = id;
+    tr.innerHTML =
+      '<td class="idx"></td>' +
+      '<td><input class="form-control form-control-sm g-desc" placeholder="Ej: Reparación puerta" value="' + esc(data && data.descripcion) + '"></td>' +
+      '<td class="num"><input type="number" step="0.01" min="0" class="form-control form-control-sm g-monto" value="' + (data && data.monto != null ? data.monto : '') + '"></td>' +
+      '<td><select class="form-select form-select-sm g-cat">' + catOptions(data && data.categoria) + '</select></td>' +
+      '<td><div class="form-check form-switch d-flex align-items-center gap-2 m-0">' +
+        '<input class="form-check-input g-comp" type="checkbox" ' + (on ? 'checked' : '') + '>' +
+        '<span class="gm-comp-lbl small">' + compLabel(on) + '</span></div></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-secondary w-100 g-aplicar">' + aplicarLabel(id) + '</button></td>' +
+      '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger g-del p-0" title="Quitar fila">✕</button></td>';
+    tbody.appendChild(tr);
+
+    tr.querySelector('.g-comp').addEventListener('change', function () {
+      tr.querySelector('.gm-comp-lbl').textContent = compLabel(this.checked);
+    });
+    tr.querySelector('.g-aplicar').addEventListener('click', () => openDeptoModal(id));
+    tr.querySelector('.g-del').addEventListener('click', () => { tr.remove(); delete deptoSel[id]; renumber(); });
+  }
+
+  function renumber() {
+    [...tbody.children].forEach((tr, i) => { tr.querySelector('.idx').textContent = i + 1; });
+    document.getElementById('gmInfo').textContent = tbody.children.length + ' filas';
+  }
+
+  // ----- Modal de departamentos -----
+  function renderDeptoList() {
+    const sel = new Set(deptoSel[currentRid] || []);
+    document.getElementById('gmDeptoList').innerHTML = DEPTOS.map(d =>
+      '<label class="d-flex align-items-center gap-2 px-1 py-1 cargo-item" data-s="' + esc((d.numero + ' ' + d.propietario).toLowerCase()) + '">' +
+      '<input type="checkbox" class="form-check-input mt-0 gm-chk" value="' + d.id + '" ' + (sel.has(d.id) ? 'checked' : '') + '>' +
+      '<span class="small">' + esc(d.numero) + ' <span class="text-muted">' + esc(d.propietario) + '</span></span></label>').join('');
+  }
+  function openDeptoModal(id) {
+    currentRid = id;
+    document.getElementById('gmSearch').value = '';
+    renderDeptoList();
+    modal.show();
+  }
+  document.getElementById('gmSearch').addEventListener('input', function () {
     const q = this.value.trim().toLowerCase();
-    list.querySelectorAll('.gm-item').forEach(el => {
+    document.querySelectorAll('#gmDeptoList .cargo-item').forEach(el => {
       el.style.display = el.dataset.s.includes(q) ? '' : 'none';
     });
   });
-  list.addEventListener('change', function () {
-    const n = list.querySelectorAll('.gm-chk:checked').length;
-    btn.textContent = n ? `Personalizado · ${n} depto${n > 1 ? 's' : ''}` : 'Todos los departamentos';
+  document.getElementById('gmAll').addEventListener('click', () => document.querySelectorAll('#gmDeptoList .gm-chk').forEach(c => c.checked = true));
+  document.getElementById('gmNone').addEventListener('click', () => document.querySelectorAll('#gmDeptoList .gm-chk').forEach(c => c.checked = false));
+  document.getElementById('gmApply').addEventListener('click', function () {
+    const ids = [...document.querySelectorAll('#gmDeptoList .gm-chk:checked')].map(c => parseInt(c.value, 10));
+    deptoSel[currentRid] = ids;
+    const tr = tbody.querySelector('tr[data-id="' + currentRid + '"]');
+    if (tr) tr.querySelector('.g-aplicar').textContent = aplicarLabel(currentRid);
+    modal.hide();
   });
+
+  // ----- Guardar -----
+  document.getElementById('gmSave').addEventListener('click', function () {
+    const rows = [...tbody.children].map(tr => ({
+      descripcion: tr.querySelector('.g-desc').value,
+      monto: tr.querySelector('.g-monto').value,
+      categoria: tr.querySelector('.g-cat').value,
+      compartido: tr.querySelector('.g-comp').checked,
+      deptos: deptoSel[tr.dataset.id] || [],
+    })).filter(r => r.descripcion.trim() && parseFloat(r.monto) > 0);
+    const msg = document.getElementById('gmMsg');
+    msg.textContent = 'Guardando...';
+    fetch(window.location.pathname + window.location.search, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ rows }),
+    }).then(r => r.json()).then(d => {
+      msg.textContent = d.ok ? ('✓ ' + d.creados + ' gasto(s) guardados') : ('Error: ' + (d.error || ''));
+      if (d.ok) setTimeout(() => { msg.textContent = ''; }, 4000);
+    }).catch(() => { msg.textContent = 'Error de red.'; });
+  });
+  document.getElementById('gmAdd').addEventListener('click', () => { addRow(null); renumber(); });
+
+  // ----- Inicial: gastos existentes + filas vacías hasta 50 -----
+  GASTOS.forEach(g => addRow(g));
+  while (tbody.children.length < MIN_ROWS) addRow(null);
+  renumber();
 })();
 </script>
 {% endblock %}

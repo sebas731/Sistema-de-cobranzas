@@ -1,0 +1,191 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Panel del mes{% endblock %}
+
+{% block extra_head %}
+
+<style>
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--sp-md); margin-bottom:var(--sp-lg); }
+  .kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-sm); padding:var(--sp-md) var(--sp-lg); }
+  .kpi__label { color:var(--text-muted); font-size:.8rem; font-weight:500; }
+  .kpi__value { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .kpi--danger .kpi__value { color:var(--danger); }
+  .kpi--success .kpi__value { color:var(--primary-strong); }
+
+  
+  revo-grid { display:block; height:64vh; width:100%; background:#fff;
+    border:1px solid var(--border); border-radius:var(--radius); font-size:13px;
+    --revo-grid-font: var(--bs-body-font-family); color:var(--text); }
+  revo-grid .rgHeaderCell { background:var(--gray-50) !important; color:var(--gray-700) !important;
+    font-weight:600; font-size:.8rem;
+    border-right:1px solid var(--border) !important; border-bottom:1px solid var(--border) !important;
+    display:flex !important; align-items:center; gap:6px; padding:0 10px !important; }
+  revo-grid .rgHeaderCell .header-content { position:static !important; flex:1 1 auto; min-width:0; padding:0 !important;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  revo-grid .rgCell { background:#fff; color:var(--text);
+    border-right:1px solid var(--border) !important; border-bottom:1px solid var(--border) !important;
+    display:flex; align-items:center; padding:0 10px; }
+  revo-grid .rgRow:hover .rgCell { background:var(--primary-soft); }
+
+  /* Tabla densa tipo hoja de cálculo */
+  .hoja { width:100%; border-collapse:collapse; font-size:13px; }
+  .hoja th, .hoja td { border:1px solid var(--border); padding:6px 10px; white-space:nowrap; }
+  .hoja thead th { position:sticky; top:0; background:var(--gray-50); color:var(--gray-700);
+    font-weight:600; text-align:right; z-index:1; }
+  .hoja thead th.l, .hoja td.l { text-align:left; }
+  .hoja td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .hoja tbody tr:nth-child(even) { background:var(--gray-50); }
+  .hoja tbody tr:hover { background:var(--primary-soft); }
+  .hoja tfoot td { border-top:2px solid var(--gray-300); font-weight:800; background:#fff;
+    text-align:right; position:sticky; bottom:0; }
+  .hoja .saldo-cero { color:var(--text-muted); }
+  .hoja .saldo-deuda { color:var(--danger); font-weight:700; }
+  .pay-inline { display:inline-flex; gap:4px; align-items:center; }
+  .pay-inline input { width:82px; height:30px; padding:2px 6px; font-size:12px; }
+  .tabla-scroll { max-height:70vh; overflow:auto; border:1px solid var(--border); border-radius:var(--radius); }
+  @media (max-width:991px){ .kpis{ grid-template-columns:repeat(2,1fr); } }
+  revo-grid .rgRow.total .rgCell { font-weight:800; background:var(--gray-50); }
+</style>
+<script type="importmap">
+{ "imports": {
+  "@stencil/core/internal/client": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/client/index.js",
+  "@stencil/core/internal/app-data": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-data/index.js",
+  "@stencil/core/internal/app-globals": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-globals/index.js"
+}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Panel del mes</h1>
+    <p class="page-header__subtitle">{{ periodo|date:"F Y"|capfirst}} · {{ n_deptos }} departamento{{ n_deptos|pluralize }}</p>
+  </div>
+  <form method="get" class="d-flex gap-2 align-items-end">
+    <div>{{ periodo_form.mes }}</div>
+    <div>{{ periodo_form.anio }}</div>
+    <button class="btn btn-success">Ver mes</button>
+  </form>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="kpi__label">Facturado del mes</div><div class="kpi__value">S/ {{ tot.total|floatformat:2 }}</div></div>
+  <div class="kpi kpi--success"><div class="kpi__label">Cobrado</div><div class="kpi__value">S/ {{ tot.pagado|floatformat:2 }}</div></div>
+  <div class="kpi kpi--danger"><div class="kpi__label">Pendiente</div><div class="kpi__value">S/ {{ tot.saldo|floatformat:2 }}</div></div>
+  <div class="kpi"><div class="kpi__label">Deudores</div><div class="kpi__value">{{ n_deudores }}<span style="font-size:1rem;color:var(--text-muted)"> / {{ n_deptos }}</span></div></div>
+</div>
+
+{% include 'departamentos/components/filter_bar.html' %}
+
+
+{% if filas_json %}
+{# Grilla: se activa cuando la vista envía `filas_json` (claves en el script de abajo). #}
+<revo-grid id="gridPanel" theme="compact"></revo-grid>
+{{ filas_json|json_script:"filasData" }}
+
+{% elif filas %}
+{# Tabla actual: queda mientras la vista no envíe `filas_json`. #}
+<div class="tabla-scroll">
+  <table class="hoja">
+    <thead>
+      <tr>
+        <th class="l">Depto</th>
+        <th class="l">Propietario</th>
+        <th>Mantenim.</th>
+        <th>Agua</th>
+        <th>Á. común</th>
+        <th>Cochera</th>
+        <th>Otros</th>
+        <th>Total</th>
+        <th>Pagado</th>
+        <th>Saldo</th>
+        <th class="l">Cobrar / recibo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in filas %}
+      <tr>
+        <td class="l fw-semibold">{{ f.departamento.numero_domicilio }}</td>
+        <td class="l">{{ f.departamento.propietario }}</td>
+        <td class="num">{{ f.MANTENIMIENTO|floatformat:2 }}</td>
+        <td class="num">{{ f.AGUA|floatformat:2 }}</td>
+        <td class="num">{{ f.AREA_COMUN|floatformat:2 }}</td>
+        <td class="num">{{ f.COCHERA|floatformat:2 }}</td>
+        <td class="num">{{ f.extras|floatformat:2 }}</td>
+        <td class="num fw-semibold">{{ f.total|floatformat:2 }}</td>
+        <td class="num" style="color:var(--primary-strong)">{{ f.pagado|floatformat:2 }}</td>
+        <td class="num {% if f.saldo > 0 %}saldo-deuda{% else %}saldo-cero{% endif %}">{{ f.saldo|floatformat:2 }}</td>
+        <td class="l">
+          {% if f.saldo > 0 %}
+          <form method="post" class="pay-inline">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="pago">
+            <input type="hidden" name="departamento" value="{{ f.departamento.pk }}">
+            <input type="number" step="0.01" min="0.01" name="monto" value="{{ f.saldo|stringformat:".2f" }}"
+                   class="form-control form-control-sm" title="Monto a cobrar">
+            <button class="btn btn-sm btn-success" title="Registrar pago">Cobrar</button>
+          </form>
+          {% else %}
+          <span class="badge-soft badge-soft--success">Pagado</span>
+          {% endif %}
+          <a href="{% url 'recibo_boleta' f.departamento.pk %}?mes={{ periodo.month }}&anio={{ periodo.year }}"
+             class="btn btn-sm btn-outline-secondary" title="Ver recibo">🧾</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td class="l" colspan="2">TOTAL ({{ n_deptos }})</td>
+        <td>{{ tot.MANTENIMIENTO|floatformat:2 }}</td>
+        <td>{{ tot.AGUA|floatformat:2 }}</td>
+        <td>{{ tot.AREA_COMUN|floatformat:2 }}</td>
+        <td>{{ tot.COCHERA|floatformat:2 }}</td>
+        <td>{{ tot.extras|floatformat:2 }}</td>
+        <td>{{ tot.total|floatformat:2 }}</td>
+        <td style="color:var(--primary-strong)">{{ tot.pagado|floatformat:2 }}</td>
+        <td class="saldo-deuda">{{ tot.saldo|floatformat:2 }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state__icon"><svg width="22" height="22"><use href="#i-receipt"/></svg></div>
+  <p>Todavía no hay recibos para {{ periodo|date:"F Y" }}.</p>
+  <a href="{% url 'generar_recibos' %}" class="btn btn-success">Generar recibos del mes</a>
+</div>
+{% endif %}
+{% endblock %}
+
+<script>
+
+  import { defineCustomElement } from 'https://cdn.jsdelivr.net/npm/@revolist/revogrid@4.29.1/standalone/revo-grid.js';
+
+
+  defineCustomElement();
+
+  const grid = document.querySelector('revo-grid');
+
+  const columns = [
+    { prop: 'numero', name: 'Depto',size: 90,  readonly: true, filter: true, pin: 'colPinStart' },
+    { prop: 'propietario',name: 'Propietario', size: 240, readonly: true, filter: true },
+    { prop: 'monto', name: 'Mantenimiento', size: 150, filter: true },
+    { prop: '', name: 'Agua', size: 320 },
+    { prop: 'descripcion', name: 'Á. común', size: 320 },
+    { prop: 'descripcion', name: 'Cochera', size: 320 },
+    { prop: 'descripcion', name: 'Otros', size: 320 },
+    { prop: 'descripcion', name: 'Total', size: 320 },
+    { prop: 'descripcion', name: 'Pagado', size: 320 },
+    { prop: 'descripcion', name: 'Saldo', size: 320 },
+    { prop: 'descripcion', name: 'cobrar', size: 320 },
+,
+
+  ];
+
+  
+
+
+</script>

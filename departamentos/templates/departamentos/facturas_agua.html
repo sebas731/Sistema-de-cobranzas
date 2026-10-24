@@ -1,0 +1,223 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Facturas de agua{% endblock %}
+
+{% block extra_head %}
+<style>
+  .fa-toolbar { display:flex; flex-wrap:wrap; gap:var(--sp-sm); align-items:center; margin-bottom:var(--sp-md); }
+  .fa-toolbar .fa-search { flex:1 1 240px; min-width:200px; }
+  .fa-toolbar .fa-msg { color:var(--primary-strong); font-weight:600; font-size:.9rem; }
+
+  /* RevoGrid con el aspecto de nuestras tablas (como el Panel del mes) */
+  revo-grid {
+    display:block; height:68vh; width:100%;
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+    font-size:13px; --revo-grid-font: var(--bs-body-font-family); color:var(--text);
+  }
+  revo-grid .rgHeaderCell {
+    background:var(--gray-50) !important; color:var(--gray-700) !important;
+    font-weight:600; font-size:.8rem;
+    border-right:1px solid var(--border) !important; border-bottom:1px solid var(--border) !important;
+    display:flex !important; align-items:center; gap:6px; padding:0 10px !important;
+  }
+  revo-grid .rgHeaderCell .header-content {
+    position:static !important; flex:1 1 auto; min-width:0; padding:0 !important;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  revo-grid .rgCell {
+    background:#fff; color:var(--text);
+    border-right:1px solid var(--border) !important; border-bottom:1px solid var(--border) !important;
+    display:flex; align-items:center; padding:0 10px;
+  }
+  revo-grid .rgRow:hover .rgCell { background:var(--primary-soft); }
+  revo-grid .colPinStart .rgCell, revo-grid .colPinStart .rgHeaderCell { box-shadow:1px 0 0 var(--border); }
+
+  /* Ícono izquierdo + pin (SVG) en la cabecera */
+  .fa-hicon { color:var(--gray-400); display:inline-flex; align-items:center; flex:0 0 auto; }
+  .fa-hicon svg { width:14px !important; height:14px !important; display:block; }
+  .fa-hpin { cursor:pointer; color:var(--gray-400); display:inline-flex; align-items:center; flex:0 0 auto; margin-left:2px; }
+  .fa-hpin svg { width:15px !important; height:15px !important; display:block; }
+  .fa-hpin:hover { color:var(--gray-600); }
+  .fa-hpin.on { color:var(--primary-strong); }
+
+  .fa-hint { color:var(--text-muted); font-size:.85rem; margin-top:var(--sp-sm); }
+  .fa-fallback { display:none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "@stencil/core/internal/client": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/client/index.js",
+  "@stencil/core/internal/app-data": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-data/index.js",
+  "@stencil/core/internal/app-globals": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-globals/index.js"
+}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Facturas de agua</h1>
+    <p class="page-header__subtitle">{{ periodo|date:"F Y"|capfirst }} · {{ n_filas }} departamento{{ n_filas|pluralize }} · edición en celda</p>
+  </div>
+  <form method="get" class="d-flex gap-2 align-items-end">
+    <div>{{ periodo_form.mes }}</div>
+    <div>{{ periodo_form.anio }}</div>
+    <button class="btn btn-success">Ver mes</button>
+  </form>
+</div>
+
+<div class="fa-toolbar">
+  <input type="text" id="faSearch" class="form-control fa-search" placeholder="🔍 Buscar depto o propietario...">
+  <button id="faSave" class="btn btn-success">💾 Guardar cambios</button>
+  <span id="faMsg" class="fa-msg"></span>
+</div>
+
+<revo-grid id="grid" theme="compact"></revo-grid>
+
+<div class="fa-fallback alert alert-warning" id="faFallback">
+  No se pudo cargar la tabla interactiva. Revisa tu conexión e inténtalo de nuevo.
+</div>
+
+<p class="fa-hint">
+  Doble clic en una celda para editarla (<strong>Depto</strong>, <strong>Lect. actual</strong>,
+  <strong>m³</strong>, <strong>Costo</strong>). Al cambiar la lectura o los m³, el costo se recalcula con la tarifa.
+  El 📌 en la cabecera de cada columna la fija a la izquierda. Pulsa <strong>Guardar cambios</strong> para registrar.
+</p>
+
+{{ filas_json|json_script:"filasData" }}
+{{ tramos_json|json_script:"tramosData" }}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module">
+  import { defineCustomElement } from 'https://cdn.jsdelivr.net/npm/@revolist/revogrid@4.29.1/standalone/revo-grid.js';
+  defineCustomElement();
+
+  const CSRF = '{{ csrf_token }}';
+  const rows = JSON.parse(document.getElementById('filasData').textContent);
+  const tramos = JSON.parse(document.getElementById('tramosData').textContent);
+  const grid = document.getElementById('grid');
+
+  const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
+  function costo(m3) {
+    m3 = Number(m3) || 0;
+    if (m3 <= 0) return 0;
+    let total = 0, piso = 0;
+    for (const t of tramos) {
+      if (m3 <= piso) break;
+      const tope = (t.limite == null) ? m3 : t.limite;
+      const cant = Math.min(m3, tope) - piso;
+      if (cant > 0) total += cant * t.tarifa;
+      piso = tope;
+      if (t.limite == null) break;
+    }
+    return r2(total);
+  }
+  function num(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
+  rows.forEach(r => { if (r.m3 != null) { r.m3 = r2(r.m3); r.costo = costo(r.m3); } });
+
+  const columns = [
+    { prop: 'numero', name: 'Depto', size: 120, filter: true },
+    { prop: 'propietario', name: 'Propietario', size: 210, readonly: true, filter: true },
+    { prop: 'anterior', name: 'Lect. {{ mes_anterior|escapejs }}', size: 135, readonly: true },
+    { prop: 'actual', name: 'Lect. {{ mes_actual|escapejs }}', size: 135 },
+    { prop: 'm3', name: 'm³', size: 100, filter: true },
+    { prop: 'costo', name: 'Costo S/', size: 120, filter: true },
+  ];
+
+  function togglePin(prop) {
+    const c = columns.find(x => x.prop === prop);
+    if (!c) return;
+    c.pin = c.pin ? undefined : 'colPinStart';
+    grid.columns = [...columns];
+    setTimeout(injectPins, 60);
+  }
+
+  // Ícono (del sprite) a la izquierda de cada columna.
+  const COL_ICON = { numero:'i-building', propietario:'i-people', anterior:'i-droplet',
+                     actual:'i-droplet', m3:'i-droplet', costo:'i-cash' };
+  // Pin (SVG outline, Lucide) a la derecha.
+  const PIN_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/>' +
+    '<path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+
+  // Inserta ícono izquierdo + pin (por DOM; sobrevive re-renders de RevoGrid).
+  function injectPins() {
+    grid.querySelectorAll('.rgHeaderCell').forEach(hc => {
+      const content = hc.querySelector('.header-content');
+      const name = (content ? content.innerText : hc.innerText || '').trim();
+      const col = columns.find(c => c.name === name);
+      if (!col) return;
+      // Ícono a la izquierda del título.
+      if (!hc.querySelector('.fa-hicon')) {
+        const ic = document.createElement('span');
+        ic.className = 'fa-hicon';
+        ic.innerHTML = '<svg width="14" height="14"><use href="#' + (COL_ICON[col.prop] || 'i-grid') + '"/></svg>';
+        hc.insertBefore(ic, content || hc.firstChild);
+      }
+      // Pin a la derecha.
+      let pin = hc.querySelector('.fa-hpin');
+      if (!pin) {
+        pin = document.createElement('span');
+        pin.className = 'fa-hpin';
+        pin.innerHTML = PIN_SVG;
+        pin.title = 'Fijar / soltar columna';
+        pin.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); togglePin(col.prop); });
+        hc.appendChild(pin);
+      }
+      pin.classList.toggle('on', !!col.pin);
+    });
+  }
+
+  function refresh() { grid.source = [...rows]; }
+
+  function setupGrid() {
+    grid.filter = true;
+    grid.columns = columns;
+    grid.source = rows;
+
+    grid.addEventListener('afteredit', (e) => {
+      const d = e.detail || {};
+      const apply = (rowIndex, prop, val) => {
+        const r = rows[rowIndex];
+        if (!r) return;
+        if (prop === 'actual') { r.actual = r2(num(val)); r.m3 = r2(Math.max(r.actual - num(r.anterior), 0)); r.costo = costo(r.m3); }
+        else if (prop === 'm3') { r.m3 = r2(num(val)); r.actual = r2(num(r.anterior) + r.m3); r.costo = costo(r.m3); }
+        else if (prop === 'costo') { r.costo = r2(num(val)); }
+        else { r[prop] = val; }
+      };
+      if (d.prop !== undefined) apply(d.rowIndex, d.prop, d.val);
+      else if (d.data) { for (const ri in d.data) for (const p in d.data[ri]) apply(Number(ri), p, d.data[ri][p]); }
+      refresh();
+      setTimeout(injectPins, 60);
+    });
+
+    // Reinyecta los pines cuando RevoGrid rehace la cabecera.
+    injectPins();
+    setInterval(injectPins, 800);
+  }
+  customElements.whenDefined('revo-grid').then(setupGrid);
+
+  document.getElementById('faSearch').addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    grid.source = q
+      ? rows.filter(r => String(r.numero).toLowerCase().includes(q) || String(r.propietario).toLowerCase().includes(q))
+      : [...rows];
+  });
+
+  document.getElementById('faSave').addEventListener('click', function () {
+    const msg = document.getElementById('faMsg');
+    msg.textContent = 'Guardando...';
+    fetch(window.location.pathname + window.location.search, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ rows }),
+    }).then(r => r.json()).then(d => {
+      msg.textContent = d.ok ? `✓ ${d.guardadas} lectura(s) guardadas` : ('Error: ' + (d.error || ''));
+      if (d.ok) setTimeout(() => { msg.textContent = ''; }, 4000);
+    }).catch(() => { msg.textContent = 'Error de red al guardar.'; });
+  });
+
+  setTimeout(() => {
+    if (!customElements.get('revo-grid')) document.getElementById('faFallback').style.display = 'block';
+  }, 6000);
+</script>
+{% endblock %}

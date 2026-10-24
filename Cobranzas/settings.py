@@ -91,7 +91,7 @@ MESSAGE_TAGS = {messages.ERROR: 'danger'}
 
 # Autenticación / login
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'balance'
+LOGIN_REDIRECT_URL = 'inicio'
 LOGOUT_REDIRECT_URL = 'login'
 
 TEMPLATES = [

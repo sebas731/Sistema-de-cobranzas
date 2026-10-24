@@ -3,14 +3,23 @@ from django.contrib import admin
 from .models import (
     Cargo,
     Concepto,
+    ConfiguracionCondominio,
     Departamento,
     GastoEdificio,
     GastoFijo,
     Imputacion,
     LecturaMedidor,
+    MedioPago,
     Pago,
+    PeriodoFacturacion,
+    PlanCuota,
     Proveedor,
+    Recibo,
+    ReciboLinea,
+    ReciboSubLinea,
     TarifaAgua,
+    TarifaAguaTramo,
+    TarifaAguaVersion,
 )
 
 
@@ -85,3 +94,68 @@ class PagoAdmin(admin.ModelAdmin):
     list_filter = ('fecha_pago', 'concepto')
     search_fields = ('departamento__numero_domicilio',)
     inlines = [ImputacionInline]
+
+
+# ---- Recibo de mantenimiento (nuevo) ----
+
+class MedioPagoInline(admin.TabularInline):
+    model = MedioPago
+    extra = 0
+
+
+@admin.register(ConfiguracionCondominio)
+class ConfiguracionCondominioAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'direccion', 'email', 'whatsapp', 'activo')
+    inlines = [MedioPagoInline]
+
+
+class TarifaAguaTramoInline(admin.TabularInline):
+    model = TarifaAguaTramo
+    extra = 0
+
+
+@admin.register(TarifaAguaVersion)
+class TarifaAguaVersionAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'suministro', 'vigencia_desde', 'vigencia_hasta', 'activo')
+    list_filter = ('activo',)
+    inlines = [TarifaAguaTramoInline]
+
+
+@admin.register(PeriodoFacturacion)
+class PeriodoFacturacionAdmin(admin.ModelAdmin):
+    list_display = ('periodo', 'fecha_emision', 'fecha_vencimiento', 'fecha_restriccion',
+                    'sedapal_total_a', 'consumo_dptos_b', 'emitido')
+    list_filter = ('emitido',)
+
+
+@admin.register(PlanCuota)
+class PlanCuotaAdmin(admin.ModelAdmin):
+    list_display = ('descripcion', 'concepto', 'monto_cuota', 'num_cuotas', 'periodo_inicio', 'activo')
+    list_filter = ('activo',)
+    filter_horizontal = ('departamentos',)
+
+
+class ReciboSubLineaInline(admin.TabularInline):
+    model = ReciboSubLinea
+    extra = 0
+
+
+class ReciboLineaInline(admin.TabularInline):
+    model = ReciboLinea
+    extra = 0
+
+
+@admin.register(Recibo)
+class ReciboAdmin(admin.ModelAdmin):
+    list_display = ('departamento', 'periodo_fac', 'total_mes', 'deuda_anterior',
+                    'total_pagar', 'm3_consumidos')
+    list_filter = ('periodo_fac',)
+    search_fields = ('departamento__numero_domicilio',)
+    inlines = [ReciboLineaInline]
+
+
+@admin.register(ReciboLinea)
+class ReciboLineaAdmin(admin.ModelAdmin):
+    list_display = ('recibo', 'etiqueta', 'grupo', 'monto', 'orden')
+    list_filter = ('grupo',)
+    inlines = [ReciboSubLineaInline]

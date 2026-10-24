@@ -1,0 +1,142 @@
+{% comment %}
+ReceiptDocument · documento formal de la boleta (vista web).
+Uso: {% include 'departamentos/components/receipt_document.html' with boleta=boleta %}
+`boleta` = servicios.datos_boleta(depto, periodo). Compone los componentes
+generales amount.html y status_badge.html. No duplica lógica ni componentes.
+Secciones: Header · PropertyInfo · Category(Mantenimiento) · Category(Agua) ·
+Summary · Status · Footer.
+{% endcomment %}
+<article class="receipt" id="boleta">
+
+  {# ============ ReceiptHeader ============ #}
+  <header class="receipt__head">
+    <div class="receipt__brand">
+      <div class="receipt__logo">{{ boleta.edificio.logo_texto }}</div>
+      <div class="receipt__brand-text">
+        <div class="receipt__building">{{ boleta.edificio.nombre }}</div>
+        {% if boleta.edificio.torre %}<div class="receipt__tower">{{ boleta.edificio.torre }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="receipt__doc">
+      <h1 class="receipt__title">Boleta de cobranza</h1>
+      <div class="receipt__period">{{ boleta.periodo|date:"F Y"|capfirst }}</div>
+    </div>
+    <div class="receipt__dates">
+      <div class="receipt__date">
+        <span class="receipt__date-label">Emisión</span>
+        <span class="receipt__date-value">{{ boleta.emision|date:"d/m/Y"|default:"—" }}</span>
+      </div>
+      <div class="receipt__date">
+        <span class="receipt__date-label">Vencimiento</span>
+        <span class="receipt__date-value">{{ boleta.vencimiento|date:"d/m/Y"|default:"—" }}</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="receipt__body">
+
+    {# ============ ReceiptPropertyInfo ============ #}
+    <section class="receipt__ident">
+      <div class="receipt__ident-block">
+        <span class="receipt__ident-label">Departamento</span>
+        <span class="receipt__ident-value">{{ boleta.departamento.numero_domicilio }}</span>
+      </div>
+      <div class="receipt__ident-block">
+        <span class="receipt__ident-label">Propietario</span>
+        <span class="receipt__ident-value">{{ boleta.departamento.propietario }}</span>
+      </div>
+    </section>
+
+    {# ============ ReceiptCategory · Mantenimiento ============ #}
+    <section class="receipt__cat">
+      <div class="receipt__cat-head">
+        <span class="receipt__cat-title">Mantenimiento</span>
+        <span class="receipt__cat-hint">Detalle de conceptos</span>
+      </div>
+      <div class="receipt__items">
+        {% for it in boleta.mant_items %}
+        <div class="receipt__row">
+          <span class="receipt__row-name">{{ it.nombre }}</span>
+          <span class="receipt__row-amount">{% include 'departamentos/components/amount.html' with value=it.monto %}</span>
+        </div>
+        {% empty %}
+        <div class="receipt__row receipt__row--empty">
+          <span>Sin conceptos de mantenimiento este mes</span><span>—</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="receipt__cat-total">
+        <span>Total mantenimiento</span>
+        <span>S/ {{ boleta.mant_total|floatformat:2 }}</span>
+      </div>
+    </section>
+
+    {# ============ ReceiptCategory · Agua (solo importe final) ============ #}
+    {% if boleta.hay_agua %}
+    <section class="receipt__cat">
+      <div class="receipt__cat-head">
+        <span class="receipt__cat-title">Agua</span>
+      </div>
+      <div class="receipt__items">
+        <div class="receipt__row">
+          <span class="receipt__row-name">Agua</span>
+          <span class="receipt__row-amount">{% include 'departamentos/components/amount.html' with value=boleta.agua_total %}</span>
+        </div>
+      </div>
+      <div class="receipt__cat-total">
+        <span>Total agua</span>
+        <span>S/ {{ boleta.agua_total|floatformat:2 }}</span>
+      </div>
+    </section>
+    {% endif %}
+
+    {# ============ ReceiptSummary ============ #}
+    <section class="receipt__summary">
+      <div class="receipt__sum-row">
+        <span>Total del mes</span>
+        <span class="receipt__sum-amount">S/ {{ boleta.total_mes|floatformat:2 }}</span>
+      </div>
+      <div class="receipt__sum-row {% if not boleta.anterior %}receipt__sum-row--muted{% endif %}">
+        <span>Deudas anteriores</span>
+        <span class="receipt__sum-amount {% if boleta.anterior %}receipt__sum-amount--danger{% endif %}">S/ {{ boleta.anterior|floatformat:2 }}</span>
+      </div>
+
+      <div class="receipt__pay">
+        <div class="receipt__pay-info">
+          <span class="receipt__pay-label">Total a pagar</span>
+          {% if boleta.vencimiento %}<span class="receipt__pay-due">Vence el {{ boleta.vencimiento|date:"d/m/Y" }}</span>{% endif %}
+        </div>
+        <span class="receipt__pay-amount">S/ {{ boleta.total_pagar|floatformat:2 }}</span>
+      </div>
+
+      {# ============ ReceiptStatus ============ #}
+      <div class="receipt__status">
+        {% include 'departamentos/components/status_badge.html' with text=boleta.estado tone=boleta.estado_tone %}
+      </div>
+    </section>
+
+    {# ============ ReceiptFooter · información final ============ #}
+    <footer class="receipt__foot">
+      {% if boleta.edificio.cuenta_pago or boleta.edificio.contacto %}
+      <div class="receipt__foot-grid">
+        {% if boleta.edificio.cuenta_pago %}
+        <div class="receipt__foot-block">
+          <span class="receipt__foot-label">Medios de pago</span>
+          <span class="receipt__foot-value">{{ boleta.edificio.cuenta_pago }}</span>
+        </div>
+        {% endif %}
+        {% if boleta.edificio.contacto %}
+        <div class="receipt__foot-block">
+          <span class="receipt__foot-label">Contacto</span>
+          <span class="receipt__foot-value">{{ boleta.edificio.contacto }}</span>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if boleta.edificio.aviso %}
+      <p class="receipt__foot-note">{{ boleta.edificio.aviso }}</p>
+      {% endif %}
+    </footer>
+
+  </div>
+</article>

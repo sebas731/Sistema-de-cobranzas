@@ -1,208 +1,170 @@
 {% extends 'departamentos/base.html' %}
 {% block title %}Multas / cargos{% endblock %}
 
+{% block extra_head %}
+<style>
+  .main { background:#fff; }
+  .fa-toolbar { display:flex; flex-wrap:wrap; gap:var(--sp-sm); align-items:center; margin-bottom:var(--sp-md); }
+  .fa-toolbar .fa-search { flex:1 1 240px; min-width:200px; }
+  .fa-toolbar .fa-msg { color:var(--primary-strong); font-weight:600; font-size:.9rem; }
+
+  revo-grid { display:block; height:64vh; width:100%; background:#fff;
+    border:1px solid var(--border); border-radius:var(--radius); font-size:13px;
+    --revo-grid-font: var(--bs-body-font-family); color:var(--text); }
+  revo-grid .rgHeaderCell { background:var(--gray-50) !important; color:var(--gray-700) !important;
+    font-weight:600; font-size:.8rem;
+    border-right:1px solid var(--border) !important; border-bottom:1px solid var(--border) !important;
+    display:flex !important; align-items:center; gap:6px; padding:0 10px !important; }
+  revo-grid .rgHeaderCell .header-content { position:static !important; flex:1 1 auto; min-width:0; padding:0 !important;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  revo-grid .rgCell { background:#fff; color:var(--text);
+    border-right:1px solid var(--border) !important; border-bottom:1px solid var(--border) !important;
+    display:flex; align-items:center; padding:0 10px; }
+  revo-grid .rgRow:hover .rgCell { background:var(--primary-soft); }
+
+  .fa-hicon { color:var(--gray-400); display:inline-flex; align-items:center; flex:0 0 auto; }
+  .fa-hicon svg { width:14px !important; height:14px !important; display:block; }
+  .fa-hpin { cursor:pointer; color:var(--gray-400); display:inline-flex; align-items:center; flex:0 0 auto; }
+  .fa-hpin svg { width:15px !important; height:15px !important; display:block; }
+  .fa-hpin:hover { color:var(--gray-600); } .fa-hpin.on { color:var(--primary-strong); }
+
+  .fa-hint { color:var(--text-muted); font-size:.85rem; margin-top:var(--sp-sm); }
+  .fa-fallback { display:none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "@stencil/core/internal/client": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/client/index.js",
+  "@stencil/core/internal/app-data": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-data/index.js",
+  "@stencil/core/internal/app-globals": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-globals/index.js"
+}}
+</script>
+{% endblock %}
+
 {% block content %}
-<h4 class="mb-1">Asignar multas, moras y cargos</h4>
-<p class="text-muted">Agrega deudas por multa, mora, puertas, cámara, cuota, etc. — a varios deptos a la vez o uno por uno.</p>
-
-<ul class="nav nav-tabs mb-3" role="tablist">
-  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-masivo" type="button">Masivo (mismo monto)</button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-individual" type="button">Personalizado</button></li>
-</ul>
-
-<div class="tab-content">
-  {# ===================== MASIVO ===================== #}
-  <div class="tab-pane fade show active" id="tab-masivo">
-    <form method="post" id="formMasivo">
-      {% csrf_token %}
-      <input type="hidden" name="modo" value="masivo">
-      <div class="row g-3">
-        <div class="col-lg-4">
-          <div class="card border-0 shadow-sm">
-            <div class="card-header card-header-verde"><strong>1. Cargo a asignar</strong></div>
-            <div class="card-body">
-              <div class="row g-2 mb-3">
-                <div class="col"><label class="form-label">Mes</label>{{ periodo_form.mes }}</div>
-                <div class="col"><label class="form-label">Año</label>{{ periodo_form.anio }}</div>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Concepto</label>
-                <select name="concepto" class="form-select" required>
-                  <option value="">Elegir…</option>
-                  {% for c in conceptos %}<option value="{{ c.pk }}">{{ c.nombre }}</option>{% endfor %}
-                </select>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Monto (igual para todos)</label>
-                <input type="number" step="0.01" name="monto" class="form-control" placeholder="20.00" required>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Descripción (opcional)</label>
-                <input type="text" name="descripcion" class="form-control" placeholder="Motivo de la multa...">
-              </div>
-              <div class="alert alert-light border small mb-0">Seleccionados: <strong id="contMasivo">0</strong> departamentos</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-lg-8">
-          <div class="card border-0 shadow-sm">
-            <div class="card-header card-header-verde"><strong>2. ¿A quiénes?</strong></div>
-            <div class="card-body">
-              <div id="chipsMasivo" class="d-flex flex-wrap gap-1 mb-2"></div>
-              <input type="text" id="buscarMasivo" class="form-control mb-2" placeholder="🔍 Buscar departamento para marcar...">
-              <div class="border rounded" style="max-height:320px; overflow-y:auto">
-                <div class="list-group list-group-flush" id="listaMasivo">
-                  {% for d in departamentos %}
-                  <label class="list-group-item d-flex gap-2 align-items-center" data-search="{{ d.numero_domicilio|lower }} {{ d.propietario|lower }}">
-                    <input class="form-check-input mt-0 chk-masivo" type="checkbox" name="deptos" value="{{ d.pk }}" data-num="{{ d.numero_domicilio }}">
-                    <span>{{ d.numero_domicilio }} <span class="text-muted small">· {{ d.propietario }}</span></span>
-                  </label>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-          </div>
-          <button type="submit" class="btn btn-success mt-3">Asignar cargos</button>
-        </div>
-      </div>
-    </form>
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+  <div>
+    <h1 style="font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin:0">Multas / cargos</h1>
+    <p class="text-muted mb-0" style="font-size:.9rem">Escribe el monto por departamento para asignar el cargo. Monto vacío = no se cobra.</p>
   </div>
-
-  {# ===================== PERSONALIZADO ===================== #}
-  <div class="tab-pane fade" id="tab-individual">
-    <form method="post" id="formIndividual">
-      {% csrf_token %}
-      <input type="hidden" name="modo" value="individual">
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header card-header-verde"><strong>Agregar cargo a la lista</strong></div>
-        <div class="card-body">
-          <div class="row g-2 align-items-end mb-2">
-            <div class="col-md-3"><label class="form-label small">Mes</label>{{ periodo_form.mes }}</div>
-            <div class="col-md-3"><label class="form-label small">Año</label>{{ periodo_form.anio }}</div>
-          </div>
-          <div class="row g-2 align-items-end">
-            <div class="col-md-3">
-              <label class="form-label small">Departamento</label>
-              <select id="indDepto" class="form-select">
-                <option value="">Elegir…</option>
-                {% for d in departamentos %}<option value="{{ d.pk }}">{{ d.numero_domicilio }} · {{ d.propietario }}</option>{% endfor %}
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label small">Concepto</label>
-              <select id="indConcepto" class="form-select">
-                <option value="">Elegir…</option>
-                {% for c in conceptos %}<option value="{{ c.pk }}">{{ c.nombre }}</option>{% endfor %}
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small">Monto</label>
-              <input type="number" step="0.01" id="indMonto" class="form-control" placeholder="0.00">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small">Descripción</label>
-              <input type="text" id="indDesc" class="form-control" placeholder="Opcional">
-            </div>
-            <div class="col-md-2">
-              <button type="button" id="btnAgregar" class="btn btn-outline-success w-100">+ Agregar</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white"><strong>Cargos por asignar</strong></div>
-        <div class="table-responsive">
-          <table class="table mb-0 align-middle">
-            <thead class="table-light"><tr><th>Departamento</th><th>Concepto</th><th class="text-end">Monto</th><th>Descripción</th><th></th></tr></thead>
-            <tbody id="filasInd">
-              <tr id="filaVacia"><td colspan="5" class="text-center text-muted py-3">Aún no agregas cargos.</td></tr>
-            </tbody>
-            <tfoot><tr class="table-success fw-bold"><td colspan="2">Total</td><td class="text-end" id="totalInd">S/ 0.00</td><td colspan="2"></td></tr></tfoot>
-          </table>
-        </div>
-      </div>
-      <button type="submit" class="btn btn-success mt-3">Asignar cargos</button>
-    </form>
-  </div>
+  <form method="get" class="d-flex align-items-end gap-2 flex-wrap">
+    <div>
+      <label class="form-label small text-muted mb-1">Concepto</label>
+      <select name="concepto" class="form-select" style="min-width:180px" onchange="this.form.submit()">
+        {% for c in conceptos %}<option value="{{ c.id }}" {% if c.id == concepto_id %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div><label class="form-label small text-muted mb-1">Periodo</label><div class="d-flex gap-2">{{ periodo_form.mes }}{{ periodo_form.anio }}</div></div>
+    <button class="btn btn-outline-secondary">Ver</button>
+  </form>
 </div>
 
-<script>
-(function () {
-  const buscar = document.getElementById('buscarMasivo');
-  const lista = document.getElementById('listaMasivo');
-  const chips = document.getElementById('chipsMasivo');
-  const cont = document.getElementById('contMasivo');
+<div class="fa-toolbar">
+  <input type="text" id="faSearch" class="form-control fa-search" placeholder="🔍 Buscar depto o propietario...">
+  <button id="faSave" class="btn btn-success">💾 Guardar cargos</button>
+  <span id="faMsg" class="fa-msg"></span>
+</div>
 
-  if (buscar) buscar.addEventListener('input', function () {
+<revo-grid stretch="true" id="grid" theme="compact"></revo-grid>
+<div class="fa-fallback alert alert-warning" id="faFallback">No se pudo cargar la tabla interactiva. Revisa tu conexión.</div>
+
+<p class="fa-hint">
+  Concepto actual: <strong>{{ concepto_nombre }}</strong> · periodo <strong>{{ periodo|date:"m/Y" }}</strong>.
+  Doble clic en <strong>Monto</strong> o <strong>Descripción</strong> para editar. Al guardar, los deptos con monto
+  reciben el cargo y los que queden en blanco se quitan (si no tienen pagos). El 📌 en la cabecera fija la columna.
+</p>
+
+{{ filas_json|json_script:"filasData" }}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module">
+  import { defineCustomElement } from 'https://cdn.jsdelivr.net/npm/@revolist/revogrid@4.29.1/standalone/revo-grid.js';
+  defineCustomElement();
+
+  const CSRF = '{{ csrf_token }}';
+  const CONCEPTO = {{ concepto_id }};
+  const rows = JSON.parse(document.getElementById('filasData').textContent);
+  const grid = document.getElementById('grid');
+  const num = (v) => { const n = Number(v); return isNaN(n) ? 0 : n; };
+
+  const COL_ICON = { numero:'i-building', propietario:'i-people', monto:'i-cash', descripcion:'i-file' };
+  const PIN_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/>' +
+    '<path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+
+  const columns = [
+    { prop: 'numero', name: 'Depto', size: 120, readonly: true, filter: true },
+    { prop: 'propietario', name: 'Propietario', size: 300, readonly: true, filter: true },
+    { prop: 'monto', name: 'Monto S/', size: 150, filter: true },
+    { prop: 'descripcion', name: 'Descripción', size: 320 },
+  ];
+
+  function togglePin(prop) {
+    const c = columns.find(x => x.prop === prop);
+    if (!c) return;
+    c.pin = c.pin ? undefined : 'colPinStart';
+    grid.columns = [...columns];
+    setTimeout(injectPins, 60);
+  }
+  
+  function injectPins() {
+    grid.querySelectorAll('.rgHeaderCell').forEach(hc => {
+      const content = hc.querySelector('.header-content');
+      const name = (content ? content.innerText : hc.innerText || '').trim();
+      const col = columns.find(c => c.name === name);
+      if (!col) return;
+      if (!hc.querySelector('.fa-hicon')) {
+        const ic = document.createElement('span'); ic.className = 'fa-hicon';
+        ic.innerHTML = '<svg width="14" height="14"><use href="#' + (COL_ICON[col.prop] || 'i-grid') + '"/></svg>';
+        hc.insertBefore(ic, content || hc.firstChild);
+      }
+      let pin = hc.querySelector('.fa-hpin');
+      if (!pin) {
+        pin = document.createElement('span'); pin.className = 'fa-hpin'; pin.innerHTML = PIN_SVG;
+        pin.title = 'Fijar / soltar columna';
+        pin.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); togglePin(col.prop); });
+        hc.appendChild(pin);
+      }
+      pin.classList.toggle('on', !!col.pin);
+    });
+  }
+
+  function setupGrid() {
+    grid.filter = true;
+    grid.columns = columns;
+    grid.source = rows;
+    grid.addEventListener('afteredit', (e) => {
+      const d = e.detail || {};
+      const apply = (ri, prop, val) => { const r = rows[ri]; if (!r) return; r[prop] = (prop === 'monto') ? num(val) : val; };
+      if (d.prop !== undefined) apply(d.rowIndex, d.prop, d.val);
+      else if (d.data) { for (const ri in d.data) for (const p in d.data[ri]) apply(Number(ri), p, d.data[ri][p]); }
+      grid.source = [...rows];
+      setTimeout(injectPins, 60);
+    });
+    injectPins();
+    setInterval(injectPins, 800);
+  }
+  customElements.whenDefined('revo-grid').then(setupGrid);
+
+  document.getElementById('faSearch').addEventListener('input', function () {
     const q = this.value.trim().toLowerCase();
-    lista.querySelectorAll('label').forEach(function (row) {
-      row.style.display = row.dataset.search.includes(q) ? '' : 'none';
-    });
+    grid.source = q
+      ? rows.filter(r => String(r.numero).toLowerCase().includes(q) || String(r.propietario).toLowerCase().includes(q))
+      : [...rows];
   });
 
-  function renderChips() {
-    const checked = lista.querySelectorAll('.chk-masivo:checked');
-    chips.innerHTML = '';
-    checked.forEach(function (cb) {
-      const chip = document.createElement('span');
-      chip.className = 'badge rounded-pill bg-success d-inline-flex align-items-center gap-1';
-      chip.style.fontSize = '0.85rem';
-      chip.innerHTML = cb.dataset.num + ' <span style="cursor:pointer">&times;</span>';
-      chip.querySelector('span').addEventListener('click', function () { cb.checked = false; renderChips(); });
-      chips.appendChild(chip);
-    });
-    cont.textContent = checked.length;
-  }
-  if (lista) lista.addEventListener('change', function (e) {
-    if (e.target.classList.contains('chk-masivo')) renderChips();
+  document.getElementById('faSave').addEventListener('click', function () {
+    const msg = document.getElementById('faMsg');
+    msg.textContent = 'Guardando...';
+    const payload = { concepto: CONCEPTO, rows: rows.map(r => ({ pk: r.pk, monto: r.monto, descripcion: r.descripcion })) };
+    fetch(window.location.pathname + window.location.search, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF }, body: JSON.stringify(payload),
+    }).then(r => r.json()).then(d => {
+      msg.textContent = d.ok ? ('✓ ' + d.asignados + ' asignados · ' + d.quitados + ' quitados') : ('Error: ' + (d.error || ''));
+      if (d.ok) setTimeout(() => { msg.textContent = ''; }, 4000);
+    }).catch(() => { msg.textContent = 'Error de red.'; });
   });
 
-  const formMasivo = document.getElementById('formMasivo');
-  if (formMasivo) formMasivo.addEventListener('submit', function (e) {
-    if (lista.querySelectorAll('.chk-masivo:checked').length === 0) { e.preventDefault(); alert('Marca al menos un departamento.'); }
-  });
-
-  const btnAgregar = document.getElementById('btnAgregar');
-  const filas = document.getElementById('filasInd');
-  const filaVacia = document.getElementById('filaVacia');
-  const totalInd = document.getElementById('totalInd');
-  const dDepto = document.getElementById('indDepto');
-  const dConcepto = document.getElementById('indConcepto');
-  const dMonto = document.getElementById('indMonto');
-  const dDesc = document.getElementById('indDesc');
-
-  function recalcular() {
-    let t = 0;
-    filas.querySelectorAll('input[name="row_monto"]').forEach(function (i) { t += parseFloat(i.value) || 0; });
-    totalInd.textContent = 'S/ ' + t.toFixed(2);
-  }
-  if (btnAgregar) btnAgregar.addEventListener('click', function () {
-    const dep = dDepto.value, con = dConcepto.value, monto = parseFloat(dMonto.value);
-    if (!dep || !con || !(monto > 0)) { alert('Elige departamento, concepto y un monto válido.'); return; }
-    if (filaVacia) filaVacia.remove();
-    const tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td>' + dDepto.options[dDepto.selectedIndex].text + '</td>' +
-      '<td>' + dConcepto.options[dConcepto.selectedIndex].text + '</td>' +
-      '<td class="text-end">S/ ' + monto.toFixed(2) + '</td>' +
-      '<td>' + (dDesc.value || '—') + '</td>' +
-      '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger">&times;</button></td>' +
-      '<input type="hidden" name="row_depto" value="' + dep + '">' +
-      '<input type="hidden" name="row_concepto" value="' + con + '">' +
-      '<input type="hidden" name="row_monto" value="' + monto + '">' +
-      '<input type="hidden" name="row_desc" value="' + (dDesc.value || '').replace(/"/g, '&quot;') + '">';
-    tr.querySelector('button').addEventListener('click', function () { tr.remove(); recalcular(); });
-    filas.appendChild(tr);
-    recalcular();
-    dConcepto.value = ''; dMonto.value = ''; dDesc.value = ''; dDepto.value = ''; dDepto.focus();
-  });
-
-  const formInd = document.getElementById('formIndividual');
-  if (formInd) formInd.addEventListener('submit', function (e) {
-    if (filas.querySelectorAll('input[name="row_depto"]').length === 0) { e.preventDefault(); alert('Agrega al menos un cargo a la lista.'); }
-  });
-})();
+  setTimeout(() => { if (!customElements.get('revo-grid')) document.getElementById('faFallback').style.display = 'block'; }, 6000);
 </script>
 {% endblock %}

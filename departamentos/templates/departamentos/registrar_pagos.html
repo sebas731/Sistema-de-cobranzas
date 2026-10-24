@@ -1,226 +1,136 @@
 {% extends 'departamentos/base.html' %}
-{% block title %}Registrar pagos{% endblock %}
+{% block title %}Registrar pago{% endblock %}
+
+{% block extra_head %}
+<style>
+  .pago-info { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:var(--sp-md);
+    background:var(--gray-50); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:var(--sp-sm) var(--sp-md); margin-bottom:var(--sp-md); }
+  .pago-info > div { display:flex; flex-direction:column; min-width:0; }
+  .pago-info strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pago-info__k { font-size:.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; }
+  .pago-preview { border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
+  .pago-preview__title { font-weight:600; padding:var(--sp-sm) var(--sp-md); border-bottom:1px solid var(--border); }
+  .pago-preview .table td { font-variant-numeric:tabular-nums; }
+  .pago-preview .table td.aplica { font-weight:600; color:var(--primary-strong); }
+  .pago-preview__nota:empty { display:none; }
+  .pago-preview__nota { padding:var(--sp-sm) var(--sp-md); border-top:1px solid var(--border);
+    font-size:.85rem; color:var(--text-muted); }
+  .pago-preview__nota.favor { background:var(--info-soft); color:var(--info); font-weight:600; }
+  @media (max-width:640px){ .pago-info{ grid-template-columns:1fr; } }
+</style>
+{% endblock %}
 
 {% block content %}
-<h4 class="mb-3">Registrar pagos</h4>
+{% include 'departamentos/components/page_header.html' with title="Registrar pago" subtitle="Busca el departamento o el propietario, revisa a qué deuda se aplicará y registra." %}
 
-<ul class="nav nav-tabs mb-3" role="tablist">
-  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-masivo" type="button">Pago masivo</button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-individual" type="button">Individual</button></li>
-</ul>
+{% include 'departamentos/components/form_card.html' with form=form form_id="formPago" title="Nuevo pago" subtitle="Motivo «General» y periodo «Automático» saldan la deuda más antigua." submit_label="Registrar pago" extra="departamentos/_pago_vista_previa.html" %}
 
-<div class="tab-content">
-  {# ===================== PAGO MASIVO ===================== #}
-  <div class="tab-pane fade show active" id="tab-masivo">
-    <form method="post" id="formMasivo">
-      {% csrf_token %}
-      <input type="hidden" name="modo" value="masivo">
-      <div class="row g-3">
-        <div class="col-lg-4">
-          <div class="card border-0 shadow-sm">
-            <div class="card-header card-header-verde"><strong>1. Datos del pago</strong></div>
-            <div class="card-body">
-              <div class="mb-3">
-                <label class="form-label">Concepto pagado</label>
-                <select name="concepto" class="form-select" required>
-                  <option value="">Elegir…</option>
-                  {% for c in conceptos %}<option value="{{ c.pk }}">{{ c.nombre }}</option>{% endfor %}
-                </select>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Monto (igual para todos)</label>
-                <input type="number" step="0.01" name="monto" class="form-control" placeholder="80.00" required>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Método (opcional)</label>
-                <input type="text" name="metodo" class="form-control" placeholder="Efectivo, Yape...">
-              </div>
-              <div class="alert alert-light border small mb-0">
-                Seleccionados: <strong id="contMasivo">0</strong> departamentos
-              </div>
-            </div>
-          </div>
-        </div>
+{{ deudas|json_script:"deudasData" }}
+{% endblock %}
 
-        <div class="col-lg-8">
-          <div class="card border-0 shadow-sm">
-            <div class="card-header card-header-verde"><strong>2. ¿Quiénes pagaron?</strong></div>
-            <div class="card-body">
-              <div id="chipsMasivo" class="d-flex flex-wrap gap-1 mb-2"></div>
-              <input type="text" id="buscarMasivo" class="form-control mb-2" placeholder="🔍 Buscar departamento para marcar...">
-              <div class="border rounded" style="max-height:320px; overflow-y:auto">
-                <div class="list-group list-group-flush" id="listaMasivo">
-                  {% for d in departamentos %}
-                  <label class="list-group-item d-flex gap-2 align-items-center" data-search="{{ d.numero_domicilio|lower }} {{ d.propietario|lower }}">
-                    <input class="form-check-input mt-0 chk-masivo" type="checkbox" name="deptos" value="{{ d.pk }}" data-num="{{ d.numero_domicilio }}">
-                    <span>{{ d.numero_domicilio }} <span class="text-muted small">· {{ d.propietario }}</span></span>
-                  </label>
-                  {% endfor %}
-                </div>
-              </div>
-            </div>
-          </div>
-          <button type="submit" class="btn btn-success mt-3">Guardar pagos</button>
-        </div>
-      </div>
-    </form>
-  </div>
-
-  {# ===================== INDIVIDUAL ===================== #}
-  <div class="tab-pane fade" id="tab-individual">
-    <form method="post" id="formIndividual">
-      {% csrf_token %}
-      <input type="hidden" name="modo" value="individual">
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header card-header-verde"><strong>Agregar pago a la lista</strong></div>
-        <div class="card-body">
-          <div class="row g-2 align-items-end">
-            <div class="col-md-3">
-              <label class="form-label small">Departamento</label>
-              <select id="indDepto" class="form-select">
-                <option value="">Elegir…</option>
-                {% for d in departamentos %}<option value="{{ d.pk }}">{{ d.numero_domicilio }} · {{ d.propietario }}</option>{% endfor %}
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label small">Concepto</label>
-              <select id="indConcepto" class="form-select">
-                <option value="">Elegir…</option>
-                {% for c in conceptos %}<option value="{{ c.pk }}">{{ c.nombre }}</option>{% endfor %}
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small">Monto</label>
-              <input type="number" step="0.01" id="indMonto" class="form-control" placeholder="0.00">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small">Método</label>
-              <input type="text" id="indMetodo" class="form-control" placeholder="Opcional">
-            </div>
-            <div class="col-md-2">
-              <button type="button" id="btnAgregar" class="btn btn-outline-success w-100">+ Agregar</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white"><strong>Pagos por registrar</strong></div>
-        <div class="table-responsive">
-          <table class="table mb-0 align-middle">
-            <thead class="table-light"><tr><th>Departamento</th><th>Concepto</th><th class="text-end">Monto</th><th>Método</th><th></th></tr></thead>
-            <tbody id="filasInd">
-              <tr id="filaVacia"><td colspan="5" class="text-center text-muted py-3">Aún no agregas pagos.</td></tr>
-            </tbody>
-            <tfoot>
-              <tr class="table-success fw-bold"><td colspan="2">Total</td><td class="text-end" id="totalInd">S/ 0.00</td><td colspan="2"></td></tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-      <button type="submit" class="btn btn-success mt-3">Guardar pagos</button>
-    </form>
-  </div>
-</div>
-
+{% block extra_js %}
 <script>
 (function () {
-  // ---------- MASIVO: buscar + chips ----------
-  const buscar = document.getElementById('buscarMasivo');
-  const lista = document.getElementById('listaMasivo');
-  const chips = document.getElementById('chipsMasivo');
-  const cont = document.getElementById('contMasivo');
+  // Deudas pendientes de todos los deptos: {pk: {numero, propietario, deudas: [...]}}.
+  // Vienen ordenadas de la más antigua a la más nueva (mismo orden que usa el back).
+  const DATOS = JSON.parse(document.getElementById('deudasData').textContent);
+  const form = document.getElementById('formPago');
+  const depto = form.elements.departamento;
+  const motivo = form.elements.concepto;
+  const periodo = form.elements.periodo;
+  const importe = form.elements.monto;
+  const info = document.getElementById('pagoInfo');
+  const preview = document.getElementById('pagoPreview');
 
-  if (buscar) {
-    buscar.addEventListener('input', function () {
-      const q = this.value.trim().toLowerCase();
-      lista.querySelectorAll('label').forEach(function (row) {
-        row.style.display = row.dataset.search.includes(q) ? '' : 'none';
-      });
+  // Todo en céntimos (enteros) para no arrastrar errores de float.
+  const cent = (v) => Math.round((parseFloat(v) || 0) * 100);
+  const soles = (c) => 'S/ ' + (c / 100).toFixed(2);
+  const suma = (lista) => lista.reduce((s, d) => s + cent(d.saldo), 0);
+
+  let deudas = [];               // deudas del depto elegido
+  let importeTocado = !!importe.value;
+
+  // Deudas a las que se aplicaría el pago según motivo/periodo (vacío = sin filtro).
+  const aplicables = () => deudas.filter(d =>
+    (!motivo.value || d.concepto === motivo.value) && (!periodo.value || d.periodo === periodo.value));
+
+  // Reemplaza las opciones de un select y conserva la elegida si sigue existiendo.
+  function opciones(select, vacio, items) {
+    const actual = select.dataset.inicial || select.value;
+    delete select.dataset.inicial;
+    select.replaceChildren(new Option(vacio, ''), ...items.map(([v, t]) => new Option(t, v)));
+    select.value = items.some(([v]) => v === actual) ? actual : '';
+  }
+
+  // Solo se ofrecen motivos y meses con deuda, y cada uno filtra al otro.
+  function armarSelectores() {
+    const unicos = (lista, clave, texto) =>
+      [...new Map(lista.map(d => [d[clave], d[texto]])).entries()];
+    opciones(motivo, 'General', unicos(deudas.filter(d => !periodo.value || d.periodo === periodo.value), 'concepto', 'motivo'));
+    opciones(periodo, 'Automático', unicos(deudas.filter(d => !motivo.value || d.concepto === motivo.value), 'periodo', 'mes'));
+  }
+
+  // Importe sugerido (si no lo escribieron a mano): la deuda más antigua,
+  // o el total del mes si se eligió un periodo.
+  function sugerirImporte() {
+    if (importeTocado) return;
+    const lista = aplicables();
+    const c = periodo.value ? suma(lista) : (lista[0] ? cent(lista[0].saldo) : 0);
+    importe.value = c ? (c / 100).toFixed(2) : '';
+  }
+
+  // <tr> de la vista previa: periodo, motivo, saldo, aplica (o un mensaje a todo el ancho).
+  function fila(celdas) {
+    const tr = document.createElement('tr');
+    celdas.forEach((texto, i) => {
+      const td = tr.insertCell();
+      td.textContent = texto;
+      if (celdas.length === 1) { td.colSpan = 4; td.className = 'text-muted'; }
+      else if (i >= 2) td.className = i === 3 ? 'text-end aplica' : 'text-end';
     });
+    return tr;
   }
 
-  function renderChips() {
-    const checked = lista.querySelectorAll('.chk-masivo:checked');
-    chips.innerHTML = '';
-    checked.forEach(function (cb) {
-      const chip = document.createElement('span');
-      chip.className = 'badge rounded-pill bg-success d-inline-flex align-items-center gap-1';
-      chip.style.fontSize = '0.85rem';
-      chip.innerHTML = cb.dataset.num + ' <span style="cursor:pointer" aria-label="quitar">&times;</span>';
-      chip.querySelector('span').addEventListener('click', function () {
-        cb.checked = false;
-        renderChips();
-      });
-      chips.appendChild(chip);
-    });
-    cont.textContent = checked.length;
-  }
-  if (lista) {
-    lista.addEventListener('change', function (e) {
-      if (e.target.classList.contains('chk-masivo')) renderChips();
-    });
+  // Vista previa: reparte el importe de la deuda más antigua a la más nueva.
+  function vistaPrevia() {
+    const lista = aplicables();
+    preview.hidden = !depto.value;
+    if (preview.hidden) return;
+    let resto = cent(importe.value);
+    const filas = [];
+    for (const d of lista) {
+      if (resto <= 0) break;
+      const aplica = Math.min(resto, cent(d.saldo));
+      resto -= aplica;
+      filas.push(fila([d.mes, d.motivo, soles(cent(d.saldo)), soles(aplica)]));
+    }
+    if (!filas.length) filas.push(fila([lista.length ? 'Ingresa el importe.' : 'Sin deudas pendientes.']));
+    preview.querySelector('tbody').replaceChildren(...filas);
+    const nota = preview.querySelector('[data-nota]');
+    nota.classList.toggle('favor', resto > 0);
+    nota.textContent = resto > 0 ? `Sobran ${soles(resto)}: quedarán como saldo a favor.` : '';
   }
 
-  const formMasivo = document.getElementById('formMasivo');
-  if (formMasivo) {
-    formMasivo.addEventListener('submit', function (e) {
-      if (lista.querySelectorAll('.chk-masivo:checked').length === 0) {
-        e.preventDefault();
-        alert('Marca al menos un departamento.');
-      }
-    });
+  // Al elegir depto: autocompleta sus datos y sus deudas (el resto se recalcula).
+  function alElegirDepto() {
+    const d = DATOS[depto.value];
+    deudas = d ? d.deudas : [];
+    info.hidden = !d;
+    if (d) {
+      info.querySelector('[data-info="numero"]').textContent = d.numero;
+      info.querySelector('[data-info="propietario"]').textContent = d.propietario;
+      info.querySelector('[data-info="deuda"]').textContent = soles(suma(deudas));
+    }
+    armarSelectores(); sugerirImporte(); vistaPrevia();
   }
 
-  // ---------- INDIVIDUAL: filas dinámicas ----------
-  const btnAgregar = document.getElementById('btnAgregar');
-  const filas = document.getElementById('filasInd');
-  const filaVacia = document.getElementById('filaVacia');
-  const totalInd = document.getElementById('totalInd');
-  const dDepto = document.getElementById('indDepto');
-  const dConcepto = document.getElementById('indConcepto');
-  const dMonto = document.getElementById('indMonto');
-  const dMetodo = document.getElementById('indMetodo');
+  depto.addEventListener('change', alElegirDepto);
+  motivo.addEventListener('change', () => { armarSelectores(); sugerirImporte(); vistaPrevia(); });
+  periodo.addEventListener('change', () => { armarSelectores(); sugerirImporte(); vistaPrevia(); });
+  importe.addEventListener('input', () => { importeTocado = importe.value !== ''; vistaPrevia(); });
 
-  function recalcular() {
-    let t = 0;
-    filas.querySelectorAll('input[name="row_monto"]').forEach(function (i) { t += parseFloat(i.value) || 0; });
-    totalInd.textContent = 'S/ ' + t.toFixed(2);
-  }
-
-  if (btnAgregar) {
-    btnAgregar.addEventListener('click', function () {
-      const dep = dDepto.value, con = dConcepto.value, monto = parseFloat(dMonto.value);
-      if (!dep || !con || !(monto > 0)) { alert('Elige departamento, concepto y un monto válido.'); return; }
-      if (filaVacia) filaVacia.remove();
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td>' + dDepto.options[dDepto.selectedIndex].text + '</td>' +
-        '<td>' + dConcepto.options[dConcepto.selectedIndex].text + '</td>' +
-        '<td class="text-end">S/ ' + monto.toFixed(2) + '</td>' +
-        '<td>' + (dMetodo.value || '—') + '</td>' +
-        '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger">&times;</button></td>' +
-        '<input type="hidden" name="row_depto" value="' + dep + '">' +
-        '<input type="hidden" name="row_concepto" value="' + con + '">' +
-        '<input type="hidden" name="row_monto" value="' + monto + '">' +
-        '<input type="hidden" name="row_metodo" value="' + (dMetodo.value || '') + '">';
-      tr.querySelector('button').addEventListener('click', function () { tr.remove(); recalcular(); });
-      filas.appendChild(tr);
-      recalcular();
-      dConcepto.value = ''; dMonto.value = ''; dMetodo.value = ''; dDepto.value = '';
-      dDepto.focus();
-    });
-  }
-
-  const formInd = document.getElementById('formIndividual');
-  if (formInd) {
-    formInd.addEventListener('submit', function (e) {
-      if (filas.querySelectorAll('input[name="row_depto"]').length === 0) {
-        e.preventDefault();
-        alert('Agrega al menos un pago a la lista.');
-      }
-    });
-  }
+  alElegirDepto();   // al volver con errores, el depto ya viene elegido
 })();
 </script>
 {% endblock %}

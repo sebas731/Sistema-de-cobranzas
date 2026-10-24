@@ -1,0 +1,51 @@
+{% comment %}
+FormCard · formulario corto reutilizable (tarjeta con los campos en grilla de 2 columnas).
+Uso:
+  {% include 'departamentos/components/form_card.html' with form=form title="Nuevo pago" submit_label="Registrar" %}
+Contexto:
+  form             -> cualquier Django Form. Cada campo se pinta con label, ayuda y errores.
+                      Campo a todo el ancho: widget con attrs {'data-ancho': 'full'}.
+                      Campo solo lectura: disabled=True en el Form (Django ignora lo enviado).
+  title / subtitle -> cabecera. Opcionales.
+  submit_label     -> texto del botón (por defecto "Guardar").
+  cancel_url       -> muestra el botón "Cancelar". Opcional.
+  extra            -> plantilla que se incluye debajo de los campos (ej. vista previa). Opcional.
+  form_id          -> id del <form>, para engancharle JS. Opcional.
+{% endcomment %}
+<form method="post" class="form-card" {% if form_id %}id="{{ form_id }}"{% endif %} novalidate>
+  {% csrf_token %}
+  {% if title %}
+  <div class="form-card__head">
+    <h2 class="form-card__title">{{ title }}</h2>
+    {% if subtitle %}<p class="form-card__subtitle">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger form-card__alert">
+    {% for e in form.non_field_errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+  </div>
+  {% endif %}
+
+  {% for h in form.hidden_fields %}{{ h }}{% endfor %}
+
+  <div class="form-card__grid">
+    {% for f in form.visible_fields %}
+    <div class="form-card__field{% if f.errors %} form-card__field--error{% endif %}">
+      <label class="form-card__label" for="{{ f.id_for_label }}">
+        {{ f.label }}{% if f.field.required and not f.field.disabled %} <span class="form-card__req">*</span>{% endif %}
+      </label>
+      {{ f }}
+      {% if f.help_text %}<small class="form-card__help">{{ f.help_text }}</small>{% endif %}
+      {% for e in f.errors %}<small class="form-card__error">{{ e }}</small>{% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if extra %}<div class="form-card__extra">{% include extra %}</div>{% endif %}
+
+  <div class="form-card__foot">
+    {% if cancel_url %}<a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancelar</a>{% endif %}
+    <button type="submit" class="btn btn-success">{{ submit_label|default:"Guardar" }}</button>
+  </div>
+</form>

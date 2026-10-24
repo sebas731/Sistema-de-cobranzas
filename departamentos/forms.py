@@ -1,14 +1,15 @@
 from datetime import date
+from decimal import Decimal
 
 from django import forms
+from django.utils import timezone
 
 from .models import Concepto, Departamento, GastoEdificio, GastoFijo, Proveedor, TarifaAgua
+from .servicios import cargos_pendientes
 
-MESES = [
-    (1, 'Enero'), (2, 'Febrero'), (3, 'Marzo'), (4, 'Abril'),
-    (5, 'Mayo'), (6, 'Junio'), (7, 'Julio'), (8, 'Agosto'),
-    (9, 'Setiembre'), (10, 'Octubre'), (11, 'Noviembre'), (12, 'Diciembre'),
-]
+MESES_ES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
+            'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre']
+MESES = list(enumerate(MESES_ES))[1:]
 
 _control = {'class': 'form-control'}
 _select = {'class': 'form-select'}
@@ -106,6 +107,16 @@ class GastoFijoForm(forms.ModelForm):
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Un gasto fijo solo es mantenimiento o agua; 'adicionales' es exclusivo
+        # de los gastos del mes.
+        cat = GastoEdificio.Categoria
+        self.fields['categoria'].choices = [
+            (cat.GENERAL.value, cat.GENERAL.label),
+            (cat.AGUA_COMUN.value, cat.AGUA_COMUN.label),
+        ]
+
 
 class TarifaAguaForm(forms.ModelForm):
     class Meta:
@@ -129,6 +140,53 @@ class PagoForm(forms.Form):
         widget=forms.Select(attrs=_select))
     metodo = forms.CharField(max_length=50, required=False,
                              widget=forms.TextInput(attrs={**_control, 'placeholder': 'Efectivo, Yape...'}))
+
+
+class BuscadorWidget(forms.Select):
+    """Select con buscador (input + datalist): filtra por el texto de cada opción, así
+    un ModelChoiceField se busca por código o nombre. Reutilizable en cualquier form."""
+    template_name = 'departamentos/widgets/buscador.html'
+
+
+class RegistroPagoForm(forms.Form):
+    """Registro de un pago. Motivo y periodo vacíos = 'General' / 'Automático':
+    el pago salda lo más antiguo; si se eligen, solo se aplica a ese motivo y/o mes
+    (la regla vive en servicios.registrar_pago). La fecha es hoy y no se edita."""
+    departamento = forms.ModelChoiceField(
+        label='Departamento o propietario',
+        queryset=Departamento.objects.filter(activo=True),
+        widget=BuscadorWidget(attrs={**_control, 'data-ancho': 'full',
+                                     'placeholder': 'Buscar por N° de depto o nombre del propietario'}))
+    concepto = forms.ModelChoiceField(
+        label='Motivo', queryset=Concepto.objects.filter(activo=True), required=False,
+        empty_label='General', widget=forms.Select(attrs=_select))
+    # Las opciones (meses con deuda) las arma el JS según el depto elegido.
+    periodo = forms.DateField(
+        label='Periodo de pago', required=False,
+        widget=forms.Select(attrs=_select, choices=[('', 'Automático')]))
+    monto = forms.DecimalField(
+        label='Importe (S/)', max_digits=10, decimal_places=2, min_value=Decimal('0.01'),
+        widget=forms.NumberInput(attrs={**_control, 'step': '0.01', 'placeholder': '0.00'}))
+    fecha_pago = forms.DateField(
+        label='Fecha de pago', required=False, disabled=True,
+        widget=forms.DateInput(attrs=_control, format='%d/%m/%Y'))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['departamento'].label_from_instance = (
+            lambda d: f'{d.numero_domicilio} — {d.propietario}')
+        self.fields['fecha_pago'].initial = timezone.localdate()
+        # Al volver con errores, el JS reconstruye el select y reelige este mes.
+        if self.is_bound:
+            self.fields['periodo'].widget.attrs['data-inicial'] = self.data.get('periodo', '')
+
+    def clean(self):
+        datos = super().clean()
+        dep, concepto, periodo = (datos.get('departamento'), datos.get('concepto'),
+                                  datos.get('periodo'))
+        if dep and (concepto or periodo) and not cargos_pendientes(dep, concepto, periodo):
+            raise forms.ValidationError('No hay deuda pendiente para ese motivo y periodo.')
+        return datos
 
 
 class CargoForm(MesAnioForm):

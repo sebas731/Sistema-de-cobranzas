@@ -1,0 +1,44 @@
+{% comment %}
+FilterBar · barra de filtros reutilizable para cualquier tabla.
+Uso:
+  {% include 'departamentos/components/filter_bar.html' with filtros=filtros filter_hidden=filter_hidden filter_reset_url=filter_reset_url %}
+Contexto:
+  filtros          -> lista de campos (ver departamentos/filtros.py: busqueda/select/rango)
+  filter_hidden    -> dict de parámetros a conservar (ej. mes/anio). Opcional.
+  filter_reset_url -> URL del botón "Limpiar". Opcional (por defecto request.path).
+{% endcomment %}
+<form method="get" class="fbar">
+  {% if filter_hidden %}{% for k, v in filter_hidden.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}{% endif %}
+
+  {% for f in filtros %}
+    {% if f.tipo == 'busqueda' %}
+      <div class="fbar__search">
+        <svg class="fbar__ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" name="{{ f.name }}" value="{{ f.value }}" placeholder="{{ f.placeholder }}" class="form-control">
+      </div>
+    {% elif f.tipo == 'select' %}
+      <div class="fbar__field">
+        <label class="fbar__label">{{ f.label }}</label>
+        <select name="{{ f.name }}" class="form-select form-select-sm">
+          {% for val, txt in f.opciones %}
+          <option value="{{ val }}" {% if val|stringformat:'s' == f.value %}selected{% endif %}>{{ txt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% elif f.tipo == 'rango' %}
+      <div class="fbar__field">
+        <label class="fbar__label">{{ f.label }}{% if f.sufijo %} ({{ f.sufijo }}){% endif %}</label>
+        <div class="fbar__range">
+          <input type="number" step="{{ f.paso }}" name="{{ f.name }}_min" value="{{ f.min }}" placeholder="mín" class="form-control form-control-sm">
+          <span>–</span>
+          <input type="number" step="{{ f.paso }}" name="{{ f.name }}_max" value="{{ f.max }}" placeholder="máx" class="form-control form-control-sm">
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  <div class="fbar__actions">
+    <button class="btn btn-sm btn-success" type="submit">Filtrar</button>
+    <a href="{{ filter_reset_url|default:request.path }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+  </div>
+</form>

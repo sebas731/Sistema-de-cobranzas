@@ -1,0 +1,100 @@
+"""Agua: lecturas de medidor y costo por tramos (tarifa plana y SEDAPAL)."""
+from decimal import Decimal
+
+from django.db import transaction
+
+from ..models import Departamento, LecturaMedidor, TarifaAgua
+from .comun import CERO, TRUNCAR_DECIMAS, aplicar_redondeo, escalonar, redondear
+
+
+def costo_agua(m3):
+    """Costo del agua por tramos acumulativos según los tramos activos
+    (0–20 a 3.93, 20–50 a 5.52, etc.)."""
+    tramos = TarifaAgua.objects.filter(activo=True)
+    return redondear(sum((cant * t.tarifa for t, cant in escalonar(Decimal(m3), tramos, 'consumo_limite')),
+                         Decimal('0')))
+
+
+def calcular_agua_sedapal(m3, version, estrategia=TRUNCAR_DECIMAS):
+    """Cobro de agua estilo SEDAPAL para `m3` con una `TarifaAguaVersion`.
+
+    Agua potable y saneamiento escalonados por tramos (cada m³ paga la tarifa
+    del tramo en que cae) + cargo fijo; IGV sobre la suma. Devuelve el desglose
+    y el total ya redondeado con la estrategia.
+    """
+    m3 = Decimal(m3)
+    agua = san = CERO
+    for t, cantidad in escalonar(m3, version.tramos.all(), 'consumo_hasta'):
+        agua += cantidad * t.precio_agua
+        san += cantidad * t.precio_saneamiento
+
+    agua = redondear(agua)
+    san = redondear(san)
+    cargo_fijo = redondear(version.cargo_fijo or 0)
+    subtotal = agua + san + cargo_fijo
+    igv = redondear(subtotal * (version.igv or 0))
+    total_sin_redondeo = subtotal + igv
+    return {
+        'm3': m3, 'agua_potable': agua, 'saneamiento': san, 'cargo_fijo': cargo_fijo,
+        'subtotal': subtotal, 'igv': igv, 'total_sin_redondeo': redondear(total_sin_redondeo),
+        'total': aplicar_redondeo(total_sin_redondeo, estrategia),
+    }
+
+
+def agua_comun_por_departamento(periodo_fac, criterio='iguales', estrategia=TRUNCAR_DECIMAS,
+                                departamento=None):
+    """Agua común del depto = (A − B) del edificio prorrateado.
+
+    Criterio configurable:
+    - 'iguales' (el que usa el seed): (A−B) / N° de dptos habitados (partes iguales).
+    - 'consumo': proporcional al consumo (m³) del depto sobre el total del mes.
+    - 'm2': proporcional al área; como aún no hay campo de m², cae a partes iguales.
+    """
+    diferencia = periodo_fac.diferencia_ab
+    if diferencia <= 0:
+        return CERO
+
+    if criterio in ('iguales', 'm2'):
+        n = periodo_fac.dptos_habitados or Departamento.objects.filter(activo=True).count() or 1
+        base = diferencia / Decimal(n)
+    elif criterio == 'consumo':
+        lecturas = LecturaMedidor.objects.filter(periodo=periodo_fac.periodo)
+        total_m3 = sum((l.m3_consumidos for l in lecturas), Decimal('0'))
+        if departamento is None or total_m3 <= 0:
+            return CERO
+        mia = lecturas.filter(departamento=departamento).first()
+        mi_m3 = mia.m3_consumidos if mia else Decimal('0')
+        base = diferencia * (mi_m3 / total_m3)
+    else:
+        raise ValueError(f'Criterio de prorrateo desconocido: {criterio}')
+    return aplicar_redondeo(base, estrategia)
+
+
+def ultima_lectura(departamento, antes_de=None):
+    qs = LecturaMedidor.objects.filter(departamento=departamento)
+    if antes_de is not None:
+        qs = qs.filter(periodo__lt=antes_de)
+    return qs.order_by('-periodo').first()
+
+
+def lectura_del_mes(departamento, periodo):
+    """(lectura del mes o None, lectura anterior). Si aún no hay lectura del mes,
+    la anterior se arrastra de la lectura actual del mes previo."""
+    actual = departamento.lecturas.filter(periodo=periodo).first()
+    if actual:
+        return actual, actual.lectura_anterior
+    previa = ultima_lectura(departamento, antes_de=periodo)
+    return None, previa.lectura_actual if previa else CERO
+
+
+@transaction.atomic
+def registrar_lectura(departamento, periodo, lectura_actual, lectura_anterior=None):
+    """Registra la lectura del mes. Arrastra la lectura anterior si no se pasa."""
+    if lectura_anterior is None:
+        previa = ultima_lectura(departamento, antes_de=periodo)
+        lectura_anterior = previa.lectura_actual if previa else Decimal('0')
+    lectura, _ = LecturaMedidor.objects.update_or_create(
+        departamento=departamento, periodo=periodo,
+        defaults={'lectura_anterior': lectura_anterior, 'lectura_actual': lectura_actual},
+    )
+    return lectura

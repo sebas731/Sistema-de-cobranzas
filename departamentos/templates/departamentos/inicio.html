@@ -1,0 +1,97 @@
+{% extends 'departamentos/base.html' %}
+{% block title %}Inicio{% endblock %}
+
+{% block extra_head %}
+<style>
+  .home-hi { margin-bottom: var(--sp-lg); }
+  .home-hi h1 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:0; }
+  .home-hi p { color:var(--text-muted); margin:.2rem 0 0; }
+
+  .home-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(236px, 1fr)); gap:22px; }
+  .hc { --c:var(--primary); display:flex; flex-direction:column; background:var(--surface);
+    border:1px solid var(--border); border-radius:22px; overflow:hidden; text-decoration:none;
+    color:inherit; box-shadow:var(--shadow-sm); transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+  .hc:hover { transform:translateY(-4px); box-shadow:var(--shadow-md); border-color:var(--c); }
+  .hc__head { background:var(--c); color:#fff; padding:22px; display:flex; align-items:center; gap:12px;
+    font-size:1.15rem; font-weight:800; min-height:96px; }
+  .hc__ico { width:42px; height:42px; border-radius:13px; flex:none; display:grid; place-items:center;
+    background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.35); }
+  .hc__ico svg { width:22px; height:22px; color:#fff; }
+  .hc__body { padding:16px 22px 20px; flex:1; display:flex; flex-direction:column; gap:6px; }
+  .hc__desc { color:var(--text-muted); font-size:.9rem; margin:0; }
+  .hc__stat { margin-top:auto; font-weight:700; color:var(--c); font-size:.95rem; }
+
+  .home-more { margin-top:var(--sp-xl); }
+  .home-more__title { font-size:.8rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--gray-400); margin-bottom:var(--sp-sm); }
+  .home-more__links { display:flex; flex-wrap:wrap; gap:10px; }
+  .home-more__links a { display:inline-flex; align-items:center; gap:8px; padding:9px 14px;
+    border:1px solid var(--border); border-radius:var(--radius-pill); background:var(--surface);
+    color:var(--gray-700); text-decoration:none; font-size:.88rem; font-weight:500; }
+  .home-more__links a:hover { background:var(--gray-100); color:var(--gray-900); border-color:var(--gray-300); }
+  .home-more__links svg { width:16px; height:16px; opacity:.8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="home-hi">
+  <h1>Hola, {{ user.username|title }} 👋</h1>
+  <p>¿Qué quieres hacer hoy?</p>
+</div>
+
+<div class="home-grid">
+  <a class="hc" href="{% url 'panel' %}" style="--c:#16a34a">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-calendar"/></svg></span> Panel del mes</div>
+    <div class="hc__body"><p class="hc__desc">Todo el mes en una tabla: cargos, pagos y saldos por departamento.</p></div>
+  </a>
+
+  <a class="hc" href="{% url 'deudores' %}" style="--c:#d97706">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-people"/></svg></span> Deudores</div>
+    <div class="hc__body"><p class="hc__desc">Quién debe y cuánto, al día.</p></div>
+  </a>
+
+  <a class="hc" href="{% url 'registrar_pagos' %}" style="--c:#0d9488">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-cash"/></svg></span> Registrar pagos</div>
+    <div class="hc__body"><p class="hc__desc">Marca los pagos recibidos de cada departamento.</p></div>
+  </a>
+
+  <a class="hc" href="{% url 'generar_recibos' %}" style="--c:#6366f1">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-receipt"/></svg></span> Recibos</div>
+    <div class="hc__body"><p class="hc__desc">Genera e imprime los recibos del mes.</p></div>
+  </a>
+
+  <a class="hc" href="{% url 'facturas_agua' %}" style="--c:#0891b2">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-droplet"/></svg></span> Facturas de agua</div>
+    <div class="hc__body"><p class="hc__desc">Tabla editable: m³, lecturas y costo por depto, con columnas fijables.</p></div>
+  </a>
+
+  <a class="hc" href="{% url 'gastos_mes' %}" style="--c:#7c3aed">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-file"/></svg></span> Gastos del mes</div>
+    <div class="hc__body"><p class="hc__desc">Registra los gastos del edificio del mes.</p></div>
+  </a>
+
+  <a class="hc" href="{% url 'registrar_cargos' %}" style="--c:#ea580c">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-alert"/></svg></span> Multas / cargos</div>
+    <div class="hc__body"><p class="hc__desc">Asigna multas, moras o cargos extra.</p></div>
+  </a>
+
+  <a class="hc" href="{% url 'departamento_lista' %}" style="--c:#2563eb">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-building"/></svg></span> Departamentos</div>
+    <div class="hc__body">
+      <p class="hc__desc">Lista y datos de cada departamento.</p>
+      <span class="hc__stat">{{ n_deptos }} activos</span>
+    </div>
+  </a>
+</div>
+
+<div class="home-more">
+  <div class="home-more__title">Configuración y reportes</div>
+  <div class="home-more__links">
+    <a href="{% url 'balance' %}"><svg><use href="#i-grid"/></svg> Balance (reportes)</a>
+    <a href="{% url 'gastos_fijos' %}"><svg><use href="#i-sliders"/></svg> Gastos fijos</a>
+    <a href="{% url 'tarifas' %}"><svg><use href="#i-droplet"/></svg> Tarifa de agua</a>
+    <a href="{% url 'proveedores' %}"><svg><use href="#i-truck"/></svg> Proveedores</a>
+    <a href="{% url 'importar_excel' %}"><svg><use href="#i-upload"/></svg> Importar Excel</a>
+  </div>
+</div>
+{% endblock %}
