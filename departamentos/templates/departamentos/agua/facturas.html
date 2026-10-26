@@ -66,19 +66,14 @@
   const grid = document.getElementById('grid');
 
   const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
+  // Misma regla que servicios.costo_agua: tarifa plana por rango (todos los m³ a la
+  // tarifa del rango en que cae el consumo; tope inclusivo). `tramos` viene ordenado.
   function costo(m3) {
     m3 = Number(m3) || 0;
     if (m3 <= 0) return 0;
-    let total = 0, piso = 0;
-    for (const t of tramos) {
-      if (m3 <= piso) break;
-      const tope = (t.limite == null) ? m3 : t.limite;
-      const cant = Math.min(m3, tope) - piso;
-      if (cant > 0) total += cant * t.tarifa;
-      piso = tope;
-      if (t.limite == null) break;
-    }
-    return r2(total);
+    const t = tramos.find(t => t.limite == null || m3 <= t.limite);
+    // toFixed evita errores de float al redondear (74.335 → 74.34, como Decimal).
+    return t ? Math.round(Number((m3 * t.tarifa * 100).toFixed(6))) / 100 : 0;
   }
   function num(v) { const n = parseNum(v); return n == null ? 0 : n; }
   // Número pegado desde Excel: "1889.54", "1889,54", "1,889.54", "1.889,54", " S/ 12 " → número; vacío → null.

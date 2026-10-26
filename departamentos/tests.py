@@ -299,3 +299,24 @@ class CuotaExtraordinariaTests(TestCase):
         from departamentos.forms import GastoFijoForm
         codigos = [c.codigo for c in GastoFijoForm().fields['concepto'].queryset]
         self.assertEqual(codigos, ['CUOTA'])
+
+
+class CostoAguaPlanaTests(TestCase):
+    """Tarifa plana por rango (Excel del condominio): todos los m³ a la tarifa del
+    rango en que cae el consumo. Valores reales de la planilla de julio."""
+
+    def setUp(self):
+        from departamentos.models import TarifaAgua
+        TarifaAgua.objects.create(nombre='0-20', consumo_limite=D('20'), tarifa=D('3.931'))
+        TarifaAgua.objects.create(nombre='20-50', consumo_limite=D('50'), tarifa=D('5.524'))
+        TarifaAgua.objects.create(nombre='50+', consumo_limite=None, tarifa=D('5.524'))
+
+    def test_coincide_con_excel(self):
+        for m3, esperado in [('3.80', '14.94'), ('8.89', '34.95'), ('2.23', '8.77'),
+                             ('7.94', '31.21'), ('18.91', '74.34'), ('0', '0.00')]:
+            self.assertEqual(s.costo_agua(D(m3)), D(esperado), m3)
+
+    def test_sobre_20_todo_a_la_tarifa_alta(self):
+        self.assertEqual(s.costo_agua(D('20')), D('78.62'))    # tope inclusivo: 20 × 3.931
+        self.assertEqual(s.costo_agua(D('25')), D('138.10'))   # 25 × 5.524, no por tramos
+        self.assertEqual(s.costo_agua(D('60')), D('331.44'))   # rango sin tope

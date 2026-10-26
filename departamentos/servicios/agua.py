@@ -4,15 +4,21 @@ from decimal import Decimal
 from django.db import transaction
 
 from ..models import Departamento, LecturaMedidor, TarifaAgua
-from .comun import CERO, TRUNCAR_DECIMAS, aplicar_redondeo, escalonar, redondear
+from .comun import CERO, TRUNCAR_DECIMAS, aplicar_redondeo, escalonar, ordenar_tramos, redondear
 
 
 def costo_agua(m3):
-    """Costo del agua por tramos acumulativos según los tramos activos
-    (0–20 a 3.93, 20–50 a 5.52, etc.)."""
-    tramos = TarifaAgua.objects.filter(activo=True)
-    return redondear(sum((cant * t.tarifa for t, cant in escalonar(Decimal(m3), tramos, 'consumo_limite')),
-                         Decimal('0')))
+    """Costo del agua con tarifa plana por rango (como el Excel del condominio):
+    TODOS los m³ se cobran a la tarifa del rango en que cae el consumo total.
+    Ej.: 18 m³ → 18 × 3.931 (rango 0–20); 25 m³ → 25 × 5.524 (rango 20–50).
+    El tope de cada rango es inclusivo (20 m³ va en 0–20)."""
+    m3 = Decimal(m3)
+    if m3 <= 0:
+        return CERO
+    for t in ordenar_tramos(TarifaAgua.objects.filter(activo=True), 'consumo_limite'):
+        if t.consumo_limite is None or m3 <= t.consumo_limite:
+            return redondear(m3 * t.tarifa)
+    return CERO
 
 
 def calcular_agua_sedapal(m3, version, estrategia=TRUNCAR_DECIMAS):
