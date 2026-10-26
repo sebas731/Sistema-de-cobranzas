@@ -20,6 +20,11 @@
   <form method="get" class="d-flex gap-2 align-items-end">
     <div>{{ periodo_form.mes }}</div>
     <div>{{ periodo_form.anio }}</div>
+    <div>
+      <select name="meses" class="form-select" title="Meses a ver (actual y anteriores)">
+        {% for n in meses_opciones %}<option value="{{ n }}"{% if n == n_meses %} selected{% endif %}>{{ n }} meses</option>{% endfor %}
+      </select>
+    </div>
     <button class="btn btn-success">Ver mes</button>
   </form>
 </div>
@@ -39,11 +44,14 @@
 <p class="fa-hint">
   Doble clic en una celda para editarla (<strong>Depto</strong>, <strong>Lect. actual</strong>,
   <strong>m³</strong>, <strong>Costo</strong>). Al cambiar la lectura o los m³, el costo se recalcula con la tarifa.
+  Para cargar todo el mes: copia la columna de lecturas en Excel, haz clic en la primera celda de
+  <strong>Lect. actual</strong> y pega con <strong>Ctrl+V</strong> (se llena hacia abajo, en el orden de la tabla).
   El 📌 en la cabecera de cada columna la fija a la izquierda. Pulsa <strong>Guardar cambios</strong> para registrar.
 </p>
 
 {{ filas_json|json_script:"filasData" }}
 {{ tramos_json|json_script:"tramosData" }}
+{{ historial_json|json_script:"historialData" }}
 {% endblock %}
 
 {% block extra_js %}
@@ -54,6 +62,7 @@
   const CSRF = '{{ csrf_token }}';
   const rows = JSON.parse(document.getElementById('filasData').textContent);
   const tramos = JSON.parse(document.getElementById('tramosData').textContent);
+  const historial = JSON.parse(document.getElementById('historialData').textContent);
   const grid = document.getElementById('grid');
 
   const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
@@ -71,12 +80,26 @@
     }
     return r2(total);
   }
-  function num(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
+  function num(v) { const n = parseNum(v); return n == null ? 0 : n; }
+  // Número pegado desde Excel: "1889.54", "1889,54", "1,889.54", "1.889,54", " S/ 12 " → número; vacío → null.
+  function parseNum(v) {
+    if (v == null) return null;
+    if (typeof v === 'number') return isNaN(v) ? null : v;
+    let s = String(v).replace(/[^\d.,-]/g, '');
+    if (!s) return null;
+    const p = s.lastIndexOf('.'), c = s.lastIndexOf(',');
+    if (p >= 0 && c >= 0) s = p > c ? s.replace(/,/g, '') : s.replace(/\./g, '').replace(',', '.');
+    else if (c >= 0) s = (s.match(/,/g).length === 1 && /,\d{1,2}$/.test(s)) ? s.replace(',', '.') : s.replace(/,/g, '');
+    const n = Number(s);
+    return isNaN(n) ? null : n;
+  }
   rows.forEach(r => { if (r.m3 != null) { r.m3 = r2(r.m3); r.costo = costo(r.m3); } });
 
   const columns = [
     { prop: 'numero', name: 'Depto', size: 120, filter: true },
     { prop: 'propietario', name: 'Propietario', size: 210, readonly: true, filter: true },
+    // Meses previos (solo consulta), del más antiguo al más reciente.
+    ...historial.map(h => ({ prop: h.prop, name: h.nombre, size: 125, readonly: true })),
     { prop: 'anterior', name: 'Lect. {{ mes_anterior|escapejs }}', size: 135, readonly: true },
     { prop: 'actual', name: 'Lect. {{ mes_actual|escapejs }}', size: 135 },
     { prop: 'm3', name: 'm³', size: 100, filter: true },
@@ -131,22 +154,33 @@
 
   function setupGrid() {
     grid.filter = true;
+    grid.range = true;          // selección de rangos: pegar una columna/bloque copiado de Excel (Ctrl+V)
+    grid.useClipboard = true;
     grid.columns = columns;
     grid.source = rows;
 
     grid.addEventListener('afteredit', (e) => {
       const d = e.detail || {};
-      const apply = (rowIndex, prop, val) => {
-        const r = rows[rowIndex];
+      // La fila editada es el objeto del grid (sirve también con la búsqueda activa).
+      const apply = (r, prop, val) => {
         if (!r) return;
+        const n = parseNum(val);
         // Sin lectura anterior (primera del depto) la actual es solo la base: 0 m³.
-        if (prop === 'actual') { r.actual = r2(num(val)); r.m3 = r.anterior == null ? 0 : r2(Math.max(r.actual - num(r.anterior), 0)); r.costo = costo(r.m3); }
+        if (prop === 'actual') {
+          r.actual = n == null ? null : r2(n);
+          r.m3 = r.actual == null ? null : (r.anterior == null ? 0 : r2(Math.max(r.actual - num(r.anterior), 0)));
+          r.costo = r.m3 == null ? null : costo(r.m3);
+        }
         else if (prop === 'm3') { r.m3 = r.anterior == null ? 0 : r2(num(val)); if (r.anterior != null) r.actual = r2(num(r.anterior) + r.m3); r.costo = costo(r.m3); }
         else if (prop === 'costo') { r.costo = r2(num(val)); }
         else { r[prop] = val; }
       };
-      if (d.prop !== undefined) apply(d.rowIndex, d.prop, d.val);
-      else if (d.data) { for (const ri in d.data) for (const p in d.data[ri]) apply(Number(ri), p, d.data[ri][p]); }
+      const fila = (ri, model) => model || grid.source[ri] || rows[ri];
+      if (d.prop !== undefined) apply(fila(d.rowIndex, d.model), d.prop, d.val);
+      else if (d.data) {
+        // Pegado / rango: d.data = { filaIndex: { prop: valor } }
+        for (const ri in d.data) for (const p in d.data[ri]) apply(fila(Number(ri), d.models && d.models[ri]), p, d.data[ri][p]);
+      }
       refresh();
       setTimeout(injectPins, 60);
     });

@@ -244,6 +244,15 @@ class CadenaLecturasTests(TestCase):
     def test_no_puede_bajar_del_mes_previo(self):
         self.assertIn('menor que la lectura de 08/2026 (100)', s.validar_lectura(self.dep, self.sep, D('90')))
 
+    def test_facturas_muestra_meses_anteriores(self):
+        from django.contrib.auth.models import User
+        self.client.force_login(User.objects.create_user('agua2'))
+        r = self.client.get('/facturas-agua/?mes=11&anio=2026&meses=6')
+        self.assertEqual([h['nombre'] for h in r.context['historial_json']],
+                         ['Lect. Jun 2026', 'Lect. Jul 2026', 'Lect. Ago 2026', 'Lect. Set 2026'])
+        fila = next(f for f in r.context['filas_json'] if f['pk'] == self.dep.pk)
+        self.assertEqual((fila['h202608'], fila['h202609'], fila['anterior']), (100.0, 120.0, 150.0))
+
     def test_vista_rechaza_y_no_guarda_nada(self):
         from django.contrib.auth.models import User
         self.client.force_login(User.objects.create_user('agua'))

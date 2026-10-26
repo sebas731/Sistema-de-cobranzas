@@ -96,6 +96,16 @@ def _mes_corto(anio, mes):
     return f'{MESES_ES[mes][:3]} {anio}'
 
 
+# Opciones de "meses a ver" en Facturas de agua (actual + anteriores).
+MESES_VISIBLES = (2, 3, 6, 12)
+
+
+def _mes_menos(periodo, k):
+    """Día 1 del mes que está `k` meses antes de `periodo`."""
+    n = periodo.year * 12 + periodo.month - 1 - k
+    return date(n // 12, n % 12 + 1, 1)
+
+
 @login_required
 def facturas_agua(request):
     """Tabla editable (RevoGrid) de lecturas/consumo de agua por departamento.
@@ -109,6 +119,16 @@ def facturas_agua(request):
         payload = leer_json(request)
         return json_invalido() if payload is None else _guardar_facturas(payload, periodo)
 
+    # Cuántos meses se ven (actual + anteriores). Los anteriores al mes previo son solo consulta.
+    try:
+        n_meses = int(request.GET.get('meses') or 3)
+    except ValueError:
+        n_meses = 3
+    n_meses = n_meses if n_meses in MESES_VISIBLES else 3
+    historial = [_mes_menos(periodo, k) for k in range(n_meses - 1, 1, -1)]  # del más antiguo al de hace 2 meses
+    lecturas_hist = {(l.departamento_id, l.periodo): l.lectura_actual
+                     for l in LecturaMedidor.objects.filter(periodo__in=historial)}
+
     filas = []
     for dep in Departamento.objects.filter(activo=True):
         actual, anterior = lectura_del_mes(dep, periodo)
@@ -116,20 +136,26 @@ def facturas_agua(request):
         m3 = None
         if actual:
             m3 = max(actual.lectura_actual - anterior, Decimal('0')) if anterior is not None else Decimal('0')
-        filas.append({'pk': dep.id, 'numero': dep.numero_domicilio, 'propietario': dep.propietario,
-                      'anterior': _f(anterior),
-                      'actual': _f(actual.lectura_actual) if actual else None,
-                      'm3': _f(m3), 'costo': None})
+        fila = {'pk': dep.id, 'numero': dep.numero_domicilio, 'propietario': dep.propietario,
+                'anterior': _f(anterior),
+                'actual': _f(actual.lectura_actual) if actual else None,
+                'm3': _f(m3), 'costo': None}
+        for p in historial:
+            fila[f'h{p:%Y%m}'] = _f(lecturas_hist.get((dep.id, p)))
+        filas.append(fila)
 
     tramos = ordenar_tramos(TarifaAgua.objects.filter(activo=True), 'consumo_limite')
-    previo = (periodo.year - 1, 12) if periodo.month == 1 else (periodo.year, periodo.month - 1)
+    previo = _mes_menos(periodo, 1)
 
     return render(request, 'departamentos/agua/facturas.html', {
         'periodo_form': form, 'periodo': periodo,
         'filas_json': filas, 'n_filas': len(filas),
         'tramos_json': [{'limite': _f(t.consumo_limite), 'tarifa': _f(t.tarifa)} for t in tramos],
-        # Etiquetas informativas de mes (periodo actual y el anterior) para las columnas.
-        'mes_actual': _mes_corto(periodo.year, periodo.month), 'mes_anterior': _mes_corto(*previo),
+        # Etiquetas de mes para las columnas: historial (solo vista), anterior y actual.
+        'historial_json': [{'prop': f'h{p:%Y%m}', 'nombre': f'Lect. {_mes_corto(p.year, p.month)}'}
+                           for p in historial],
+        'meses_opciones': MESES_VISIBLES, 'n_meses': n_meses,
+        'mes_actual': _mes_corto(periodo.year, periodo.month), 'mes_anterior': _mes_corto(previo.year, previo.month),
     })
 
 
