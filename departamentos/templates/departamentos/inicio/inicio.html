@@ -1,0 +1,66 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% block title %}Inicio{% endblock %}
+
+
+{% block content %}
+<div class="home-hi">
+  <h1>Hola, <span class="text-gradient">{{ user.username|title }}</span></h1>
+  <p>¿Qué quieres hacer hoy?</p>
+</div>
+
+<div class="home-grid">
+  <a class="hc hc--aubergine" href="{% url 'panel' %}">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-calendar"/></svg></span> Panel del mes</div>
+    <div class="hc__body"><p class="hc__desc">Todo el mes en una tabla: cargos, pagos y saldos por departamento.</p></div>
+  </a>
+
+  <a class="hc hc--plum" href="{% url 'deudores' %}">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-people"/></svg></span> Deudores</div>
+    <div class="hc__body"><p class="hc__desc">Quién debe y cuánto, al día.</p></div>
+  </a>
+
+  <a class="hc hc--iris" href="{% url 'registrar_pagos' %}">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-cash"/></svg></span> Registrar pagos</div>
+    <div class="hc__body"><p class="hc__desc">Marca los pagos recibidos de cada departamento.</p></div>
+  </a>
+
+  <a class="hc hc--shadow" href="{% url 'generar_recibos' %}">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-receipt"/></svg></span> Recibos</div>
+    <div class="hc__body"><p class="hc__desc">Genera e imprime los recibos del mes.</p></div>
+  </a>
+
+  <a class="hc hc--channel" href="{% url 'facturas_agua' %}">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-droplet"/></svg></span> Facturas de agua</div>
+    <div class="hc__body"><p class="hc__desc">Tabla editable: m³, lecturas y costo por depto, con columnas fijables.</p></div>
+  </a>
+
+  <a class="hc hc--midblue" href="{% url 'gastos_mes' %}">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-file"/></svg></span> Gastos del mes</div>
+    <div class="hc__body"><p class="hc__desc">Registra los gastos del edificio del mes.</p></div>
+  </a>
+
+  <a class="hc hc--sky" href="{% url 'registrar_cargos' %}">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-alert"/></svg></span> Multas / cargos</div>
+    <div class="hc__body"><p class="hc__desc">Asigna multas, moras o cargos extra.</p></div>
+  </a>
+
+  <a class="hc hc--carbon" href="{% url 'departamento_lista' %}">
+    <div class="hc__head"><span class="hc__ico"><svg><use href="#i-building"/></svg></span> Departamentos</div>
+    <div class="hc__body">
+      <p class="hc__desc">Lista y datos de cada departamento.</p>
+      <span class="hc__stat">{{ n_deptos }} activos</span>
+    </div>
+  </a>
+</div>
+
+<div class="home-more">
+  <div class="home-more__title eyebrow">Configuración y reportes</div>
+  <div class="home-more__links">
+    <a href="{% url 'balance' %}"><svg><use href="#i-grid"/></svg> Balance general</a>
+    <a href="{% url 'gastos_fijos' %}"><svg><use href="#i-sliders"/></svg> Gastos fijos</a>
+    <a href="{% url 'tarifas' %}"><svg><use href="#i-droplet"/></svg> Tarifa de agua</a>
+    <a href="{% url 'proveedores' %}"><svg><use href="#i-truck"/></svg> Proveedores</a>
+    <a href="{% url 'importar_excel' %}"><svg><use href="#i-upload"/></svg> Importar Excel</a>
+  </div>
+</div>
+{% endblock %}

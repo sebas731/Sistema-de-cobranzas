@@ -33,13 +33,15 @@ def datos_boleta(departamento, periodo):
     cargos = list(departamento.cargos.filter(periodo=periodo)
                   .select_related('concepto').prefetch_related('imputaciones'))
 
-    mant_items, mant_total, agua_total = [], CERO, CERO
+    items, mant_items, mant_total, agua_total = [], [], CERO, CERO
     saldo_mes, hay_vencido, hay_agua = CERO, False, False
     hoy = timezone.localdate()
     for c in sorted(cargos, key=lambda x: x.concepto.orden):
         if c.monto == 0:
             continue
         saldo_mes += c.saldo
+        nombre = f'{c.concepto.nombre} ({c.descripcion})' if c.descripcion else c.concepto.nombre
+        items.append({'codigo': c.concepto.codigo, 'nombre': nombre, 'monto': c.monto})
         if c.saldo > 0 and c.fecha_vencimiento < hoy:
             hay_vencido = True
         if c.concepto.codigo == Concepto.AGUA:
@@ -67,6 +69,7 @@ def datos_boleta(departamento, periodo):
         'periodo': periodo,
         'emision': min((c.fecha_emision for c in cargos), default=None),
         'vencimiento': min((c.fecha_vencimiento for c in cargos), default=None),
+        'items': items,  # todas las líneas del mes en orden de concepto (agua incluida)
         'mant_items': mant_items,
         'mant_total': mant_total,
         'agua_total': agua_total,

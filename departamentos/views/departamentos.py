@@ -19,7 +19,7 @@ from .comun import EditarView
 class DepartamentoCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = Departamento
     form_class = DepartamentoForm
-    template_name = 'departamentos/departamento_form.html'
+    template_name = 'departamentos/departamentos/form.html'
     success_url = reverse_lazy('departamento_lista')
     success_message = 'Departamento registrado.'
 
@@ -27,7 +27,7 @@ class DepartamentoCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView
 class DepartamentoUpdateView(EditarView):
     model = Departamento
     form_class = DepartamentoForm
-    template_name = 'departamentos/departamento_form.html'
+    template_name = 'departamentos/departamentos/form.html'
     extra_context = {'titulo': 'Editar Departamento'}
     success_message = 'Departamento actualizado.'
 
@@ -45,7 +45,7 @@ _FILTROS_SI_NO = {
 
 class DepartamentoListView(LoginRequiredMixin, ListView):
     model = Departamento
-    template_name = 'departamentos/departamento_lista.html'
+    template_name = 'departamentos/departamentos/lista.html'
     context_object_name = 'departamentos'
     paginate_by = 15
 
@@ -107,7 +107,7 @@ def departamento_detalle(request, pk):
     pagos = list(departamento.pagos.select_related('concepto').prefetch_related('imputaciones'))
     facturado = sum((c.monto for c in cargos), Decimal('0.00'))
     cobrado = sum((c.total_imputado for c in cargos), Decimal('0.00'))
-    return render(request, 'departamentos/departamento_detalle.html', {
+    return render(request, 'departamentos/departamentos/detalle.html', {
         'departamento': departamento, 'cargos': cargos, 'pagos': pagos,
         'pago_form': PagoForm(), 'cargo_form': CargoForm(),
         'facturado': facturado, 'cobrado': cobrado, 'saldo': facturado - cobrado,

@@ -129,6 +129,16 @@ class ReciboCompletoTests(TestCase):
         # total a pagar = total del mes (153.10) + deuda (60) − saldo a favor (100)
         self.assertEqual(r['total_pagar'], D('113.10'))
 
+    def test_boleta_en_layout_con_formato_fisico(self):
+        from django.contrib.auth.models import User
+        self.client.force_login(User.objects.create_user('caja'))
+        s.crear_cargo(self.dep, Concepto.objects.get(codigo='MANTENIMIENTO'), self.periodo, D('58.00'))
+        resp = self.client.get(f'/departamentos/{self.dep.pk}/boleta/?mes=5&anio=2026')
+        self.assertContains(resp, 'class="recibo-mantenimiento"')
+        self.assertContains(resp, 'class="sidebar')  # dentro del layout del sistema
+        self.assertContains(resp, 'TOTAL A PAGAR')
+        self.assertContains(resp, 'S/. 58.00')
+
 
 class RegistroPagoTests(TestCase):
     """Reglas del formulario de pago: General/Automático salda lo más antiguo;

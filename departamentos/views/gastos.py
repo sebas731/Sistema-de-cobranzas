@@ -16,14 +16,14 @@ from .comun import EditarView, json_invalido, leer_json, lista_con_alta, periodo
 @login_required
 def gastos_fijos(request):
     return lista_con_alta(request, form_class=GastoFijoForm, queryset=GastoFijo.objects.all(),
-                          template='departamentos/gastos_fijos.html', contexto='gastos',
+                          template='departamentos/gastos/fijos.html', contexto='gastos',
                           campo_id='gasto_id', nombre='Gasto fijo')
 
 
 class GastoFijoUpdateView(EditarView):
     model = GastoFijo
     form_class = GastoFijoForm
-    template_name = 'departamentos/gasto_fijo_form.html'
+    template_name = 'departamentos/gastos/fijo_form.html'
     success_url = reverse_lazy('gastos_fijos')
     extra_context = {'titulo': 'Editar gasto fijo'}
     success_message = 'Gasto fijo actualizado.'
@@ -64,7 +64,7 @@ def gastos_mes(request):
         return json_invalido() if payload is None else _guardar_gastos(payload, periodo)
 
     gastos = GastoEdificio.objects.filter(periodo=periodo).prefetch_related('departamentos')
-    return render(request, 'departamentos/gastos_mes.html', {
+    return render(request, 'departamentos/gastos/mes.html', {
         'periodo_form': form, 'periodo': periodo, 'datos': prorrateo_mes(periodo),
         'gastos_json': [{'id': g.id, 'descripcion': g.descripcion, 'monto': float(g.monto),
                          'categoria': g.categoria, 'compartido': g.compartido,

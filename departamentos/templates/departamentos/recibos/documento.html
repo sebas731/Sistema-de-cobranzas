@@ -1,0 +1,24 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% load static %}
+{# Recibo de mantenimiento dentro del layout. El documento (components/recibo_mantenimiento.html) #}
+{# tiene su CSS aislado; al imprimir / guardar PDF solo queda la hoja A4, sin layout. #}
+{% block title %}Recibo {{ r.departamento.numero_domicilio }} · {{ r.periodo|date:"m/Y" }}{% endblock %}
+
+{% block extra_head %}
+<link href="{% static 'css/recibo_mantenimiento.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="page-header no-print">
+  <div>
+    <a href="{{ volver }}" class="btn btn-link px-0">&larr; Volver</a>
+    <h1 class="page-header__title">Recibo {{ r.departamento.numero_domicilio }} · {{ r.periodo|date:"F Y"|capfirst }}</h1>
+  </div>
+  <div class="d-flex gap-2">
+    <button type="button" onclick="window.print()" class="btn btn-outline-secondary">Imprimir</button>
+    <button type="button" onclick="window.print()" class="btn btn-success">Descargar PDF</button>
+  </div>
+</div>
+
+{% include 'departamentos/components/recibo_mantenimiento.html' %}
+{% endblock %}

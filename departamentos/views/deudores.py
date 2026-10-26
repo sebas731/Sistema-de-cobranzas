@@ -93,7 +93,7 @@ def vista_deudores(request):
                      'pct': int(f['total'] / max_t * 100) if max_t else 0}
                     for f in filas[:8]]
 
-    return render(request, 'departamentos/deudores.html', {
+    return render(request, 'departamentos/deudores/deudores.html', {
         'periodo_form': form, 'periodo': periodo, 'filas': filas,
         'conceptos': list(Concepto.objects.order_by('orden').values_list('codigo', 'nombre')),
         'kpi': {'total': tot_general, 'n_deudores': n_deud, 'vencido': tot_vencido,

@@ -1,0 +1,91 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% load l10n %}
+{% block title %}Lecturas de agua {{ anio }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Lecturas de agua</h1>
+    <p class="page-header__subtitle">Lectura del medidor y consumo de cada departamento, mes a mes. Solo vista: las lecturas se cargan en <a href="{% url 'facturas_agua' %}">Facturas de agua</a>.</p>
+  </div>
+</div>
+
+{# Filtro: año + buscador, en una sola fila #}
+<div class="bal-filtro">
+  <div class="stepper">
+    <a class="stepper__btn" href="?anio={{ anio_prev|unlocalize }}" aria-label="Año anterior">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg></a>
+    <span class="stepper__label">{{ anio|unlocalize }}</span>
+    <a class="stepper__btn" href="?anio={{ anio_sig|unlocalize }}" aria-label="Año siguiente">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5" /></svg></a>
+  </div>
+  {% if anio != anio_hoy %}<a class="bal-filtro__hoy" href="?anio={{ anio_hoy|unlocalize }}">Ir al año actual</a>{% endif %}
+  <div class="fbar__search lect-buscar">
+    <svg class="fbar__ico" width="16" height="16"><use href="#i-search"/></svg>
+    <input type="search" id="lectBuscar" class="form-control" placeholder="Buscar depto o propietario">
+  </div>
+</div>
+
+{% if n_lecturas %}
+<div class="lect-resumen">
+  <span><strong>{{ total_anio|floatformat:2 }} m³</strong> consumidos en {{ anio|unlocalize }}</span>
+  <span class="text-muted">Cada celda: lectura del medidor y, debajo, los m³ del mes.</span>
+</div>
+
+<div class="table-card table-card--tall">
+  <table class="table ds-table lect-tabla" id="lectTabla">
+    <thead>
+      <tr>
+        <th class="lect-tabla__depto">Depto</th>
+        {% for m in meses %}<th class="num{% if not m.con_datos %} lect-tabla__vacio{% endif %}">{{ m.nombre }}</th>{% endfor %}
+        <th class="num">Total m³</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in filas %}
+      <tr data-buscar="{{ f.dep.numero_domicilio }} {{ f.dep.propietario|lower }}">
+        <td class="lect-tabla__depto">
+          <span class="fw-semibold">{{ f.dep.numero_domicilio }}</span>
+          <span class="lect-tabla__prop">{{ f.dep.propietario }}</span>
+        </td>
+        {% for c in f.celdas %}
+        <td class="num">
+          {% if c.lectura != None %}
+          <span class="lect-tabla__lect">{{ c.lectura|floatformat:2 }}</span>
+          <span class="lect-tabla__m3">{{ c.m3|floatformat:2 }} m³</span>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        {% endfor %}
+        <td class="num fw-semibold">{{ f.total|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td class="lect-tabla__depto">Total m³</td>
+        {% for m in meses %}<td class="num">{% if m.con_datos %}{{ m.total|floatformat:2 }}{% else %}—{% endif %}</td>{% endfor %}
+        <td class="num">{{ total_anio|floatformat:2 }}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  {% include 'departamentos/components/empty_state.html' with icon="droplet" title="Sin lecturas en este año" text="Prueba con otro año o carga las lecturas en Facturas de agua." %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const input = document.getElementById('lectBuscar');
+  if (!input) return;
+  const filas = document.querySelectorAll('#lectTabla tbody tr');
+  input.addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    filas.forEach(tr => { tr.hidden = !!q && !tr.dataset.buscar.includes(q); });
+  });
+})();
+</script>
+{% endblock %}

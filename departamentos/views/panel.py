@@ -53,8 +53,28 @@ def panel(request):
              and F.en_rango(f['total'], request, 'total')
              and F.en_rango(f['saldo'], request, 'saldo')]
 
-    return render(request, 'departamentos/panel.html', {
-        'periodo_form': form, 'periodo': periodo, 'filas': filas,
+
+    # filas JSON
+
+    filas_json = [  {
+
+    'pk': item['departamento'].pk,
+    'numero': item['departamento'].numero_domicilio,
+    'propietario': item['departamento'].propietario,
+    'mantenimiento': float(item['MANTENIMIENTO']),
+    'agua': float(item['AGUA']),
+    'area_comun': float(item['AREA_COMUN']),
+    'cochera': float(item['COCHERA']),
+    'otros': float(item['extras']),
+    'total': float(item['total']),
+    'pagado': float(item['pagado']),
+    'saldo': float(item['saldo']),
+    'cobrar': float(item['saldo']),   
+
+    } for item in filas]
+
+    return render(request, 'departamentos/panel/panel.html', {
+        'periodo_form': form, 'periodo': periodo, 'filas': filas,'filas_json':filas_json,
         'tot': _sumar(filas, COLUMNAS_MES + ('extras', 'total', 'pagado', 'saldo')),
         'n_deudores': sum(1 for f in filas if f['saldo'] > 0),
         'n_pagados': sum(1 for f in filas if f['total'] > 0 and f['saldo'] <= 0),
@@ -72,7 +92,7 @@ def balance_mes(request):
     tot = _sumar(filas, ('total', 'pagado', 'AGUA'))
     tot_m3 = sum((l.m3_consumidos for l in LecturaMedidor.objects.filter(periodo=periodo)), CERO)
 
-    return render(request, 'departamentos/balance_mes.html', {
+    return render(request, 'departamentos/panel/balance_mes.html', {
         'periodo_form': form, 'periodo': periodo, 'filas': filas,
         'tot_facturado': tot['total'], 'tot_pagado': tot['pagado'],
         'tot_pendiente': tot['total'] - tot['pagado'],

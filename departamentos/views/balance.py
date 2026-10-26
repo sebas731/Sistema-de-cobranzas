@@ -6,8 +6,8 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
-from ..forms import MESES_ES, MesAnioForm
-from ..models import GastoEdificio, GastoFijo, Pago
+from ..forms import MESES_ES
+from ..models import Concepto, GastoEdificio, GastoFijo, Pago
 
 CERO = Decimal('0.00')
 
@@ -58,22 +58,92 @@ def _balance_egresos(anio, mes):
     return total, _ordenar_filas(agg, lambda v: v['n']), movs
 
 
-def _pct(valor, maximo):
-    return int(valor / maximo * 100) if maximo else 0
-
-
-def _barras(d):
-    mx = max(d.values()) if d else Decimal('1')
-    return sorted(({'nombre': k, 'monto': v, 'pct': _pct(v, mx)} for k, v in d.items()),
-                  key=lambda x: x['monto'], reverse=True)
-
-
 def _tono(saldo):
     return 'success' if saldo >= 0 else 'danger'
 
 
 def _filas_texto(filas):
     return [{'nombre': x['nombre'], 'movs': x['movs'], 'monto': f'{x["monto"]:.2f}'} for x in filas]
+
+
+def _mes_anterior(anio, mes):
+    return (anio - 1, 12) if mes == 1 else (anio, mes - 1)
+
+
+def _variacion(actual, anterior, sube_es_bueno=True):
+    """Flecha frente al periodo anterior: {dir: up|down|flat, monto, pct, tono}."""
+    dif = actual - anterior
+    if dif == 0:
+        return {'dir': 'flat', 'monto': f'{CERO:.2f}', 'pct': None, 'tono': 'muted'}
+    bueno = (dif > 0) == sube_es_bueno
+    pct = int(abs(dif) / abs(anterior) * 100) if anterior else None
+    return {'dir': 'up' if dif > 0 else 'down', 'monto': f'{abs(dif):.2f}', 'pct': pct,
+            'tono': 'success' if bueno else 'danger'}
+
+
+def _dona(filas, maximo=5):
+    """Parte-del-todo para la dona: los `maximo` conceptos más grandes y el resto en
+    «Otros» (el color sigue al orden de tamaño). [{nombre, monto(str), pct}]."""
+    total = sum((f['monto'] for f in filas), CERO)
+    top, resto = filas[:maximo], filas[maximo:]
+    partes = [(f['nombre'], f['monto']) for f in top]
+    if resto:
+        partes.append(('Otros', sum((f['monto'] for f in resto), CERO)))
+    return [{'nombre': n, 'monto': f'{m:.2f}', 'pct': round(float(m / total * 100), 1) if total else 0}
+            for n, m in partes if m > 0]
+
+
+def _serie(meses):
+    """[(anio, mes, etiqueta)] -> [{label, ingresos, egresos}] para las barras."""
+    out = []
+    for a, m, label in meses:
+        ing, _, _ = _balance_ingresos(a, m)
+        egr, _, _ = _balance_egresos(a, m)
+        out.append({'label': label, 'ingresos': f'{ing:.2f}', 'egresos': f'{egr:.2f}'})
+    return out
+
+
+def _ultimos_meses(anio, mes, n=6):
+    meses = []
+    for _ in range(n):
+        meses.append((anio, mes, f'{MESES_ES[mes][:3]} {str(anio)[2:]}'))
+        anio, mes = _mes_anterior(anio, mes)
+    return meses[::-1]
+
+
+def _tabla_ingresos(anio, mes=None):
+    """Filas de la tabla «Ingresos» como el Excel de la clienta: un renglón por
+    concepto y el mantenimiento separado por el mes de la deuda que se cobró
+    (Mto. Mayo, Mto. Junio…). Los conceptos manuales activos salen aunque estén
+    en 0; lo pagado sin imputar va en «A cuenta». [{concepto, monto}] (str)."""
+    filtro = {'fecha_pago__year': anio, **({'fecha_pago__month': mes} if mes else {})}
+    pagos = Pago.objects.filter(**filtro).prefetch_related('imputaciones__cargo__concepto')
+    filas = {}  # clave de orden -> [etiqueta, monto]
+    for c in Concepto.objects.filter(activo=True, es_recurrente=False):
+        filas[(c.orden, c.nombre, None)] = [c.nombre, CERO]
+    a_cuenta = CERO
+    for p in pagos:
+        imputado = CERO
+        for i in p.imputaciones.all():
+            c, per = i.cargo.concepto, i.cargo.periodo
+            if c.codigo == Concepto.MANTENIMIENTO:
+                etiqueta = f'Mto. {MESES_ES[per.month]}' + ('' if per.year == anio else f' {per.year}')
+                clave = (c.orden, c.nombre, per)
+            else:
+                etiqueta, clave = c.nombre, (c.orden, c.nombre, None)
+            filas.setdefault(clave, [etiqueta, CERO])[1] += i.monto
+            imputado += i.monto
+        a_cuenta += max(p.monto - imputado, CERO)
+    orden = sorted(filas, key=lambda k: (k[0], k[1], k[2] or date.min))
+    out = [{'concepto': filas[k][0], 'monto': f'{filas[k][1]:.2f}'} for k in orden]
+    if a_cuenta:
+        out.append({'concepto': 'A cuenta', 'monto': f'{a_cuenta:.2f}'})
+    return out
+
+
+def _tabla_egresos(filas):
+    """Filas de la tabla «Egresos»: un renglón por gasto (descripción)."""
+    return [{'concepto': f['nombre'], 'monto': f'{f["monto"]:.2f}'} for f in filas]
 
 
 def _contexto_anual(anio):
@@ -96,29 +166,43 @@ def _contexto_anual(anio):
             'titulo': f'{MESES_ES[m]} {anio}', 'ingresos': f'{ing:.2f}',
             'egresos': f'{egr:.2f}', 'saldo': f'{saldo:.2f}',
             'ing_filas': _filas_texto(ingf), 'egr_filas': _filas_texto(egrf)}
-    max_v = max([x['ingresos'] for x in meses] + [x['egresos'] for x in meses] + [Decimal('1')])
-    for x in meses:
-        x['ing_pct'] = _pct(x['ingresos'], max_v)
-        x['egr_pct'] = _pct(x['egresos'], max_v)
     saldo_anual = tot_ing - tot_egr
-    return dict(meses=meses, tot_ing=tot_ing, tot_egr=tot_egr, saldo_anual=saldo_anual,
-                saldo_tone=_tono(saldo_anual), dist_ing=_barras(dist_ing),
-                dist_egr=_barras(dist_egr), drawer_json=drawer)
+    prev_ing = sum((_balance_ingresos(anio - 1, m)[0] for m in range(1, 13)), CERO)
+    prev_egr = sum((_balance_egresos(anio - 1, m)[0] for m in range(1, 13)), CERO)
+    ing_filas = _ordenar_filas({k: {'monto': v} for k, v in dist_ing.items()}, lambda v: 0)
+    egr_filas = _ordenar_filas({k: {'monto': v} for k, v in dist_egr.items()}, lambda v: 0)
+    return dict(meses=meses, ing_total=tot_ing, egr_total=tot_egr, saldo=saldo_anual,
+                saldo_tone=_tono(saldo_anual), ing_filas=ing_filas, egr_filas=egr_filas,
+                var_ing=_variacion(tot_ing, prev_ing), var_egr=_variacion(tot_egr, prev_egr, False),
+                var_saldo=_variacion(saldo_anual, prev_ing - prev_egr),
+                comparado_con=str(anio - 1), drawer_json=drawer,
+                tablas={'ing': _tabla_ingresos(anio), 'egr': _tabla_egresos(egr_filas),
+                        'ing_total': f'{tot_ing:.2f}', 'egr_total': f'{tot_egr:.2f}'},
+                graficas={'ing': _dona(ing_filas), 'egr': _dona(egr_filas),
+                          'serie': [{'label': x['nombre'][:3], 'ingresos': f'{x["ingresos"]:.2f}',
+                                     'egresos': f'{x["egresos"]:.2f}', 'mes': x['mes']} for x in meses]})
 
 
 def _contexto_mensual(anio, mes):
     ing, ingf, ingm = _balance_ingresos(anio, mes)
     egr, egrf, egrm = _balance_egresos(anio, mes)
     saldo = ing - egr
-    mx = max(ing, egr, Decimal('1'))
     drawer = {}
     for f in ingf:
         drawer['ing::' + f['nombre']] = {'titulo': 'Ingresos · ' + f['nombre'], 'movs': ingm[f['nombre']]}
     for f in egrf:
         drawer['egr::' + f['nombre']] = {'titulo': 'Egresos · ' + f['nombre'], 'movs': egrm[f['nombre']]}
+    pa, pm = _mes_anterior(anio, mes)
+    prev_ing, prev_egr = _balance_ingresos(pa, pm)[0], _balance_egresos(pa, pm)[0]
     return dict(ing_total=ing, egr_total=egr, saldo=saldo, saldo_tone=_tono(saldo),
-                ing_filas=ingf, egr_filas=egrf,
-                ing_pct=int(ing / mx * 100), egr_pct=int(egr / mx * 100), drawer_json=drawer)
+                ing_filas=ingf, egr_filas=egrf, drawer_json=drawer,
+                var_ing=_variacion(ing, prev_ing), var_egr=_variacion(egr, prev_egr, False),
+                var_saldo=_variacion(saldo, prev_ing - prev_egr),
+                comparado_con=MESES_ES[pm].lower(),
+                tablas={'ing': _tabla_ingresos(anio, mes), 'egr': _tabla_egresos(egrf),
+                        'ing_total': f'{ing:.2f}', 'egr_total': f'{egr:.2f}'},
+                graficas={'ing': _dona(ingf), 'egr': _dona(egrf),
+                          'serie': _serie(_ultimos_meses(anio, mes))})
 
 
 @login_required
@@ -136,7 +220,17 @@ def balance(request):
     except ValueError:
         anio, mes = hoy.year, hoy.month
 
-    ctx = {'modo': modo, 'mes': mes, 'anio': anio,
-           'periodo_form': MesAnioForm(initial={'mes': mes, 'anio': anio})}
+    if not 1 <= mes <= 12:
+        mes = hoy.month
+    if modo == 'anual':
+        prev, sig = {'anio': anio - 1}, {'anio': anio + 1}
+        etiqueta = str(anio)
+    else:
+        pa, pm = _mes_anterior(anio, mes)
+        sa, sm = (anio + 1, 1) if mes == 12 else (anio, mes + 1)
+        prev, sig = {'anio': pa, 'mes': pm}, {'anio': sa, 'mes': sm}
+        etiqueta = f'{MESES_ES[mes]} {anio}'
+    ctx = {'modo': modo, 'mes': mes, 'anio': anio, 'etiqueta': etiqueta,
+           'prev': prev, 'sig': sig, 'hoy': {'anio': hoy.year, 'mes': hoy.month}}
     ctx.update(_contexto_anual(anio) if modo == 'anual' else _contexto_mensual(anio, mes))
-    return render(request, 'departamentos/balance.html', ctx)
+    return render(request, 'departamentos/balance/balance.html', ctx)

@@ -1,46 +1,7 @@
-{% extends 'departamentos/base.html' %}
+{% extends 'departamentos/layouts/base.html' %}
 {% load static %}
 {% block title %}Ingresar · Sistema de Cobranzas{% endblock %}
 
-{% block extra_head %}
-<style>
-  .login{ display:flex; min-height:100vh; }
-  /* -------- Izquierda: imagen + overlay + contenido -------- */
-  .login__left{ flex:1; position:relative; display:flex;
-    background:url("/static/img/login-building.webp") center/cover no-repeat; }
-  .login__overlay{ position:absolute; inset:0;
-    background:linear-gradient(155deg, rgba(6,58,38,.86) 0%, rgba(9,45,30,.62) 55%, rgba(12,40,28,.55) 100%); }
-  .login__lc{ position:relative; z-index:1; color:#fff; padding:3rem 3.2rem;
-    display:flex; flex-direction:column; justify-content:space-between; gap:2rem; width:100%; }
-  .login__brand{ display:flex; align-items:center; gap:.65rem; font-weight:700; font-size:1.05rem; }
-  .login__brand .logo{ width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,.18);
-    border:1px solid rgba(255,255,255,.35); display:grid; place-items:center; font-weight:800; }
-  .login__hero h1{ font-size:2rem; font-weight:700; line-height:1.2; letter-spacing:-.01em; margin:0 0 .8rem; max-width:14ch; }
-  .login__hero p{ color:rgba(255,255,255,.82); max-width:38ch; margin:0; }
-  .login__benefits{ display:flex; flex-direction:column; gap:1rem; margin-top:1.8rem; }
-  .benefit{ display:flex; gap:.8rem; align-items:flex-start; }
-  .benefit__ic{ width:38px; height:38px; border-radius:11px; flex:none; display:grid; place-items:center;
-    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.2); }
-  .benefit__ic svg{ width:18px; height:18px; color:#fff; }
-  .benefit b{ display:block; font-size:.95rem; }
-  .benefit span{ color:rgba(255,255,255,.75); font-size:.83rem; }
-  .login__quote{ font-size:1.1rem; font-weight:600; color:rgba(255,255,255,.92); }
-  /* -------- Derecha: card de login -------- */
-  .login__right{ flex:1; position:relative; display:flex; align-items:center; justify-content:center;
-    padding:2rem; background:var(--bg); }
-  .login__topright{ position:absolute; top:1.4rem; right:2rem; color:var(--text-muted); font-size:.85rem;
-    display:flex; align-items:center; gap:.4rem; }
-  .login__card{ width:100%; max-width:500px; background:#fff; border:1px solid var(--border);
-    border-radius:var(--radius-lg); box-shadow:var(--shadow-md); padding:2.6rem 2.4rem; }
-  .login__logo{ width:46px; height:46px; border-radius:13px; background:var(--primary-soft);
-    color:var(--primary-strong); display:grid; place-items:center; font-weight:800; font-size:1.2rem; }
-  .login__card .form-control{ height:48px; }
-  .login__card .input-group .btn{ border-color:var(--gray-300); color:var(--text-muted); }
-  .pw-toggle:hover{ color:var(--primary-strong)!important; }
-  @media (max-width: 991.98px){ .login__left{ flex:0 0 42%; } .login__lc{ padding:2rem; } .login__hero h1{ font-size:1.55rem; } }
-  @media (max-width: 767.98px){ .login__left{ display:none; } }
-</style>
-{% endblock %}
 
 {% block content %}
 <div class="login">
@@ -75,7 +36,7 @@
 
   {# ---------------- Derecha ---------------- #}
   <div class="login__right">
-    <div class="login__topright"><svg width="15" height="15" style="color:var(--primary)"><use href="#i-building"/></svg> Un edificio, una comunidad</div>
+    <div class="login__topright"><svg width="15" height="15"><use href="#i-building"/></svg> Un edificio, una comunidad</div>
 
     <div class="login__card">
       <div class="d-flex align-items-center gap-2 mb-4">
@@ -111,11 +72,11 @@
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-4">
-          <label class="form-check d-flex align-items-center gap-2 mb-0" style="cursor:pointer">
+          <label class="form-check d-flex align-items-center gap-2 mb-0 cursor-pointer">
             <input type="checkbox" name="remember" class="form-check-input mt-0">
             <span class="small">Recordar mi sesión</span>
           </label>
-          <a href="#" class="small text-decoration-none" style="color:var(--primary-strong)">¿Olvidaste tu contraseña?</a>
+          <a href="#" class="small text-decoration-none login__forgot">¿Olvidaste tu contraseña?</a>
         </div>
 
         <button type="submit" class="btn btn-success w-100 py-2" id="loginBtn">

@@ -1,0 +1,227 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% block title %}Deudores{% endblock %}
+
+
+{% block content %}
+{# ---------- Header ---------- #}
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="page-title">Deudores</h1>
+    <p class="page-lead">Resumen de las deudas pendientes de los departamentos.</p>
+  </div>
+  <form method="get" class="d-flex align-items-end gap-2">
+    {{ periodo_form.mes }}{{ periodo_form.anio }}<button class="btn btn-success">Aplicar</button>
+  </form>
+</div>
+
+{# ---------- Filtros (arriba) ---------- #}
+<div class="c c-pad mb-4">
+  <div class="filters">
+    <div class="fsearch">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg>
+      <input id="dzSearch" class="form-control" placeholder="Buscar departamento o propietario...">
+    </div>
+    <select id="fEstado" class="form-select w-170">
+      <option value="">Todos los estados</option>
+      <option value="vencido">Vencido</option><option value="por_vencer">Por vencer</option><option value="pendiente">Pendiente</option>
+    </select>
+    <select id="fConcepto" class="form-select w-190">
+      <option value="">Todos los conceptos</option>
+      {% for cod, nom in conceptos %}<option value="{{ cod }}">{{ nom }}</option>{% endfor %}
+    </select>
+    <input id="fMin" type="number" step="1" class="form-control w-150" placeholder="Deuda mín. S/">
+    <button class="btn btn-outline-secondary" type="button" onclick="dzClear()">Limpiar</button>
+  </div>
+</div>
+
+{# ---------- KPIs ---------- #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="c c-pad kpi">
+    <span class="kpi__ic"><svg><use href="#i-wallet"/></svg></span>
+    <span class="kpi__l">Deuda total</span>
+    <span class="kpi__v">S/ {{ kpi.total|floatformat:2 }}</span>
+    <span class="kpi__s">Saldo pendiente acumulado</span>
+  </div></div>
+  <div class="col-6 col-lg-3"><div class="c c-pad kpi kpi--info">
+    <span class="kpi__ic"><svg><use href="#i-people"/></svg></span>
+    <span class="kpi__l">Departamentos con deuda</span>
+    <span class="kpi__v">{{ kpi.n_deudores }}</span>
+    <span class="kpi__s">Del total de departamentos</span>
+  </div></div>
+  <div class="col-6 col-lg-3"><div class="c c-pad kpi kpi--danger">
+    <span class="kpi__ic"><svg><use href="#i-alert"/></svg></span>
+    <span class="kpi__l">Deuda vencida</span>
+    <span class="kpi__v danger">S/ {{ kpi.vencido|floatformat:2 }}</span>
+    <span class="kpi__s">Requiere gestión prioritaria</span>
+  </div></div>
+  <div class="col-6 col-lg-3"><div class="c c-pad kpi">
+    <span class="kpi__ic"><svg><use href="#i-cash"/></svg></span>
+    <span class="kpi__l">Promedio por deudor</span>
+    <span class="kpi__v">S/ {{ kpi.promedio|floatformat:2 }}</span>
+    <span class="kpi__s">Deuda media por departamento</span>
+  </div></div>
+</div>
+
+{# ---------- Gráficas ---------- #}
+<div class="row g-3 mb-4">
+  <div class="col-lg-7"><div class="c c-pad h-100">
+    <div class="c-title">Top deudores</div>
+    <div class="c-sub mb-3">Departamentos con mayor deuda · clic para ver el detalle</div>
+    {% if top_deudores %}
+    <div class="chart">
+      {% for t in top_deudores %}
+      <div class="bar t-{{ t.estado_tone }}" style="height:{{ t.pct }}%" onclick="dzOpen({{ t.id }})" title="Depto {{ t.numero }} · S/ {{ t.total|floatformat:2 }}"></div>
+      {% endfor %}
+    </div>
+    <div class="chart-x">{% for t in top_deudores %}<span>{{ t.numero }}</span>{% endfor %}</div>
+    {% else %}<div class="text-muted py-5 text-center">Sin deudores este periodo. 🎉</div>{% endif %}
+  </div></div>
+
+  <div class="col-lg-5"><div class="c c-pad h-100">
+    <div class="c-title mb-3">Resumen de cobranza</div>
+    <div class="d-flex justify-content-between mb-2"><span class="text-muted small">Total pendiente</span><span class="amount">S/ {{ resumen.total|floatformat:2 }}</span></div>
+    <div class="d-flex justify-content-between mb-2"><span class="text-muted small">Vencido</span><span class="amount amount--danger">S/ {{ resumen.vencido|floatformat:2 }}</span></div>
+    <div class="d-flex justify-content-between mb-2"><span class="text-muted small">Por vencer</span><span class="amount amount--warning">S/ {{ resumen.por_vencer|floatformat:2 }}</span></div>
+    <div class="d-flex justify-content-between"><span class="text-muted small">Pendiente</span><span class="amount amount--info">S/ {{ resumen.pendiente|floatformat:2 }}</span></div>
+    <hr class="my-3">
+    <div class="text-muted small mb-2">Deuda por concepto</div>
+    {% for g in grafico %}
+    <div class="mb-2">
+      <div class="d-flex justify-content-between small"><span>{{ g.nombre }}</span><span class="text-muted">S/ {{ g.monto|floatformat:2 }}</span></div>
+      <div class="hbar"><span style="width:{{ g.pct }}%"></span></div>
+    </div>
+    {% empty %}<div class="text-muted small">Sin datos.</div>{% endfor %}
+  </div></div>
+</div>
+
+{# ---------- Tabla ---------- #}
+<div class="c">
+  <div class="c-pad pb-2">
+    <div class="c-title">Departamentos con deuda</div>
+    <div class="c-sub">Clic en una fila para ver el detalle completo</div>
+  </div>
+  <div class="table-responsive">
+    <table class="table ds-table ds-table--link ds-table--stack">
+      <thead>
+        <tr><th>Departamento</th><th>Propietario</th><th class="num">Total adeudado</th><th>Estado</th><th></th></tr>
+      </thead>
+      <tbody id="dzRows">
+        {% for f in filas %}
+        <tr class="dz-row" data-search="{{ f.numero|lower }} {{ f.propietario|lower }}"
+            data-estado="{{ f.estado }}" data-conceptos="{{ f.conceptos_cod }}"
+            data-total="{{ f.total|stringformat:'.2f' }}" onclick="dzOpen({{ f.id }})">
+          <td data-label="Departamento" class="fw-semibold">{{ f.numero }}</td>
+          <td data-label="Propietario">{{ f.propietario }}</td>
+          <td data-label="Total" class="num fw-semibold">{% include 'departamentos/components/amount.html' with value=f.total tone=f.total_tone %}</td>
+          <td data-label="Estado">{% include 'departamentos/components/status_badge.html' with text=f.estado_label tone=f.estado_tone %}</td>
+          <td class="num"><span class="link-more">Ver detalle →</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div id="dzEmpty" class="d-none">
+    {% include 'departamentos/components/empty_state.html' with icon="inbox" title="Sin resultados" text="Prueba con otro término o quita los filtros." %}
+  </div>
+  <div class="c-pad d-flex justify-content-between align-items-center flex-wrap gap-2 c-divider">
+    <div class="text-muted small" id="dzCount"></div>
+    <nav><ul class="pagination pagination-sm mb-0" id="dzPager"></ul></nav>
+  </div>
+</div>
+
+{# ---------- Drawer ---------- #}
+<div class="offcanvas offcanvas-end drawer" tabindex="-1" id="dzDrawer">
+  <div class="offcanvas-header border-bottom">
+    <div>
+      <div class="text-muted small">Departamento</div>
+      <h5 class="mb-0" id="dzTitle">—</h5>
+      <div class="text-muted small" id="dzOwner"></div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div class="c c-pad mb-3">
+      <div class="kpi__l">Total adeudado</div>
+      <div class="kpi__v danger" id="dzTotal">—</div>
+      <div id="dzEstado" class="mt-2"></div>
+    </div>
+    <div class="section-title mt-0">Detalle de deuda</div>
+    <div id="dzDesglose"></div>
+    <div class="section-title">Historial de deuda</div>
+    <div id="dzHistorial"></div>
+    <div class="d-grid gap-2 mt-4">
+      <a id="dzPagar" href="#" class="btn btn-success">Registrar pago</a>
+      <a id="dzVer" href="#" class="btn btn-outline-secondary">Ver historial completo</a>
+    </div>
+  </div>
+</div>
+
+{{ drawer_json|json_script:"dz-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const DATA = JSON.parse(document.getElementById('dz-data').textContent);
+  const rows = [...document.querySelectorAll('.dz-row')];
+  const PER = 10; let page = 1;
+  const search = document.getElementById('dzSearch');
+  const fEstado = document.getElementById('fEstado');
+  const fConcepto = document.getElementById('fConcepto');
+  const fMin = document.getElementById('fMin');
+
+  function matches(row) {
+    const q = (search.value || '').trim().toLowerCase();
+    if (q && !row.dataset.search.includes(q)) return false;
+    if (fEstado.value && row.dataset.estado !== fEstado.value) return false;
+    if (fConcepto.value && !row.dataset.conceptos.split(' ').includes(fConcepto.value)) return false;
+    const min = parseFloat(fMin.value) || 0;
+    if (min && parseFloat(row.dataset.total) < min) return false;
+    return true;
+  }
+  function apply() {
+    const visible = rows.filter(matches);
+    const pages = Math.max(1, Math.ceil(visible.length / PER));
+    if (page > pages) page = pages;
+    rows.forEach(r => r.style.display = 'none');
+    visible.slice((page - 1) * PER, page * PER).forEach(r => r.style.display = '');
+    const start = visible.length ? (page - 1) * PER + 1 : 0;
+    const end = Math.min(page * PER, visible.length);
+    document.getElementById('dzCount').textContent = `Mostrando ${start}–${end} de ${visible.length} departamentos`;
+    document.getElementById('dzEmpty').classList.toggle('d-none', visible.length > 0);
+    const pager = document.getElementById('dzPager'); pager.innerHTML = '';
+    const li = (label, p, disabled, active) => {
+      const el = document.createElement('li');
+      el.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+      el.innerHTML = `<a class="page-link" href="#">${label}</a>`;
+      el.querySelector('a').addEventListener('click', e => { e.preventDefault(); if (!disabled && !active) { page = p; apply(); } });
+      pager.appendChild(el);
+    };
+    li('«', page - 1, page <= 1, false);
+    for (let p = 1; p <= pages; p++) li(p, p, false, p === page);
+    li('»', page + 1, page >= pages, false);
+  }
+  [search, fEstado, fConcepto, fMin].forEach(el => el.addEventListener('input', () => { page = 1; apply(); }));
+  apply();
+
+  window.dzClear = function () { fEstado.value = ''; fConcepto.value = ''; fMin.value = ''; search.value = ''; page = 1; apply(); };
+
+  window.dzOpen = function (id) {
+    const d = DATA.find(x => x.id === id); if (!d) return;
+    document.getElementById('dzTitle').textContent = 'Departamento ' + d.numero;
+    document.getElementById('dzOwner').textContent = d.propietario;
+    document.getElementById('dzTotal').textContent = 'S/ ' + d.total;
+    document.getElementById('dzEstado').innerHTML = `<span class="badge-soft badge-soft--${d.estado_tone}">${d.estado_label}</span>`;
+    document.getElementById('dzDesglose').innerHTML = d.desglose.map(x =>
+      `<div class="drawer-row"><span>${x.nombre}</span><span class="amount">S/ ${x.monto}</span></div>`).join('')
+      || '<div class="text-muted small">Sin desglose</div>';
+    document.getElementById('dzHistorial').innerHTML = d.historial.map(x =>
+      `<div class="drawer-row"><span class="text-muted">${x.mes}</span><span class="amount">S/ ${x.monto}</span></div>`).join('')
+      || '<div class="text-muted small">Sin historial</div>';
+    document.getElementById('dzPagar').href = d.url;
+    document.getElementById('dzVer').href = d.url;
+    bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('dzDrawer')).show();
+  };
+})();
+</script>
+{% endblock %}

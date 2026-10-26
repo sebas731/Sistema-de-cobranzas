@@ -1,0 +1,33 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% block title %}Multas / cargos{% endblock %}
+
+{% block content %}
+{% include 'departamentos/components/page_header.html' with title="Multas / cargos" subtitle="Elige el concepto, el mes y los departamentos. El cargo saldrá en su recibo de ese mes." %}
+
+{% include 'departamentos/components/form_card.html' with form=form form_id="formCargo" title="Asignar multa o cargo" submit_label="Asignar" extra="departamentos/cobranza/partials/cargo_resumen.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  // Resumen en vivo: N deptos × monto = total.
+  const form = document.getElementById('formCargo');
+  const monto = form.elements.monto;
+  const resumen = document.getElementById('cargoResumen');
+  const soles = (c) => 'S/ ' + (c / 100).toFixed(2);
+
+  function actualizar() {
+    const n = form.querySelectorAll('[data-msel] input[type=hidden]').length;
+    const cent = Math.round((parseFloat(monto.value) || 0) * 100);
+    resumen.hidden = !(n && cent);
+    if (resumen.hidden) return;
+    resumen.querySelector('[data-detalle]').textContent =
+      n + (n === 1 ? ' departamento' : ' departamentos') + ' × ' + soles(cent);
+    resumen.querySelector('[data-total]').textContent = soles(cent * n);
+  }
+  form.addEventListener('change', actualizar);
+  monto.addEventListener('input', actualizar);
+  actualizar();
+})();
+</script>
+{% endblock %}

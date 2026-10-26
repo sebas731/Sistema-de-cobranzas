@@ -189,6 +189,42 @@ class RegistroPagoForm(forms.Form):
         return datos
 
 
+class MultiBuscadorWidget(forms.SelectMultiple):
+    """Selección múltiple con autocompletado: se escribe el código o el nombre, se elige
+    de la lista y cada elegido queda como chip. Los pks viajan en inputs ocultos con el
+    nombre del campo (el JS de layouts/base.html los arma). Reutilizable."""
+    template_name = 'departamentos/widgets/multi_buscador.html'
+
+
+class CargoMasivoForm(MesAnioForm):
+    """Asignar un mismo cargo (multa, mora, cuota…) a uno o varios deptos en un mes.
+    Solo conceptos manuales: los recurrentes los genera el cierre del mes."""
+    concepto = forms.ModelChoiceField(
+        queryset=Concepto.objects.filter(activo=True, es_recurrente=False),
+        widget=forms.Select(attrs={**_select, 'data-ancho': 'full'}))
+    departamentos = forms.ModelMultipleChoiceField(
+        queryset=Departamento.objects.filter(activo=True),
+        error_messages={'required': 'Elige al menos un departamento.'},
+        widget=MultiBuscadorWidget(attrs={**_control, 'data-ancho': 'full',
+                                          'placeholder': 'Escribe el N° de depto o el propietario'}))
+    monto = forms.DecimalField(
+        label='Monto por depto (S/)', max_digits=10, decimal_places=2, min_value=Decimal('0.01'),
+        widget=forms.NumberInput(attrs={**_control, 'step': '0.01', 'placeholder': '0.00'}))
+    descripcion = forms.CharField(
+        label='Motivo (opcional)', max_length=150, required=False,
+        widget=forms.TextInput(attrs={**_control, 'placeholder': 'Ruido de noche'}))
+
+    field_order = ['concepto', 'mes', 'anio', 'departamentos', 'monto', 'descripcion']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['departamentos'].label_from_instance = (
+            lambda d: f'{d.numero_domicilio} — {d.propietario}')
+        multa = self.fields['concepto'].queryset.filter(codigo='MULTA').first()
+        if multa:
+            self.fields['concepto'].initial = multa.pk
+
+
 class CargoForm(MesAnioForm):
     """Alta de un cargo manual (puertas, cámara, cuota, multa, etc.)."""
     concepto = forms.ModelChoiceField(

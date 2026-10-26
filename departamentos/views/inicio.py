@@ -10,7 +10,7 @@ from ..models import Departamento
 def inicio(request):
     """Pantalla de arranque: panel de trabajo limpio con tarjetas grandes hacia
     las secciones del sistema."""
-    return render(request, 'departamentos/inicio.html', {
+    return render(request, 'departamentos/inicio/inicio.html', {
         'n_deptos': Departamento.objects.filter(activo=True).count(),
     })
 
@@ -18,7 +18,7 @@ def inicio(request):
 @login_required
 def estilos(request):
     """Guía visual (styleguide) del Design System: tokens y componentes."""
-    return render(request, 'departamentos/estilos.html', {})
+    return render(request, 'departamentos/inicio/estilos.html', {})
 
 
 @login_required

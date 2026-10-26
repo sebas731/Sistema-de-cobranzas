@@ -1,0 +1,120 @@
+/* =====================================================================
+   Recibo de mantenimiento: réplica del recibo físico (A4 vertical).
+   Hoja exclusiva: todos los selectores cuelgan de .recibo-mantenimiento,
+   así no la alteran Bootstrap ni el design system (app.css), ni ella a ellos.
+   La misma plantilla sirve para la vista previa y para el PDF (impresión).
+   ===================================================================== */
+
+/* ---------- Reset local: anula lo heredado del sistema ---------- */
+.recibo-mantenimiento,
+.recibo-mantenimiento * {
+  box-sizing: border-box; margin: 0; padding: 0; border: 0;
+  font: inherit; color: inherit; letter-spacing: normal; text-transform: none;
+  background: transparent; box-shadow: none; border-radius: 0; text-shadow: none;
+}
+.recibo-mantenimiento {
+  --rm-tinta: #000; --rm-linea: #222; --rm-verde: #d6e9c0; --rm-azul: #bdd7ee; --rm-azul-osc: #1f5fbf;
+  display: block; color: var(--rm-tinta); overflow-x: auto; /* hoja A4 fija: en pantallas angostas se desplaza */
+  font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; line-height: 1.3;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.recibo-mantenimiento table { border-collapse: collapse; width: 100%; table-layout: auto; }
+.recibo-mantenimiento td, .recibo-mantenimiento th { padding: 2px 4px; vertical-align: middle; text-align: left; font-weight: normal; }
+.recibo-mantenimiento b, .recibo-mantenimiento strong { font-weight: bold; }
+.recibo-mantenimiento img { display: inline-block; max-width: 100%; }
+
+/* ---------- Hoja A4 ---------- */
+.recibo-mantenimiento .rm-hoja {
+  width: 210mm; min-height: 297mm; margin: 0 auto 16px; padding: 10mm 9mm;
+  background: #fff; border: 1px solid #c8c8c8;
+}
+.recibo-mantenimiento .rm-recibo { border: 1px solid var(--rm-linea); padding: 6px 8px 8px; }
+
+/* Bordes y celdas */
+.recibo-mantenimiento .rm-borde { border: 1px solid var(--rm-linea); }
+.recibo-mantenimiento .rm-grilla td, .recibo-mantenimiento .rm-grilla th { border: 1px solid var(--rm-linea); }
+.recibo-mantenimiento .rm-verde { background: var(--rm-verde); }
+.recibo-mantenimiento .rm-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.recibo-mantenimiento .rm-centro { text-align: center; }
+.recibo-mantenimiento .rm-neg { font-weight: bold; }
+.recibo-mantenimiento .rm-may { text-transform: uppercase; }
+
+/* ---------- Cabecera ---------- */
+.recibo-mantenimiento .rm-cabecera td { vertical-align: bottom; }
+.recibo-mantenimiento .rm-cab-cond { width: 42%; text-align: center; }
+.recibo-mantenimiento .rm-cab-cond img { max-height: 42px; margin-bottom: 2px; }
+.recibo-mantenimiento .rm-cab-nombre { font-weight: bold; text-transform: uppercase; font-size: 13px; line-height: 1.3; }
+.recibo-mantenimiento .rm-cab-dir { font-weight: bold; text-transform: uppercase; font-size: 11px; }
+.recibo-mantenimiento .rm-cab-datos { width: 36%; padding-left: 10px; }
+.recibo-mantenimiento .rm-cab-datos table td { padding: 3px 2px; font-weight: bold; text-transform: uppercase; font-size: 11.5px; }
+.recibo-mantenimiento .rm-cab-datos .rm-valor { font-weight: normal; text-transform: uppercase; padding-left: 8px; }
+.recibo-mantenimiento .rm-cab-titulo { width: 22%; vertical-align: top; }
+.recibo-mantenimiento .rm-titulo {
+  border: 1px solid var(--rm-linea); background: var(--rm-verde); text-align: center;
+  font-weight: bold; text-transform: uppercase; font-size: 13.5px; line-height: 1.35; padding: 6px 4px;
+}
+.recibo-mantenimiento .rm-titulo small { font-size: 10px; }
+
+/* ---------- Cuerpo en dos columnas ---------- */
+.recibo-mantenimiento .rm-cuerpo { margin-top: 6px; }
+.recibo-mantenimiento .rm-cuerpo > tbody > tr > td { vertical-align: top; padding: 0; }
+.recibo-mantenimiento .rm-col-izq { width: 47%; padding-right: 8px !important; }
+.recibo-mantenimiento .rm-col-der { width: 53%; }
+
+/* Izquierda: detalle de consumo (lista sin rejilla) */
+.recibo-mantenimiento .rm-consumo td { padding: 2px 5px; }
+.recibo-mantenimiento .rm-consumo .rm-cab-verde td {
+  background: var(--rm-verde); border: 1px solid var(--rm-linea); font-weight: bold; text-transform: uppercase; font-size: 12.5px;
+}
+.recibo-mantenimiento .rm-consumo .rm-hueco td { height: 9px; }
+.recibo-mantenimiento .rm-consumo .rm-pagar td {
+  background: var(--rm-verde); border: 1px solid var(--rm-linea); font-weight: bold; font-size: 15px; padding: 3px 5px;
+}
+
+/* Derecha: tablas SEDAPAL */
+.recibo-mantenimiento .rm-sedapal td, .recibo-mantenimiento .rm-sedapal th { font-size: 11.5px; }
+.recibo-mantenimiento .rm-sedapal th { font-weight: bold; text-align: center; background: var(--rm-verde); }
+.recibo-mantenimiento .rm-sedapal .rm-cab-bloque { text-align: center; font-weight: bold; text-transform: uppercase; background: var(--rm-verde); }
+.recibo-mantenimiento .rm-sedapal .rm-tramo td { text-align: center; }
+.recibo-mantenimiento .rm-sedapal .rm-tramo td.rm-num { text-align: right; padding-right: 12px; }
+.recibo-mantenimiento .rm-sedapal .rm-sin-linea td { border-top: 0; border-bottom: 0; }
+.recibo-mantenimiento .rm-sedapal .rm-sin-linea td.rm-num, .recibo-mantenimiento .rm-sedapal .rm-fila-total td.rm-num { border-left: 0; }
+.recibo-mantenimiento .rm-sedapal .rm-sin-linea td.rm-etq, .recibo-mantenimiento .rm-sedapal .rm-fila-total td.rm-etq { border-right: 0; }
+.recibo-mantenimiento .rm-sedapal .rm-etq { text-transform: uppercase; font-weight: bold; }
+
+/* ---------- Pago ---------- */
+.recibo-mantenimiento .rm-pago { margin-top: 8px; }
+.recibo-mantenimiento .rm-pago td { vertical-align: middle; }
+.recibo-mantenimiento .rm-ref {
+  display: inline-block; min-width: 55%; background: var(--rm-azul); font-weight: bold; font-size: 13px; padding: 3px 6px;
+}
+.recibo-mantenimiento .rm-banco {
+  display: inline-block; min-width: 35%; background: var(--rm-azul-osc); color: #fff; font-weight: bold;
+  font-size: 15px; padding: 3px 8px; margin-top: 3px;
+}
+.recibo-mantenimiento .rm-cuenta { border: 1px solid var(--rm-linea); }
+.recibo-mantenimiento .rm-cuenta td { padding: 3px 6px; font-size: 12.5px; }
+.recibo-mantenimiento .rm-billetera { text-align: right; white-space: nowrap; }
+.recibo-mantenimiento .rm-plin { color: var(--rm-azul-osc); font-weight: bold; font-style: italic; }
+
+/* ---------- Aviso / contacto ---------- */
+.recibo-mantenimiento .rm-aviso { border: 1px solid var(--rm-linea); border-top: 0; }
+.recibo-mantenimiento .rm-aviso-titulo { text-align: center; font-size: 15px; text-transform: uppercase; padding: 2px; border-bottom: 1px solid var(--rm-linea); }
+.recibo-mantenimiento .rm-aviso-texto { font-size: 13.5px; padding: 3px 4px 5px; line-height: 1.35; }
+.recibo-mantenimiento .rm-contacto { border: 1px solid var(--rm-linea); border-top: 0; }
+.recibo-mantenimiento .rm-contacto td { font-size: 13px; padding: 8px 4px; }
+
+/* ---------- Pie ---------- */
+.recibo-mantenimiento .rm-pie td { border: 1px solid var(--rm-linea); text-align: center; vertical-align: top; width: 33.33%; }
+.recibo-mantenimiento .rm-pie .rm-pie-cab td { font-weight: bold; text-transform: uppercase; font-size: 11.5px; padding: 4px; }
+.recibo-mantenimiento .rm-pie .rm-pie-val td { font-size: 14px; font-weight: bold; padding: 12px 4px 16px; vertical-align: middle; }
+.recibo-mantenimiento .rm-pie .rm-pie-cab td.rm-horario { font-weight: normal; text-transform: none; font-size: 12px; line-height: 1.4; }
+
+/* ---------- Impresión / PDF ----------
+   El layout (sidebar, header, .no-print) lo oculta el @media print de app.css;
+   aquí solo la hoja: A4 sin márgenes del navegador (el margen lo da .rm-hoja). */
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+  .recibo-mantenimiento { overflow: visible; }
+  .recibo-mantenimiento .rm-hoja { margin: 0; border: 0; min-height: 0; page-break-after: avoid; }
+}

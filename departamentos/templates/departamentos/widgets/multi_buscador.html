@@ -1,0 +1,34 @@
+{% comment %}
+MultiBuscadorWidget (forms.py) · selección múltiple con autocompletado y chips.
+Las opciones van en una lista oculta (data-msel-opciones); el JS de layouts/base.html
+filtra mientras se escribe, agrega chips y mantiene un input oculto por cada elegido
+(name = el del campo). Al volver con errores, los ya elegidos se pintan como chips.
+Teclas: ↑ ↓ para moverse, Enter para elegir, Retroceso con el texto vacío quita el último.
+{% endcomment %}
+<div class="msel" data-msel data-name="{{ widget.name }}">
+  <div class="msel__campo">
+  <div class="msel__box">
+    <div class="msel__chips" data-msel-chips>
+      {% for grupo, opciones, indice in widget.optgroups %}{% for o in opciones %}{% if o.selected %}
+      <span class="chip" data-valor="{{ o.value }}">{{ o.label }}<span class="chip__x" role="button" aria-label="Quitar">&times;</span>
+        <input type="hidden" name="{{ widget.name }}" value="{{ o.value }}"></span>
+      {% endif %}{% endfor %}{% endfor %}
+    </div>
+    <input type="text" autocomplete="off" role="combobox" aria-expanded="false" data-msel-texto
+           {% include "django/forms/widgets/attrs.html" %}>
+  </div>
+  <ul class="msel__lista" role="listbox" data-msel-lista hidden></ul>
+  </div>
+  <div class="msel__pie">
+    <span class="msel__cuenta" data-msel-cuenta></span>
+    <span class="msel__acciones">
+      <button type="button" class="msel__link" data-msel-todos>Elegir todos</button>
+      <button type="button" class="msel__link" data-msel-limpiar>Quitar todos</button>
+    </span>
+  </div>
+  <template data-msel-opciones>
+    {% for grupo, opciones, indice in widget.optgroups %}{% for o in opciones %}
+    <option value="{{ o.value }}">{{ o.label }}</option>
+    {% endfor %}{% endfor %}
+  </template>
+</div>

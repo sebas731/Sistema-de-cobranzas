@@ -1,5 +1,7 @@
-"""Agua: lecturas del mes, facturas de agua (RevoGrid) y tarifas."""
-from django.contrib import messages
+"""Agua: historial de lecturas (solo vista), facturas de agua (RevoGrid) y tarifas."""
+from datetime import date
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
@@ -9,36 +11,44 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView, UpdateView
 
 from ..forms import MESES_ES, TarifaAguaForm
-from ..models import Departamento, TarifaAgua
+from ..models import Departamento, LecturaMedidor, TarifaAgua
 from ..servicios import a_decimal, lectura_del_mes, registrar_lectura
 from ..servicios.comun import ordenar_tramos
-from .comun import json_invalido, leer_json, periodo_de_request, redirigir_al_periodo
+from .comun import json_invalido, leer_json, periodo_de_request
 
 
 @login_required
 def lecturas_mes(request):
-    form, periodo = periodo_de_request(request)
+    """Historial de lecturas de agua, SOLO VISTA: una fila por depto y una columna
+    por mes del año elegido (lectura actual + m³ consumidos). Las lecturas se
+    cargan en Facturas de agua o con Importar Excel."""
+    hoy = date.today()
+    try:
+        anio = int(request.GET.get('anio') or hoy.year)
+    except ValueError:
+        anio = hoy.year
 
-    if request.method == 'POST':
-        guardadas = 0
-        for dep in Departamento.objects.filter(activo=True):
-            lectura_actual = a_decimal(request.POST.get(f'actual_{dep.id}', '').strip())
-            if lectura_actual is not None:
-                registrar_lectura(dep, periodo, lectura_actual)
-                guardadas += 1
-        messages.success(request, f'{guardadas} lectura(s) guardadas.')
-        return redirigir_al_periodo(request, periodo)
-
+    lecturas = {(l.departamento_id, l.periodo.month): l
+                for l in LecturaMedidor.objects.filter(periodo__year=anio)}
+    meses_con_datos = {m for _, m in lecturas}
+    tot_mes = [Decimal('0.00')] * 12
     filas = []
     for dep in Departamento.objects.filter(activo=True):
-        actual, anterior = lectura_del_mes(dep, periodo)
-        filas.append({
-            'dep': dep, 'anterior': anterior,
-            'actual': actual.lectura_actual if actual else '',
-            'm3': actual.m3_consumidos if actual else None,
-        })
-    return render(request, 'departamentos/lecturas_mes.html', {
-        'periodo_form': form, 'periodo': periodo, 'filas': filas,
+        celdas, total = [], Decimal('0.00')
+        for m in range(1, 13):
+            l = lecturas.get((dep.id, m))
+            if l:
+                total += l.m3_consumidos
+                tot_mes[m - 1] += l.m3_consumidos
+            celdas.append({'lectura': l.lectura_actual if l else None, 'm3': l.m3_consumidos if l else None})
+        filas.append({'dep': dep, 'celdas': celdas, 'total': total})
+
+    return render(request, 'departamentos/agua/lecturas_mes.html', {
+        'anio': anio, 'anio_prev': anio - 1, 'anio_sig': anio + 1, 'anio_hoy': hoy.year,
+        'meses': [{'n': m, 'nombre': MESES_ES[m][:3], 'con_datos': m in meses_con_datos,
+                   'total': tot_mes[m - 1]} for m in range(1, 13)],
+        'filas': filas, 'total_anio': sum(tot_mes, Decimal('0.00')),
+        'n_lecturas': len(lecturas),
     })
 
 
@@ -94,7 +104,7 @@ def facturas_agua(request):
     tramos = ordenar_tramos(TarifaAgua.objects.filter(activo=True), 'consumo_limite')
     previo = (periodo.year - 1, 12) if periodo.month == 1 else (periodo.year, periodo.month - 1)
 
-    return render(request, 'departamentos/facturas_agua.html', {
+    return render(request, 'departamentos/agua/facturas.html', {
         'periodo_form': form, 'periodo': periodo,
         'filas_json': filas, 'n_filas': len(filas),
         'tramos_json': [{'limite': _f(t.consumo_limite), 'tarifa': _f(t.tarifa)} for t in tramos],
@@ -105,7 +115,7 @@ def facturas_agua(request):
 
 @login_required
 def tarifas(request):
-    return render(request, 'departamentos/tarifas.html', {
+    return render(request, 'departamentos/agua/tarifas.html', {
         'tarifas': TarifaAgua.objects.all(),
     })
 
@@ -113,7 +123,7 @@ def tarifas(request):
 class _TarifaMixin(LoginRequiredMixin):
     model = TarifaAgua
     form_class = TarifaAguaForm
-    template_name = 'departamentos/tarifa_form.html'
+    template_name = 'departamentos/agua/tarifa_form.html'
     success_url = reverse_lazy('tarifas')
 
 

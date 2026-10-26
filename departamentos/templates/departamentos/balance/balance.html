@@ -1,0 +1,338 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% block title %}Balance general{% endblock %}
+
+{% block extra_head %}
+<script type="importmap">
+{ "imports": {
+  "@stencil/core/internal/client": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/client/index.js",
+  "@stencil/core/internal/app-data": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-data/index.js",
+  "@stencil/core/internal/app-globals": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-globals/index.js"
+}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Balance general</h1>
+    <p class="page-header__subtitle">Cuánto entró, en qué se gastó y cuánto quedó.</p>
+  </div>
+</div>
+
+{# ---------- Filtro: una sola fila, arriba de todo ---------- #}
+<div class="bal-filtro">
+  <div class="seg" role="tablist" aria-label="Tipo de balance">
+    <a class="seg__op {% if modo == 'mensual' %}is-on{% endif %}" href="?modo=mensual&mes={{ mes }}&anio={{ anio }}">Mes</a>
+    <a class="seg__op {% if modo == 'anual' %}is-on{% endif %}" href="?modo=anual&anio={{ anio }}">Año</a>
+  </div>
+  <div class="stepper">
+    <a class="stepper__btn" href="?modo={{ modo }}&anio={{ prev.anio }}{% if prev.mes %}&mes={{ prev.mes }}{% endif %}" aria-label="Periodo anterior">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg></a>
+    <span class="stepper__label">{{ etiqueta }}</span>
+    <a class="stepper__btn" href="?modo={{ modo }}&anio={{ sig.anio }}{% if sig.mes %}&mes={{ sig.mes }}{% endif %}" aria-label="Periodo siguiente">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5" /></svg></a>
+  </div>
+  {% if modo == 'mensual' and mes != hoy.mes or anio != hoy.anio %}
+  <a class="bal-filtro__hoy" href="?modo={{ modo }}&anio={{ hoy.anio }}&mes={{ hoy.mes }}">Ir al {% if modo == 'anual' %}año{% else %}mes{% endif %} actual</a>
+  {% endif %}
+</div>
+
+{# ---------- KPIs con flecha frente al periodo anterior ---------- #}
+<div class="bal-kpis">
+  <div class="bal-kpi bal-kpi--hero">
+    <div class="bal-kpi__label">Saldo {% if modo == 'anual' %}del año{% else %}del mes{% endif %}</div>
+    <div class="bal-kpi__value tone-{{ saldo_tone }}">S/ {{ saldo|floatformat:2 }}</div>
+    {% include 'departamentos/components/trend.html' with v=var_saldo ref=comparado_con %}
+  </div>
+  <div class="bal-kpi">
+    <div class="bal-kpi__label"><span class="bal-key bal-key--ing"></span>Ingresos</div>
+    <div class="bal-kpi__value">S/ {{ ing_total|floatformat:2 }}</div>
+    {% include 'departamentos/components/trend.html' with v=var_ing ref=comparado_con %}
+  </div>
+  <div class="bal-kpi">
+    <div class="bal-kpi__label"><span class="bal-key bal-key--egr"></span>Egresos</div>
+    <div class="bal-kpi__value">S/ {{ egr_total|floatformat:2 }}</div>
+    {% include 'departamentos/components/trend.html' with v=var_egr ref=comparado_con %}
+  </div>
+</div>
+
+{# ---------- Balance general: de dónde vino y en qué se fue ---------- #}
+<div class="card bal-general">
+  <div class="bal-general__cols">
+    <section class="bal-lado">
+      <h2 class="bal-lado__title">Ingresos <span>de dónde vino el dinero</span></h2>
+      <div class="bal-lado__body">
+        <div class="dona" data-dona="ing" data-total="S/ {{ ing_total|floatformat:2 }}"></div>
+        <ul class="dona-leyenda" data-leyenda="ing"></ul>
+      </div>
+    </section>
+    <section class="bal-lado">
+      <h2 class="bal-lado__title">Egresos <span>en qué se gastó</span></h2>
+      <div class="bal-lado__body">
+        <div class="dona" data-dona="egr" data-total="S/ {{ egr_total|floatformat:2 }}"></div>
+        <ul class="dona-leyenda" data-leyenda="egr"></ul>
+      </div>
+    </section>
+  </div>
+  <div class="bal-formula">
+    <span><small>Ingresos</small>S/ {{ ing_total|floatformat:2 }}</span>
+    <span class="bal-formula__op">−</span>
+    <span><small>Egresos</small>S/ {{ egr_total|floatformat:2 }}</span>
+    <span class="bal-formula__op">=</span>
+    <span class="bal-formula__res tone-{{ saldo_tone }}"><small>Saldo</small>S/ {{ saldo|floatformat:2 }}</span>
+  </div>
+</div>
+
+{# ---------- Barras: ingresos vs egresos en el tiempo ---------- #}
+<div class="card mt-3">
+  <div class="card-body">
+    <div class="bal-chart-head">
+      <div>
+        <div class="c-title">Ingresos vs egresos</div>
+        <div class="c-sub">{% if modo == 'anual' %}Mes a mes en {{ anio }}{% else %}Últimos 6 meses{% endif %}</div>
+      </div>
+      <div class="legend"><span><span class="k ing"></span>Ingresos</span><span><span class="k egr"></span>Egresos</span></div>
+    </div>
+    <div class="barras" id="balBarras"></div>
+
+    {% if modo == 'anual' %}
+    <div class="table-responsive mt-3">
+      <table class="table ds-table ds-table--link">
+        <thead><tr><th>Mes</th><th class="num">Ingresos</th><th class="num">Egresos</th><th class="num">Saldo</th><th></th></tr></thead>
+        <tbody>
+          {% for m in meses %}
+          <tr onclick="balOpenM({{ m.mes }})">
+            <td class="fw-semibold">{{ m.nombre }}</td>
+            <td class="num">{{ m.ingresos|floatformat:2 }}</td>
+            <td class="num">{{ m.egresos|floatformat:2 }}</td>
+            <td class="num tone-{{ m.tone }}">{{ m.saldo|floatformat:2 }}</td>
+            <td class="num"><span class="link-more">Ver →</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot><tr><td>Total</td><td class="num">{{ ing_total|floatformat:2 }}</td><td class="num">{{ egr_total|floatformat:2 }}</td>
+          <td class="num tone-{{ saldo_tone }}">{{ saldo|floatformat:2 }}</td><td></td></tr></tfoot>
+      </table>
+    </div>
+    {% else %}
+    <details class="bal-tabla">
+      <summary>Ver como tabla</summary>
+      <div class="table-responsive mt-2">
+        <table class="table ds-table">
+          <thead><tr><th>Mes</th><th class="num">Ingresos</th><th class="num">Egresos</th></tr></thead>
+          <tbody>{% for s in graficas.serie %}<tr><td>{{ s.label }}</td><td class="num">{{ s.ingresos }}</td><td class="num">{{ s.egresos }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </details>
+    {% endif %}
+  </div>
+</div>
+
+{# ---------- Tablas de ingresos y egresos (formato del Excel de la clienta) ---------- #}
+<div class="bal-tablas">
+  <section class="card bal-tabla-card">
+    <div class="bal-tabla-card__head"><span class="bal-key bal-key--ing"></span>Ingresos</div>
+    <revo-grid id="gridIng" class="bal-grid" theme="compact" row-size="40" readonly="true"></revo-grid>
+  </section>
+  <section class="card bal-tabla-card">
+    <div class="bal-tabla-card__head"><span class="bal-key bal-key--egr"></span>Egresos</div>
+    <revo-grid id="gridEgr" class="bal-grid" theme="compact" row-size="40" readonly="true"></revo-grid>
+  </section>
+</div>
+<div class="fa-fallback alert alert-warning mt-2" id="balGridFallback">No se pudo cargar la tabla interactiva. Revisa tu conexión.</div>
+
+{# ---------- Drawer de detalle ---------- #}
+<div class="offcanvas offcanvas-end drawer" tabindex="-1" id="balDrawer">
+  <div class="offcanvas-header border-bottom">
+    <h5 class="mb-0" id="balTitle">Detalle</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body" id="balBody"></div>
+</div>
+<div class="viz-tip" id="vizTip" role="tooltip" hidden></div>
+
+{{ drawer_json|json_script:"bal-data" }}
+{{ graficas|json_script:"bal-graficas" }}
+{{ tablas|json_script:"bal-tablas" }}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module">
+  import { defineCustomElement } from 'https://cdn.jsdelivr.net/npm/@revolist/revogrid@4.29.1/standalone/revo-grid.js';
+  defineCustomElement();
+
+  // Dos grillas de solo lectura: Concepto | Monto S/, con la fila TOTAL fija abajo.
+  const T = JSON.parse(document.getElementById('bal-tablas').textContent);
+  const FILA = 40;
+  const columnas = [
+    { prop: 'concepto', name: 'Concepto', size: 260, readonly: true },
+    { prop: 'monto', name: 'Monto S/', size: 140, readonly: true },
+  ];
+  function montar(id, filas, total) {
+    const grid = document.getElementById(id);
+    grid.columns = columnas;
+    grid.stretch = true;
+    grid.readonly = true;
+    grid.rowClass = 'clase';
+    grid.source = filas.length ? filas : [{ concepto: 'Sin movimientos en este periodo', monto: '', clase: 'vacia' }];
+    grid.pinnedBottomSource = [{ concepto: 'TOTAL', monto: total, clase: 'total' }];
+    // Alto exacto: cabecera + filas + total (sin scroll interno).
+    grid.style.setProperty('--grid-h', ((Math.max(filas.length, 1) + 2) * FILA + 2) + 'px');
+  }
+  customElements.whenDefined('revo-grid').then(() => {
+    montar('gridIng', T.ing, T.ing_total);
+    montar('gridEgr', T.egr, T.egr_total);
+  });
+  setTimeout(() => { if (!customElements.get('revo-grid')) document.getElementById('balGridFallback').style.display = 'block'; }, 6000);
+</script>
+<script>
+(function () {
+  const MODO = '{{ modo }}';
+  const DATA = JSON.parse(document.getElementById('bal-data').textContent);
+  const G = JSON.parse(document.getElementById('bal-graficas').textContent);
+  const NS = 'http://www.w3.org/2000/svg';
+  const css = getComputedStyle(document.documentElement);
+  // Paleta categórica validada (dataviz/validate_palette, superficie blanca); «Otros» en gris.
+  const SERIE = ['--viz-1', '--viz-2', '--viz-3', '--viz-4', '--viz-5'].map(v => css.getPropertyValue(v).trim());
+  const OTROS = css.getPropertyValue('--viz-otros').trim();
+  const ING = css.getPropertyValue('--viz-ing').trim(), EGR = css.getPropertyValue('--viz-egr').trim();
+  const soles = (v) => 'S/ ' + Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const el = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
+
+  // ---------- Tooltip único (valores primero, etiqueta después) ----------
+  const tip = document.getElementById('vizTip');
+  function mostrar(e, filas, titulo) {
+    tip.replaceChildren();
+    if (titulo) tip.append(Object.assign(document.createElement('div'), { className: 'viz-tip__t', textContent: titulo }));
+    filas.forEach(([color, valor, etiqueta]) => {
+      const r = document.createElement('div'); r.className = 'viz-tip__r';
+      const k = document.createElement('span'); k.className = 'viz-tip__k'; k.style.background = color;
+      const v = document.createElement('strong'); v.textContent = valor;
+      const l = document.createElement('span'); l.textContent = etiqueta;
+      r.append(k, v, l); tip.append(r);
+    });
+    tip.hidden = false;
+    const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + 'px'; tip.style.top = (e.clientY + 14) + 'px';
+  }
+  const ocultar = () => { tip.hidden = true; };
+
+  // ---------- Dona (parte del todo, ≤ 6 segmentos con 2px de separación) ----------
+  function dona(clave) {
+    const caja = document.querySelector(`[data-dona="${clave}"]`);
+    const ley = document.querySelector(`[data-leyenda="${clave}"]`);
+    const partes = G[clave];
+    if (!partes.length) {
+      caja.classList.add('dona--vacia');
+      ley.replaceChildren(Object.assign(document.createElement('li'), { className: 'dona-leyenda__vacio',
+        textContent: clave === 'ing' ? 'No hay pagos en este periodo.' : 'No hay gastos en este periodo.' }));
+    }
+    const R = 62, W = 18, C = 2 * Math.PI * R, GAP = partes.length > 1 ? 2 : 0;
+    const svg = el('svg', { viewBox: '0 0 160 160', class: 'dona__svg', role: 'img',
+      'aria-label': (clave === 'ing' ? 'Ingresos' : 'Egresos') + ' por concepto' });
+    svg.append(el('circle', { cx: 80, cy: 80, r: R, fill: 'none', stroke: 'var(--gray-100)', 'stroke-width': W }));
+    let acum = 0;
+    partes.forEach((p, i) => {
+      const color = p.nombre === 'Otros' ? OTROS : SERIE[i % SERIE.length];
+      p.color = color;
+      const largo = Math.max(C * p.pct / 100 - GAP, 0.5);
+      const seg = el('circle', { cx: 80, cy: 80, r: R, fill: 'none', stroke: color, 'stroke-width': W,
+        'stroke-dasharray': `${largo} ${C - largo}`, 'stroke-dashoffset': -acum, transform: 'rotate(-90 80 80)',
+        class: 'dona__seg', tabindex: 0 });
+      acum += C * p.pct / 100;
+      const verTip = (e) => mostrar(e.clientX ? e : { clientX: seg.getBoundingClientRect().right, clientY: seg.getBoundingClientRect().top },
+        [[color, soles(p.monto), `${p.nombre} · ${p.pct}%`]]);
+      seg.addEventListener('pointermove', verTip); seg.addEventListener('focus', verTip);
+      seg.addEventListener('pointerleave', ocultar); seg.addEventListener('blur', ocultar);
+      if (MODO === 'mensual' && p.nombre !== 'Otros') seg.addEventListener('click', () => balOpenC(clave + '::' + p.nombre));
+      svg.append(seg);
+    });
+    const t1 = el('text', { x: 80, y: 76, 'text-anchor': 'middle', class: 'dona__total' }); t1.textContent = caja.dataset.total;
+    const t2 = el('text', { x: 80, y: 96, 'text-anchor': 'middle', class: 'dona__sub' }); t2.textContent = 'total';
+    svg.append(t1, t2);
+    caja.append(svg);
+
+    // Leyenda = tabla de la dona (identidad nunca solo por color: nombre, % y monto visibles).
+    partes.forEach(p => {
+      const li = document.createElement('li');
+      const clic = MODO === 'mensual' && p.nombre !== 'Otros';
+      li.className = 'dona-leyenda__item' + (clic ? ' is-link' : '');
+      const k = document.createElement('span'); k.className = 'dona-leyenda__k'; k.style.background = p.color;
+      const n = document.createElement('span'); n.className = 'dona-leyenda__n'; n.textContent = p.nombre;
+      const pc = document.createElement('span'); pc.className = 'dona-leyenda__p'; pc.textContent = p.pct + '%';
+      const m = document.createElement('span'); m.className = 'dona-leyenda__m'; m.textContent = soles(p.monto);
+      li.append(k, n, pc, m);
+      if (clic) li.addEventListener('click', () => balOpenC(clave + '::' + p.nombre));
+      ley.append(li);
+    });
+  }
+
+  // ---------- Barras agrupadas (una sola escala, ticks redondos) ----------
+  function barras() {
+    const caja = document.getElementById('balBarras');
+    const S = G.serie;
+    const max = Math.max(1, ...S.flatMap(s => [Number(s.ingresos), Number(s.egresos)]));
+    const paso = (() => { const crudo = max / 4, p = Math.pow(10, Math.floor(Math.log10(crudo)));
+      return [1, 2, 2.5, 5, 10].map(f => f * p).find(f => f >= crudo); })();
+    const tope = paso * Math.ceil(max / paso);
+    const W = 680, H = 240, IZQ = 44, ABA = 26, ARR = 8, alto = H - ABA - ARR, banda = (W - IZQ) / S.length;
+    const bar = Math.min(22, banda / 2 - 6), y = (v) => ARR + alto - (v / tope) * alto;
+    const corto = (v) => v >= 1000 ? (v / 1000).toLocaleString('es-PE', { maximumFractionDigits: 1 }) + 'K' : String(v);
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'barras__svg', role: 'img', 'aria-label': 'Ingresos y egresos por mes' });
+    for (let v = 0; v <= tope + 1e-9; v += paso) {
+      svg.append(el('line', { x1: IZQ, x2: W, y1: y(v), y2: y(v), class: 'barras__grid' }));
+      const t = el('text', { x: IZQ - 8, y: y(v) + 4, 'text-anchor': 'end', class: 'barras__tick' }); t.textContent = corto(v); svg.append(t);
+    }
+    // Columna con punta redondeada de 4px y base recta.
+    const columna = (x, v, color) => {
+      const h = Math.max((v / tope) * alto, v > 0 ? 2 : 0), top = ARR + alto - h, r = Math.min(4, h);
+      return el('path', { d: `M${x},${ARR + alto} V${top + r} Q${x},${top} ${x + r},${top} H${x + bar - r} Q${x + bar},${top} ${x + bar},${top + r} V${ARR + alto} Z`, fill: color });
+    };
+    S.forEach((s, i) => {
+      const cx = IZQ + banda * i + banda / 2;
+      const g = el('g', { class: 'barras__grupo', tabindex: 0 });
+      g.append(el('rect', { x: IZQ + banda * i, y: ARR, width: banda, height: alto, class: 'barras__hit' }));
+      g.append(columna(cx - bar - 1, Number(s.ingresos), ING), columna(cx + 1, Number(s.egresos), EGR));
+      const lab = el('text', { x: cx, y: H - 8, 'text-anchor': 'middle', class: 'barras__mes' }); lab.textContent = s.label;
+      g.append(lab);
+      const ver = (e) => mostrar(e.clientX ? e : { clientX: g.getBoundingClientRect().right, clientY: g.getBoundingClientRect().top },
+        [[ING, soles(s.ingresos), 'Ingresos'], [EGR, soles(s.egresos), 'Egresos']], s.label);
+      g.addEventListener('pointermove', ver); g.addEventListener('focus', ver);
+      g.addEventListener('pointerleave', ocultar); g.addEventListener('blur', ocultar);
+      if (s.mes) g.addEventListener('click', () => balOpenM(s.mes));
+      svg.append(g);
+    });
+    svg.append(el('line', { x1: IZQ, x2: W, y1: ARR + alto, y2: ARR + alto, class: 'barras__base' }));
+    caja.append(svg);
+  }
+
+  // ---------- Drawer de detalle ----------
+  const drawer = () => bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('balDrawer'));
+  const fila = (izq, der) => { const d = document.createElement('div'); d.className = 'drawer-row';
+    const a = document.createElement('span'); a.textContent = izq; const b = document.createElement('span');
+    b.className = 'amount'; b.textContent = der; d.append(a, b); return d; };
+  window.balOpenC = function (key) {
+    const d = DATA[key]; if (!d) return;
+    document.getElementById('balTitle').textContent = d.titulo;
+    const body = document.getElementById('balBody'); body.replaceChildren();
+    d.movs.forEach(m => body.append(fila([m.fecha, m.ref, m.nota].filter(Boolean).join(' · '), soles(m.monto))));
+    if (!d.movs.length) body.textContent = 'Sin movimientos';
+    drawer().show();
+  };
+  window.balOpenM = function (m) {
+    const d = DATA[String(m)]; if (!d) return;
+    document.getElementById('balTitle').textContent = d.titulo;
+    const body = document.getElementById('balBody'); body.replaceChildren();
+    body.append(fila('Ingresos', soles(d.ingresos)), fila('Egresos', soles(d.egresos)), fila('Saldo', soles(d.saldo)));
+    [['Ingresos', d.ing_filas], ['Egresos', d.egr_filas]].forEach(([t, filas]) => {
+      body.append(Object.assign(document.createElement('div'), { className: 'section-title', textContent: t }));
+      filas.forEach(f => body.append(fila(f.nombre, soles(f.monto))));
+      if (!filas.length) body.append(Object.assign(document.createElement('div'), { className: 'text-muted small', textContent: 'Sin movimientos' }));
+    });
+    drawer().show();
+  };
+
+  dona('ing'); dona('egr'); barras();
+})();
+</script>
+{% endblock %}

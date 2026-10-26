@@ -1,0 +1,15 @@
+{% comment %}
+Trend · flecha de variación frente al periodo anterior.
+Uso: {% include 'departamentos/components/trend.html' with v=var_saldo ref="octubre" %}
+  v   -> {dir: up|down|flat, monto, pct, tono: success|danger|muted} (views/balance._variacion)
+  ref -> nombre del periodo con el que se compara
+{% endcomment %}
+<span class="trend trend--{{ v.tono }}">
+  {% if v.dir == 'flat' %}
+    <svg class="trend__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg>
+    Igual que {{ ref }}
+  {% else %}
+    <svg class="trend__ico{% if v.dir == 'down' %} trend__ico--down{% endif %}" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" /></svg>
+    S/ {{ v.monto }}{% if v.pct %} ({{ v.pct }}%){% endif %} {% if v.dir == 'up' %}más{% else %}menos{% endif %} que {{ ref }}
+  {% endif %}
+</span>

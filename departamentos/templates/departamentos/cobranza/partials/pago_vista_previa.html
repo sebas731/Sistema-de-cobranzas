@@ -1,0 +1,15 @@
+{# Bloque "extra" del FormCard de registrar_pagos.html: datos del depto y vista previa. #}
+<div class="pago-info" id="pagoInfo" hidden>
+  <div><span class="pago-info__k">Departamento</span><strong data-info="numero"></strong></div>
+  <div><span class="pago-info__k">Propietario</span><strong data-info="propietario"></strong></div>
+  <div><span class="pago-info__k">Deuda pendiente</span><strong class="amount amount--danger" data-info="deuda"></strong></div>
+</div>
+
+<div class="pago-preview" id="pagoPreview" hidden>
+  <div class="pago-preview__title">Este pago se aplicará a:</div>
+  <table class="table ds-table">
+    <thead><tr><th>Periodo</th><th>Motivo</th><th class="text-end">Saldo</th><th class="text-end">Aplica</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div class="pago-preview__nota" data-nota></div>
+</div>

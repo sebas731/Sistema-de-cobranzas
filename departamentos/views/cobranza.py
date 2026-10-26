@@ -1,16 +1,12 @@
-"""Cobranza: registrar pagos y asignar multas/cargos (tabla editable)."""
-from decimal import Decimal
-
+"""Cobranza: registrar pagos y asignar multas/cargos."""
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
-from ..forms import MESES_ES, RegistroPagoForm
-from ..models import Cargo, Concepto, Departamento
-from ..servicios import a_decimal, cargos_pendientes, crear_cargo, registrar_pago
-from .comun import json_invalido, leer_json, periodo_de_request
+from ..forms import MESES_ES, CargoMasivoForm, RegistroPagoForm
+from ..models import Cargo, Departamento
+from ..servicios import cargos_pendientes, crear_cargo, registrar_pago
 
 
 def _deudas_para_pago():
@@ -47,68 +43,34 @@ def registrar_pagos(request):
             texto += f' Quedan S/ {pago.saldo_a_favor:.2f} a favor.'
         messages.success(request, texto)
         return redirect('registrar_pagos')
-    return render(request, 'departamentos/registrar_pagos.html', {
+    return render(request, 'departamentos/cobranza/registrar_pagos.html', {
         'form': form, 'deudas': _deudas_para_pago(),
     })
 
 
-def _guardar_cargos(payload, periodo):
-    """Aplica el lote de la tabla: monto > 0 asigna el cargo; vacío/0 lo quita
-    (si no tiene pagos). Atómico."""
-    concepto = Concepto.objects.filter(pk=payload.get('concepto')).first()
-    if not concepto:
-        return JsonResponse({'ok': False, 'error': 'Elige un concepto.'}, status=400)
-    asignados = quitados = 0
-    with transaction.atomic():
-        for r in payload.get('rows', []):
-            dep = Departamento.objects.filter(pk=r.get('pk'), activo=True).first()
-            if not dep:
-                continue
-            monto = a_decimal(r.get('monto'), Decimal('0'))
-            if monto > 0:
-                crear_cargo(dep, concepto, periodo, monto, (r.get('descripcion') or '').strip())
-                asignados += 1
-                continue
-            for c in Cargo.objects.filter(departamento=dep, concepto=concepto, periodo=periodo):
-                if c.total_imputado == 0:
-                    c.delete()
-                    quitados += 1
-    return JsonResponse({'ok': True, 'asignados': asignados, 'quitados': quitados})
-
-
 @login_required
 def registrar_cargos(request):
-    """Multas / cargos como TABLA EDITABLE (RevoGrid). Se elige un concepto y un
-    periodo; en la tabla se edita el monto y la descripción por departamento.
-    Fila con monto > 0 = se asigna el cargo; monto vacío/0 = se quita (si no
-    tiene pagos). Guardado en lote (JSON), atómico."""
-    form, periodo = periodo_de_request(request)
-
-    if request.method == 'POST' and request.content_type == 'application/json':
-        payload = leer_json(request)
-        return json_invalido() if payload is None else _guardar_cargos(payload, periodo)
-
-    try:
-        concepto_id = int(request.GET.get('concepto') or 0)
-    except ValueError:
-        concepto_id = 0
-    if not concepto_id:
-        activos = Concepto.objects.filter(activo=True)
-        c = activos.filter(codigo='MULTA').first() or activos.first()
-        concepto_id = c.id if c else 0
-    concepto_sel = Concepto.objects.filter(pk=concepto_id).first()
-
-    existentes = {c.departamento_id: c for c in
-                  Cargo.objects.filter(concepto=concepto_sel, periodo=periodo)} if concepto_sel else {}
-    filas = []
-    for dep in Departamento.objects.filter(activo=True):
-        e = existentes.get(dep.id)
-        filas.append({'pk': dep.id, 'numero': dep.numero_domicilio, 'propietario': dep.propietario,
-                      'monto': float(e.monto) if e else None, 'descripcion': e.descripcion if e else ''})
-
-    return render(request, 'departamentos/registrar_cargos.html', {
-        'periodo_form': form, 'periodo': periodo,
-        'conceptos': list(Concepto.objects.filter(activo=True).values('id', 'nombre')),
-        'concepto_id': concepto_id, 'concepto_nombre': concepto_sel.nombre if concepto_sel else '',
-        'filas_json': filas, 'n_filas': len(filas),
-    })
+    """Asignar un mismo cargo (multa, mora, cuota…) a uno o varios deptos en un mes,
+    con un formulario corto. Si un depto ya tenía ese concepto en ese mes, se
+    actualiza el monto (crear_cargo es idempotente) y se avisa. Todo el lote en un
+    transaction.atomic. No quita cargos: eso se hace desde el detalle del depto."""
+    form = CargoMasivoForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        d = form.cleaned_data
+        periodo, concepto, deptos = form.periodo, d['concepto'], list(d['departamentos'])
+        ya_tenian = set(Cargo.objects.filter(concepto=concepto, periodo=periodo, departamento__in=deptos)
+                        .values_list('departamento__numero_domicilio', flat=True))
+        with transaction.atomic():
+            for dep in deptos:
+                crear_cargo(dep, concepto, periodo, d['monto'], d['descripcion'].strip())
+        mes = f'{MESES_ES[periodo.month].lower()} {periodo.year}'
+        n = len(deptos)
+        texto = (f'Se asignó «{concepto.nombre}» de S/ {d["monto"]:.2f} a {n} '
+                 f'departamento{"s" if n != 1 else ""} (total S/ {d["monto"] * n:.2f}). '
+                 f'Saldrá en el recibo de {mes}.')
+        if ya_tenian:
+            texto += (f' Ya tenían «{concepto.nombre}» en ese mes y se actualizó su monto: '
+                      f'{", ".join(sorted(ya_tenian))}.')
+        messages.success(request, texto)
+        return redirect('registrar_cargos')
+    return render(request, 'departamentos/cobranza/registrar_cargos.html', {'form': form})

@@ -24,7 +24,7 @@ def importar_excel(request):
                 messages.error(request, f'No se pudo leer el Excel: {e}')
         else:
             messages.error(request, 'Revisa el mes, el año y el archivo.')
-    return render(request, 'departamentos/importar.html', {'form': form, 'resumen': resumen})
+    return render(request, 'departamentos/importar/importar.html', {'form': form, 'resumen': resumen})
 
 
 @login_required

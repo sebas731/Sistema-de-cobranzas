@@ -1,0 +1,178 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Cobranzas{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Inter+Tight:wght@400;600;700&display=swap" rel="stylesheet">
+  {# Estilo global único: tokens + componentes + pantallas (static/css/app.css) #}
+  <link href="{% static 'css/app.css' %}" rel="stylesheet">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <script>try{ if(localStorage.getItem('sb')==='1') document.body.classList.add('sidebar-collapsed'); }catch(e){}</script>
+  {% include 'departamentos/components/_icons.html' %}
+
+  {% if user.is_authenticated %}
+  <div class="layout">
+    <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+    {% include 'departamentos/components/sidebar.html' %}
+    <div class="main">
+      <header class="header">
+        <button class="btn-icon" onclick="toggleSidebar()" aria-label="Menú" title="Mostrar / ocultar menú">
+          <svg width="18" height="18"><use href="#i-menu"/></svg>
+        </button>
+        <div class="header__spacer"></div>
+        <div class="user-pill">
+          <span class="avatar">{{ user.username|slice:":1"|upper }}</span>
+          <span class="d-none d-sm-inline">{{ user.username }}</span>
+          <form method="post" action="{% url 'logout' %}" class="ms-2">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-secondary">Salir</button>
+          </form>
+        </div>
+      </header>
+      <div class="page-container">
+  {% else %}
+    <div class="auth-shell">
+  {% endif %}
+
+        {% if user.is_authenticated and messages %}
+          {% for m in messages %}
+            <div class="alert alert-{{ m.tags }} alert-dismissible fade show border-0 shadow-sm" role="alert">
+              {{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+
+  {% if user.is_authenticated %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+    </div>
+  {% endif %}
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) { new bootstrap.Popover(el); });
+    // Menú lateral desplegable: en escritorio colapsa (y recuerda), en móvil abre/cierra.
+    function toggleSidebar() {
+      if (window.innerWidth >= 992) {
+        var col = document.body.classList.toggle('sidebar-collapsed');
+        try { localStorage.setItem('sb', col ? '1' : '0'); } catch (e) {}
+      } else {
+        document.body.classList.toggle('sidebar-open');
+      }
+    }
+    window.toggleSidebar = toggleSidebar;
+
+    // Header flotante: se eleva al hacer scroll.
+    (function () {
+      var h = document.querySelector('.header');
+      if (!h) return;
+      var on = function () { h.classList.toggle('is-scrolled', window.scrollY > 4); };
+      window.addEventListener('scroll', on, { passive: true }); on();
+    })();
+
+    // BuscadorWidget: al escribir/elegir un texto de la lista, guarda su pk en el input
+    // oculto y le dispara "change" (vacío si el texto no coincide con ninguna opción).
+    document.addEventListener('input', function (e) {
+      var texto = e.target.closest('[data-buscador-texto]');
+      if (!texto) return;
+      var caja = texto.closest('[data-buscador]');
+      var oculto = caja.querySelector('[data-buscador-valor]');
+      var opcion = Array.from(texto.list.options).find(function (o) { return o.value === texto.value; });
+      var valor = opcion ? opcion.dataset.valor : '';
+      if (oculto.value === valor) return;
+      oculto.value = valor;
+      oculto.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // MultiBuscadorWidget: autocompletado con chips. Cada elegido es un chip con su
+    // input oculto; al cambiar la selección dispara "change" sobre [data-msel].
+    document.querySelectorAll('[data-msel]').forEach(function (caja) {
+      var nombre = caja.dataset.name;
+      var texto = caja.querySelector('[data-msel-texto]');
+      var chips = caja.querySelector('[data-msel-chips]');
+      var lista = caja.querySelector('[data-msel-lista]');
+      var cuenta = caja.querySelector('[data-msel-cuenta]');
+      var norm = function (s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+      var opciones = Array.from(caja.querySelector('[data-msel-opciones]').content.querySelectorAll('option'))
+        .map(function (o) { return { valor: o.value, texto: o.textContent.trim(), clave: norm(o.textContent) }; });
+      var activo = 0, visibles = [];
+
+      var elegidos = function () { return Array.from(chips.querySelectorAll('[data-valor]')).map(function (c) { return c.dataset.valor; }); };
+      function avisar() {
+        var n = elegidos().length;
+        cuenta.textContent = n ? n + (n === 1 ? ' departamento elegido' : ' departamentos elegidos') : '';
+        caja.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      function agregar(op) {
+        if (elegidos().indexOf(op.valor) !== -1) return;
+        var chip = document.createElement('span');
+        chip.className = 'chip'; chip.dataset.valor = op.valor;
+        chip.append(op.texto);
+        var x = document.createElement('span');
+        x.className = 'chip__x'; x.setAttribute('role', 'button'); x.setAttribute('aria-label', 'Quitar'); x.innerHTML = '&times;';
+        var oculto = document.createElement('input');
+        oculto.type = 'hidden'; oculto.name = nombre; oculto.value = op.valor;
+        chip.append(x, oculto);
+        chips.appendChild(chip);
+      }
+      function cerrar() { lista.hidden = true; texto.setAttribute('aria-expanded', 'false'); }
+      function pintar() {
+        var q = norm(texto.value.trim());
+        var ya = elegidos();
+        if (!q) { cerrar(); return; }
+        // Primero los que empiezan con lo escrito (el N° de depto), luego los que lo contienen.
+        visibles = opciones.filter(function (o) { return ya.indexOf(o.valor) === -1 && o.clave.indexOf(q) !== -1; })
+          .sort(function (a, b) { return (b.clave.indexOf(q) === 0) - (a.clave.indexOf(q) === 0); })
+          .slice(0, 8);
+        activo = 0;
+        lista.replaceChildren.apply(lista, visibles.length ? visibles.map(function (o, i) {
+          var li = document.createElement('li');
+          li.className = 'msel__op' + (i === activo ? ' is-activo' : '');
+          li.setAttribute('role', 'option'); li.textContent = o.texto;
+          li.addEventListener('mousedown', function (e) { e.preventDefault(); elegir(o); });
+          return li;
+        }) : [Object.assign(document.createElement('li'), { className: 'msel__vacio', textContent: 'Sin coincidencias' })]);
+        lista.hidden = false; texto.setAttribute('aria-expanded', 'true');
+      }
+      function elegir(op) { agregar(op); texto.value = ''; cerrar(); avisar(); texto.focus(); }
+      function marcar(i) {
+        var items = lista.querySelectorAll('.msel__op');
+        if (!items.length) return;
+        activo = (i + items.length) % items.length;
+        items.forEach(function (li, k) { li.classList.toggle('is-activo', k === activo); });
+        items[activo].scrollIntoView({ block: 'nearest' });
+      }
+
+      texto.addEventListener('input', pintar);
+      texto.addEventListener('blur', cerrar);
+      texto.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); lista.hidden ? pintar() : marcar(activo + 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); marcar(activo - 1); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (!lista.hidden && visibles[activo]) elegir(visibles[activo]); }
+        else if (e.key === 'Escape') { cerrar(); }
+        else if (e.key === 'Backspace' && !texto.value && chips.lastElementChild) { chips.lastElementChild.remove(); avisar(); }
+      });
+      caja.querySelector('.msel__box').addEventListener('click', function (e) {
+        var x = e.target.closest('.chip__x');
+        if (x) { x.closest('.chip').remove(); avisar(); }
+        texto.focus();
+      });
+      caja.querySelector('[data-msel-todos]').addEventListener('click', function () { opciones.forEach(agregar); avisar(); });
+      caja.querySelector('[data-msel-limpiar]').addEventListener('click', function () { chips.replaceChildren(); avisar(); });
+      avisar();
+    });
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
