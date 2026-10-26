@@ -194,3 +194,27 @@ class RegistroPagoTests(TestCase):
                                                    'periodo': '', 'monto': '60.00'})
         self.assertRedirects(r, '/pagos/registrar/')
         self.assertEqual(self.saldos(), [D('0.00'), D('0.00'), D('45.00'), D('5.00')])
+
+
+class PrimeraLecturaTests(TestCase):
+    """La primera lectura de un depto es solo la base: no genera consumo.
+    Desde la segunda, el consumo es actual − anterior."""
+
+    def setUp(self):
+        self.dep = Departamento.objects.create(numero_domicilio='301-T')
+
+    def test_primera_lectura_no_consume(self):
+        l = s.registrar_lectura(self.dep, date(2026, 5, 1), D('2514'))
+        self.assertEqual(l.lectura_anterior, D('2514'))
+        self.assertEqual(l.m3_consumidos, D('0'))
+        self.assertEqual(s.lectura_del_mes(self.dep, date(2026, 5, 1)), (l, None))
+
+    def test_segunda_lectura_usa_la_anterior(self):
+        s.registrar_lectura(self.dep, date(2026, 5, 1), D('2514'))
+        l = s.registrar_lectura(self.dep, date(2026, 6, 1), D('2525'))
+        self.assertEqual(l.m3_consumidos, D('11'))
+        self.assertEqual(s.lectura_del_mes(self.dep, date(2026, 7, 1)), (None, D('2525')))
+
+    def test_anterior_explicita_se_respeta(self):
+        l = s.registrar_lectura(self.dep, date(2026, 5, 1), D('2525'), lectura_anterior=D('2514'))
+        self.assertEqual(l.m3_consumidos, D('11'))

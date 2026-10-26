@@ -139,8 +139,9 @@
       const apply = (rowIndex, prop, val) => {
         const r = rows[rowIndex];
         if (!r) return;
-        if (prop === 'actual') { r.actual = r2(num(val)); r.m3 = r2(Math.max(r.actual - num(r.anterior), 0)); r.costo = costo(r.m3); }
-        else if (prop === 'm3') { r.m3 = r2(num(val)); r.actual = r2(num(r.anterior) + r.m3); r.costo = costo(r.m3); }
+        // Sin lectura anterior (primera del depto) la actual es solo la base: 0 m³.
+        if (prop === 'actual') { r.actual = r2(num(val)); r.m3 = r.anterior == null ? 0 : r2(Math.max(r.actual - num(r.anterior), 0)); r.costo = costo(r.m3); }
+        else if (prop === 'm3') { r.m3 = r.anterior == null ? 0 : r2(num(val)); if (r.anterior != null) r.actual = r2(num(r.anterior) + r.m3); r.costo = costo(r.m3); }
         else if (prop === 'costo') { r.costo = r2(num(val)); }
         else { r[prop] = val; }
       };

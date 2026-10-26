@@ -78,21 +78,23 @@ def ultima_lectura(departamento, antes_de=None):
 
 
 def lectura_del_mes(departamento, periodo):
-    """(lectura del mes o None, lectura anterior). Si aún no hay lectura del mes,
-    la anterior se arrastra de la lectura actual del mes previo."""
+    """(lectura del mes o None, lectura anterior o None). La anterior se arrastra
+    de la lectura actual del mes previo; None = es la primera lectura del depto
+    (no hay con qué comparar, así que no hay consumo)."""
     actual = departamento.lecturas.filter(periodo=periodo).first()
-    if actual:
-        return actual, actual.lectura_anterior
     previa = ultima_lectura(departamento, antes_de=periodo)
-    return None, previa.lectura_actual if previa else CERO
+    if previa is None:
+        return actual, None
+    return actual, actual.lectura_anterior if actual else previa.lectura_actual
 
 
 @transaction.atomic
 def registrar_lectura(departamento, periodo, lectura_actual, lectura_anterior=None):
-    """Registra la lectura del mes. Arrastra la lectura anterior si no se pasa."""
+    """Registra la lectura del mes. Arrastra la lectura anterior si no se pasa.
+    La primera lectura del depto es solo la base: anterior = actual (0 m³)."""
     if lectura_anterior is None:
         previa = ultima_lectura(departamento, antes_de=periodo)
-        lectura_anterior = previa.lectura_actual if previa else Decimal('0')
+        lectura_anterior = previa.lectura_actual if previa else lectura_actual
     lectura, _ = LecturaMedidor.objects.update_or_create(
         departamento=departamento, periodo=periodo,
         defaults={'lectura_anterior': lectura_anterior, 'lectura_actual': lectura_actual},
