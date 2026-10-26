@@ -253,15 +253,16 @@ class CadenaLecturasTests(TestCase):
         fila = next(f for f in r.context['filas_json'] if f['pk'] == self.dep.pk)
         self.assertEqual((fila['h202608'], fila['h202609'], fila['anterior']), (100.0, 120.0, 150.0))
 
-    def test_vista_rechaza_y_no_guarda_nada(self):
+    def test_vista_guarda_las_validas_y_devuelve_las_invalidas(self):
         from django.contrib.auth.models import User
         self.client.force_login(User.objects.create_user('agua'))
         otro = Departamento.objects.create(numero_domicilio='402-T')
         r = self.client.post('/facturas-agua/?mes=8&anio=2026', content_type='application/json', data={
             'rows': [{'pk': otro.pk, 'actual': 50}, {'pk': self.dep.pk, 'actual': 125}]})
-        self.assertFalse(r.json()['ok'])
-        self.assertIn('Depto 401-T', r.json()['error'])
-        self.assertFalse(LecturaMedidor.objects.filter(departamento=otro).exists())
+        d = r.json()
+        self.assertEqual((d['ok'], d['guardadas']), (True, 1))
+        self.assertEqual([(e['pk'], e['depto']) for e in d['errores']], [(self.dep.pk, '401-T')])
+        self.assertTrue(LecturaMedidor.objects.filter(departamento=otro).exists())
         self.assertEqual(LecturaMedidor.objects.get(departamento=self.dep, periodo=self.ago).lectura_actual, D('100'))
 
 

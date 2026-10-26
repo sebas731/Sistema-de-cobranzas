@@ -56,7 +56,8 @@ def _guardar_facturas(payload, periodo):
     """Guarda las lecturas de la tabla y renombra el depto si cambió su número.
 
     Solo toca las lecturas que cambiaron (o cuya lectura anterior quedó desfasada
-    del mes previo). Si alguna rompe el orden del medidor no se guarda nada."""
+    del mes previo). Guarda las válidas; las que rompen el orden del medidor no se
+    guardan y se devuelven en `errores` (con su pk) para marcarlas en la tabla."""
     guardadas, errores = 0, []
     with transaction.atomic():
         for r in payload.get('rows', []):
@@ -77,15 +78,11 @@ def _guardar_facturas(payload, periodo):
                 continue
             error = validar_lectura(dep, periodo, actual)
             if error:
-                errores.append(f'Depto {dep.numero_domicilio}: {error}')
+                errores.append({'pk': dep.pk, 'depto': dep.numero_domicilio, 'error': error})
                 continue
             registrar_lectura(dep, periodo, actual)
             guardadas += 1
-        if errores:
-            transaction.set_rollback(True)
-            return JsonResponse({'ok': False, 'error': 'No se guardó nada. ' + ' · '.join(errores),
-                                 'errores': errores})
-    return JsonResponse({'ok': True, 'guardadas': guardadas})
+    return JsonResponse({'ok': True, 'guardadas': guardadas, 'errores': errores})
 
 
 def _f(v):

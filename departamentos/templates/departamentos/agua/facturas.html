@@ -95,14 +95,19 @@
   }
   rows.forEach(r => { if (r.m3 != null) { r.m3 = r2(r.m3); r.costo = costo(r.m3); } });
 
+  // Filas que el servidor no guardó (lectura fuera de orden): en rojo, con el motivo al pasar el mouse.
+  function marcaError({ model }) {
+    return model && model._error ? { style: { background: '#fde2e1', color: '#a61b1b' }, title: model._error } : {};
+  }
+
   const columns = [
     { prop: 'numero', name: 'Depto', size: 120, filter: true },
     { prop: 'propietario', name: 'Propietario', size: 210, readonly: true, filter: true },
     // Meses previos (solo consulta), del más antiguo al más reciente.
     ...historial.map(h => ({ prop: h.prop, name: h.nombre, size: 125, readonly: true })),
     { prop: 'anterior', name: 'Lect. {{ mes_anterior|escapejs }}', size: 135, readonly: true },
-    { prop: 'actual', name: 'Lect. {{ mes_actual|escapejs }}', size: 135 },
-    { prop: 'm3', name: 'm³', size: 100, filter: true },
+    { prop: 'actual', name: 'Lect. {{ mes_actual|escapejs }}', size: 135, cellProperties: marcaError },
+    { prop: 'm3', name: 'm³', size: 100, filter: true, cellProperties: marcaError },
     { prop: 'costo', name: 'Costo S/', size: 120, filter: true },
   ];
 
@@ -164,6 +169,7 @@
       // La fila editada es el objeto del grid (sirve también con la búsqueda activa).
       const apply = (r, prop, val) => {
         if (!r) return;
+        delete r._error;  // al corregirla deja de marcarse
         const n = parseNum(val);
         // Sin lectura anterior (primera del depto) la actual es solo la base: 0 m³.
         if (prop === 'actual') {
@@ -204,10 +210,17 @@
     fetch(window.location.pathname + window.location.search, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ rows: rows.map(({ _error, ...r }) => r) }),
     }).then(r => r.json()).then(d => {
-      msg.textContent = d.ok ? `✓ ${d.guardadas} lectura(s) guardadas` : ('Error: ' + (d.error || ''));
-      if (d.ok) setTimeout(() => { msg.textContent = ''; }, 4000);
+      if (!d.ok) { msg.textContent = 'Error: ' + (d.error || ''); return; }
+      const errores = d.errores || [];
+      const porPk = Object.fromEntries(errores.map(e => [e.pk, e.error]));
+      rows.forEach(r => { if (porPk[r.pk]) r._error = porPk[r.pk]; else delete r._error; });
+      refresh();
+      msg.textContent = `✓ ${d.guardadas} lectura(s) guardadas` + (errores.length
+        ? ` · ${errores.length} sin guardar (en rojo): ` + errores.map(e => `Depto ${e.depto}: ${e.error}`).join(' · ')
+        : '');
+      if (!errores.length) setTimeout(() => { msg.textContent = ''; }, 4000);
     }).catch(() => { msg.textContent = 'Error de red al guardar.'; });
   });
 
