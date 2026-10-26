@@ -218,3 +218,74 @@ class PrimeraLecturaTests(TestCase):
     def test_anterior_explicita_se_respeta(self):
         l = s.registrar_lectura(self.dep, date(2026, 5, 1), D('2525'), lectura_anterior=D('2514'))
         self.assertEqual(l.m3_consumidos, D('11'))
+
+
+class CadenaLecturasTests(TestCase):
+    """Las lecturas de meses seguidos están encadenadas: la anterior de un mes es
+    la actual del mes previo, y una lectura no puede romper el orden del medidor."""
+
+    def setUp(self):
+        self.dep = Departamento.objects.create(numero_domicilio='401-T')
+        self.ago, self.sep, self.oct = date(2026, 8, 1), date(2026, 9, 1), date(2026, 10, 1)
+        for p, v in [(self.ago, '100'), (self.sep, '120'), (self.oct, '150')]:
+            s.registrar_lectura(self.dep, p, D(v))
+
+    def test_cambiar_un_mes_actualiza_la_anterior_del_siguiente(self):
+        s.registrar_lectura(self.dep, self.sep, D('130'))
+        oct_ = LecturaMedidor.objects.get(departamento=self.dep, periodo=self.oct)
+        self.assertEqual(oct_.lectura_anterior, D('130'))
+        self.assertEqual(oct_.m3_consumidos, D('20'))
+        self.assertEqual(s.lectura_del_mes(self.dep, self.oct)[1], D('130'))
+
+    def test_no_puede_superar_al_mes_siguiente(self):
+        self.assertIn('mayor que la lectura de 09/2026 (120)', s.validar_lectura(self.dep, self.ago, D('125')))
+        self.assertIsNone(s.validar_lectura(self.dep, self.ago, D('110')))
+
+    def test_no_puede_bajar_del_mes_previo(self):
+        self.assertIn('menor que la lectura de 08/2026 (100)', s.validar_lectura(self.dep, self.sep, D('90')))
+
+    def test_vista_rechaza_y_no_guarda_nada(self):
+        from django.contrib.auth.models import User
+        self.client.force_login(User.objects.create_user('agua'))
+        otro = Departamento.objects.create(numero_domicilio='402-T')
+        r = self.client.post('/facturas-agua/?mes=8&anio=2026', content_type='application/json', data={
+            'rows': [{'pk': otro.pk, 'actual': 50}, {'pk': self.dep.pk, 'actual': 125}]})
+        self.assertFalse(r.json()['ok'])
+        self.assertIn('Depto 401-T', r.json()['error'])
+        self.assertFalse(LecturaMedidor.objects.filter(departamento=otro).exists())
+        self.assertEqual(LecturaMedidor.objects.get(departamento=self.dep, periodo=self.ago).lectura_actual, D('100'))
+
+
+class CuotaExtraordinariaTests(TestCase):
+    """Un gasto fijo 'Se cobra como: Cuota extraordinaria' genera su propio cargo
+    cada mes mientras esté activo, sin sumarse a mantenimiento."""
+
+    def setUp(self):
+        s.sembrar_conceptos()
+        self.dep = Departamento.objects.create(numero_domicilio='401-T')
+        GastoFijo.objects.create(descripcion='Vigilancia', monto=D('30.00'))
+        self.cuota = GastoFijo.objects.create(
+            descripcion='Cuota extraordinaria', monto=D('45.00'),
+            concepto=Concepto.objects.get(codigo='CUOTA'))
+
+    def montos(self, periodo):
+        return {c.concepto.codigo: c.monto for c in self.dep.cargos.filter(periodo=periodo)}
+
+    def test_genera_cargo_aparte(self):
+        s.generar_cargos_mes(date(2026, 11, 1))
+        m = self.montos(date(2026, 11, 1))
+        self.assertEqual(m['CUOTA'], D('45.00'))
+        self.assertEqual(m['MANTENIMIENTO'], D('30.00'))
+        fila = s.cargos_mes_por_departamento(date(2026, 11, 1))[0]
+        self.assertEqual(fila['CUOTA'], D('45.00'))
+
+    def test_desactivada_no_se_cobra(self):
+        self.cuota.activo = False
+        self.cuota.save()
+        s.generar_cargos_mes(date(2026, 12, 1))
+        self.assertNotIn('CUOTA', self.montos(date(2026, 12, 1)))
+
+    def test_formulario_ofrece_cuota(self):
+        from departamentos.forms import GastoFijoForm
+        codigos = [c.codigo for c in GastoFijoForm().fields['concepto'].queryset]
+        self.assertEqual(codigos, ['CUOTA'])

@@ -6,7 +6,7 @@ from django.db import transaction
 from ..models import Cargo, Concepto, Departamento, GastoEdificio, Imputacion, LecturaMedidor, Pago
 from .agua import costo_agua
 from .comun import CERO, fecha_vencimiento, redondear
-from .gastos import prorrateo_mes
+from .gastos import fijos_aparte_por_depto, prorrateo_mes
 
 # (código, nombre, orden, es_recurrente)
 CONCEPTOS_ESTANDAR = [
@@ -69,13 +69,15 @@ def _extras_dirigidos(periodo):
 def generar_cargos_mes(periodo, dia_vencimiento=5):
     """Genera (o actualiza) los cargos recurrentes del mes por cada depto activo.
 
-    Un cargo por concepto (mantenimiento, agua, área común, cochera, adicionales).
+    Un cargo por concepto (mantenimiento, agua, área común, cochera, adicionales y
+    los gastos fijos que se cobran aparte, como la cuota extraordinaria).
     Idempotente: no duplica; no toca cargos que ya recibieron pagos.
     """
     sembrar_conceptos()
     datos = prorrateo_mes(periodo)
     vencimiento = fecha_vencimiento(periodo, dia_vencimiento)
-    conceptos = {c.codigo: c for c in Concepto.objects.filter(codigo__in=_RECURRENTES)}
+    aparte = fijos_aparte_por_depto()
+    conceptos = {c.codigo: c for c in Concepto.objects.filter(codigo__in=[*_RECURRENTES, *aparte])}
     resumen = {'creados': 0, 'actualizados': 0, 'omitidos_pagados': 0, 'n': datos['n']}
     extra_por_dep = _extras_dirigidos(periodo)
 
@@ -90,6 +92,8 @@ def generar_cargos_mes(periodo, dia_vencimiento=5):
             'AREA_COMUN': redondear(datos['area_comun'] + extra.get('AREA_COMUN', CERO)),
             'COCHERA': redondear(dep.cochera_monto or 0),
             'GASTO_ADIC': redondear(datos['adicionales'] + extra.get('GASTO_ADIC', CERO)),
+            # Gastos fijos que se cobran aparte (ej. cuota extraordinaria activa).
+            **{codigo: redondear(monto) for codigo, monto in aparte.items()},
         }
         for codigo, monto in montos.items():
             concepto = conceptos[codigo]
@@ -105,7 +109,7 @@ def generar_cargos_mes(periodo, dia_vencimiento=5):
                 Cargo.objects.create(departamento=dep, concepto=concepto, periodo=periodo,
                                      monto=monto, fecha_vencimiento=vencimiento)
                 resumen['creados'] += 1
-            elif cargo.total_imputado > 0:
+            elif cargo.total_imputado > cargo.monto:
                 resumen['omitidos_pagados'] += 1
             else:
                 cargo.monto = monto
@@ -180,15 +184,18 @@ COLUMNAS_MES = ('MANTENIMIENTO', 'AGUA', 'AREA_COMUN', 'COCHERA')
 def cargos_mes_por_departamento(periodo):
     """Una fila por depto (como el Excel) con sus cargos del mes por concepto
     (MANTENIMIENTO/AGUA/AREA_COMUN/COCHERA; el resto suma en 'extras'), total,
-    pagado y saldo. Ordenado por número de depto."""
+    pagado y saldo. 'CUOTA' es la parte de 'extras' que es cuota extraordinaria,
+    para mostrarla en su propia columna. Ordenado por número de depto."""
     cargos = (Cargo.objects.filter(periodo=periodo)
               .select_related('departamento', 'concepto').prefetch_related('imputaciones'))
     por_dep = {}
     for c in cargos:
         fila = por_dep.setdefault(c.departamento_id, {
             'departamento': c.departamento,
-            **{k: CERO for k in COLUMNAS_MES + ('extras', 'total', 'pagado', 'saldo')}})
+            **{k: CERO for k in COLUMNAS_MES + ('extras', 'CUOTA', 'total', 'pagado', 'saldo')}})
         fila[c.concepto.codigo if c.concepto.codigo in COLUMNAS_MES else 'extras'] += c.monto
+        if c.concepto.codigo == 'CUOTA':
+            fila['CUOTA'] += c.monto
         fila['total'] += c.monto
         fila['pagado'] += c.total_imputado
         fila['saldo'] += c.saldo

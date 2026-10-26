@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django import forms
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import Concepto, Departamento, GastoEdificio, GastoFijo, Proveedor, TarifaAgua
@@ -98,11 +99,13 @@ class GastoEdificioForm(forms.ModelForm):
 class GastoFijoForm(forms.ModelForm):
     class Meta:
         model = GastoFijo
-        fields = ['descripcion', 'monto', 'categoria', 'compartido', 'activo']
+        fields = ['descripcion', 'monto', 'categoria', 'concepto', 'compartido', 'activo']
+        labels = {'concepto': 'Se cobra como'}
         widgets = {
             'descripcion': forms.TextInput(attrs={**_control, 'placeholder': 'Vigilancia'}),
             'monto': forms.NumberInput(attrs={**_control, 'step': '0.01'}),
             'categoria': forms.Select(attrs=_select),
+            'concepto': forms.Select(attrs=_select),
             'compartido': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
@@ -116,6 +119,14 @@ class GastoFijoForm(forms.ModelForm):
             (cat.GENERAL.value, cat.GENERAL.label),
             (cat.AGUA_COMUN.value, cat.AGUA_COMUN.label),
         ]
+        # "Se cobra como": vacío = se suma a su categoría (lo de siempre); Cuota
+        # extraordinaria = cargo aparte cada mes mientras esté activo. Se conserva
+        # el concepto que ya tuviera (p. ej. asignado desde el admin).
+        concepto = self.fields['concepto']
+        concepto.queryset = Concepto.objects.filter(
+            Q(codigo='CUOTA') | Q(pk=self.instance.concepto_id))
+        concepto.empty_label = 'Según su categoría'
+        concepto.help_text = ''
 
 
 class TarifaAguaForm(forms.ModelForm):

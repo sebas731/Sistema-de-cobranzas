@@ -11,7 +11,7 @@
 """
 from .agua import (
     agua_comun_por_departamento, calcular_agua_sedapal, costo_agua, lectura_del_mes,
-    registrar_lectura, ultima_lectura,
+    registrar_lectura, siguiente_lectura, ultima_lectura, validar_lectura,
 )
 from .boleta import EDIFICIO, datos_boleta
 from .comun import (

@@ -29,7 +29,8 @@ def prorrateo_mes(periodo):
         return {'n': 0, 'mantenimiento': CERO, 'area_comun': CERO, 'adicionales': CERO,
                 'total_general': CERO, 'total_agua_comun': CERO, 'total_adicional': CERO}
 
-    fijos = GastoFijo.objects.filter(activo=True)
+    # Los fijos que se cobran aparte (cuota extraordinaria) no se prorratean aquí.
+    fijos = GastoFijo.objects.filter(activo=True).exclude(concepto__es_recurrente=False)
     # Solo gastos del mes NO dirigidos (los personalizados se aplican por depto
     # en la generación, no en el prorrateo uniforme).
     mes = GastoEdificio.objects.filter(periodo=periodo, departamentos__isnull=True)
@@ -46,6 +47,18 @@ def prorrateo_mes(periodo):
         datos[clave] = _por_depto(compartido, directo, n)
         datos[total] = compartido + directo
     return datos
+
+
+def fijos_aparte_por_depto():
+    """{codigo_concepto: monto por depto} de los gastos fijos activos que se cobran
+    aparte (concepto no recurrente, ej. cuota extraordinaria): cada uno genera su
+    propio cargo mensual mientras esté activo, en vez de sumarse a mantenimiento."""
+    n = Departamento.objects.filter(activo=True).count() or 1
+    montos = {}
+    for g in GastoFijo.objects.filter(activo=True, concepto__es_recurrente=False).select_related('concepto'):
+        aporte = (g.monto / n) if g.compartido else g.monto
+        montos[g.concepto.codigo] = montos.get(g.concepto.codigo, CERO) + aporte
+    return montos
 
 
 def desglose_gastos_mes(periodo):

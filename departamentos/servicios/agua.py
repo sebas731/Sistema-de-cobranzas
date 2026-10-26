@@ -77,6 +77,11 @@ def ultima_lectura(departamento, antes_de=None):
     return qs.order_by('-periodo').first()
 
 
+def siguiente_lectura(departamento, despues_de):
+    return (LecturaMedidor.objects.filter(departamento=departamento, periodo__gt=despues_de)
+            .order_by('periodo').first())
+
+
 def lectura_del_mes(departamento, periodo):
     """(lectura del mes o None, lectura anterior o None). La anterior se arrastra
     de la lectura actual del mes previo; None = es la primera lectura del depto
@@ -85,13 +90,33 @@ def lectura_del_mes(departamento, periodo):
     previa = ultima_lectura(departamento, antes_de=periodo)
     if previa is None:
         return actual, None
-    return actual, actual.lectura_anterior if actual else previa.lectura_actual
+    # Siempre la actual del mes previo (fuente de verdad), aunque la guardada esté desfasada.
+    return actual, previa.lectura_actual
+
+
+def _n(d):  # 1889.00 → '1889'
+    return f'{Decimal(d).normalize():f}'
+
+
+def validar_lectura(departamento, periodo, lectura_actual):
+    """Mensaje de error si la lectura rompe el orden del medidor (no puede bajar
+    respecto al mes previo ni superar la del mes siguiente); None si es válida."""
+    previa = ultima_lectura(departamento, antes_de=periodo)
+    if previa and lectura_actual < previa.lectura_actual:
+        return (f'{_n(lectura_actual)} es menor que la lectura de {previa.periodo:%m/%Y} '
+                f'({_n(previa.lectura_actual)})')
+    siguiente = siguiente_lectura(departamento, periodo)
+    if siguiente and lectura_actual > siguiente.lectura_actual:
+        return (f'{_n(lectura_actual)} es mayor que la lectura de {siguiente.periodo:%m/%Y} '
+                f'({_n(siguiente.lectura_actual)})')
+    return None
 
 
 @transaction.atomic
 def registrar_lectura(departamento, periodo, lectura_actual, lectura_anterior=None):
     """Registra la lectura del mes. Arrastra la lectura anterior si no se pasa.
-    La primera lectura del depto es solo la base: anterior = actual (0 m³)."""
+    La primera lectura del depto es solo la base: anterior = actual (0 m³).
+    Mantiene la cadena: la lectura anterior del mes siguiente pasa a ser esta."""
     if lectura_anterior is None:
         previa = ultima_lectura(departamento, antes_de=periodo)
         lectura_anterior = previa.lectura_actual if previa else lectura_actual
@@ -99,4 +124,8 @@ def registrar_lectura(departamento, periodo, lectura_actual, lectura_anterior=No
         departamento=departamento, periodo=periodo,
         defaults={'lectura_anterior': lectura_anterior, 'lectura_actual': lectura_actual},
     )
+    siguiente = siguiente_lectura(departamento, periodo)
+    if siguiente and siguiente.lectura_anterior != lectura.lectura_actual:
+        siguiente.lectura_anterior = lectura.lectura_actual
+        siguiente.save(update_fields=['lectura_anterior'])
     return lectura

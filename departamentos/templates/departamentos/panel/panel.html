@@ -140,7 +140,7 @@
     { prop: 'pagado', name: 'Pagado', size: 100 ,readonly:true },
     { prop: 'saldo', name: 'Saldo', size: 90 , readonly:true },
     { prop: 'cobrar', name: 'cobrar', size: 150 },
-    { prop: 'pk', name:'Accion' , size: 100 , cellTemplate: (h,props) => props.model.saldo > 0 ? h("button",{ class: 'btn btn-sm btn-success', onClick: () => cobrar(props.model)},"Cobrar") : h("span",{class: "badge-soft badge-soft--success"},"Pagado" )}
+    { prop: 'pk', name:'Accion' , size: 100 , cellTemplate: (h,props) =>  h("button",{ class: 'btn btn-sm btn-success', onClick: () => console.log(props)},"Cobrar") }
 
 ];
 
@@ -154,7 +154,7 @@ function cobrar(fila){
   fetch(location.href, { method:'POST',
                headers: {'X-CSRFToken':"{{csrf_token}}"},
                body:datos}).then( () => location.reload() )
-
+focus()
 }
 
 grid.columns = columns;

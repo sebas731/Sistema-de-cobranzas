@@ -12,7 +12,7 @@ from django.views.generic import CreateView, UpdateView
 
 from ..forms import MESES_ES, TarifaAguaForm
 from ..models import Departamento, LecturaMedidor, TarifaAgua
-from ..servicios import a_decimal, lectura_del_mes, registrar_lectura
+from ..servicios import a_decimal, lectura_del_mes, registrar_lectura, validar_lectura
 from ..servicios.comun import ordenar_tramos
 from .comun import json_invalido, leer_json, periodo_de_request
 
@@ -53,8 +53,11 @@ def lecturas_mes(request):
 
 
 def _guardar_facturas(payload, periodo):
-    """Guarda las lecturas de la tabla y renombra el depto si cambió su número."""
-    guardadas = 0
+    """Guarda las lecturas de la tabla y renombra el depto si cambió su número.
+
+    Solo toca las lecturas que cambiaron (o cuya lectura anterior quedó desfasada
+    del mes previo). Si alguna rompe el orden del medidor no se guarda nada."""
+    guardadas, errores = 0, []
     with transaction.atomic():
         for r in payload.get('rows', []):
             dep = Departamento.objects.filter(pk=r.get('pk')).first()
@@ -66,9 +69,22 @@ def _guardar_facturas(payload, periodo):
                 dep.numero_domicilio = nuevo
                 dep.save(update_fields=['numero_domicilio'])
             actual = a_decimal(r.get('actual'))
-            if actual is not None:
-                registrar_lectura(dep, periodo, actual)
-                guardadas += 1
+            if actual is None:
+                continue
+            guardada, anterior = lectura_del_mes(dep, periodo)
+            if (guardada and guardada.lectura_actual == actual
+                    and (anterior is None or guardada.lectura_anterior == anterior)):
+                continue
+            error = validar_lectura(dep, periodo, actual)
+            if error:
+                errores.append(f'Depto {dep.numero_domicilio}: {error}')
+                continue
+            registrar_lectura(dep, periodo, actual)
+            guardadas += 1
+        if errores:
+            transaction.set_rollback(True)
+            return JsonResponse({'ok': False, 'error': 'No se guardó nada. ' + ' · '.join(errores),
+                                 'errores': errores})
     return JsonResponse({'ok': True, 'guardadas': guardadas})
 
 
@@ -96,10 +112,14 @@ def facturas_agua(request):
     filas = []
     for dep in Departamento.objects.filter(activo=True):
         actual, anterior = lectura_del_mes(dep, periodo)
+        # m³ contra la lectura del mes previo (la misma que muestra la columna "anterior").
+        m3 = None
+        if actual:
+            m3 = max(actual.lectura_actual - anterior, Decimal('0')) if anterior is not None else Decimal('0')
         filas.append({'pk': dep.id, 'numero': dep.numero_domicilio, 'propietario': dep.propietario,
                       'anterior': _f(anterior),
                       'actual': _f(actual.lectura_actual) if actual else None,
-                      'm3': _f(actual.m3_consumidos) if actual else None, 'costo': None})
+                      'm3': _f(m3), 'costo': None})
 
     tramos = ordenar_tramos(TarifaAgua.objects.filter(activo=True), 'consumo_limite')
     previo = (periodo.year - 1, 12) if periodo.month == 1 else (periodo.year, periodo.month - 1)
