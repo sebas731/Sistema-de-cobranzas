@@ -4,6 +4,7 @@ Las opciones van en una lista oculta (data-msel-opciones); el JS de layouts/base
 filtra mientras se escribe, agrega chips y mantiene un input oculto por cada elegido
 (name = el del campo). Al volver con errores, los ya elegidos se pintan como chips.
 Teclas: ↑ ↓ para moverse, Enter para elegir, Retroceso con el texto vacío quita el último.
+También acepta una lista escrita o pegada: "102, 108, 203–205" (Enter) elige todos esos.
 {% endcomment %}
 <div class="msel" data-msel data-name="{{ widget.name }}">
   <div class="msel__campo">

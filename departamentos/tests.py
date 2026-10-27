@@ -178,10 +178,10 @@ class RegistroPagoTests(TestCase):
     def test_form_rechaza_motivo_y_periodo_sin_deuda(self):
         from departamentos.forms import RegistroPagoForm
         s.registrar_pago(self.dep, D('5.00'), concepto=self.coch, periodo=self.may)
-        form = RegistroPagoForm({'departamento': self.dep.pk, 'concepto': self.coch.pk,
+        form = RegistroPagoForm({'departamentos': [self.dep.pk], 'concepto': self.coch.pk,
                                  'periodo': '2026-05-01', 'monto': '5'})
         self.assertFalse(form.is_valid())
-        form = RegistroPagoForm({'departamento': self.dep.pk, 'concepto': '',
+        form = RegistroPagoForm({'departamentos': [self.dep.pk], 'concepto': '',
                                  'periodo': '2026-05-01', 'monto': '5', 'fecha_pago': '01/01/2000'})
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['fecha_pago'], timezone.localdate())  # no se edita
@@ -190,7 +190,7 @@ class RegistroPagoTests(TestCase):
         from django.contrib.auth.models import User
         self.client.force_login(User.objects.create_user('caja'))
         self.assertContains(self.client.get('/pagos/registrar/'), 'Este pago se aplicará a:')
-        r = self.client.post('/pagos/registrar/', {'departamento': self.dep.pk, 'concepto': '',
+        r = self.client.post('/pagos/registrar/', {'departamentos': [self.dep.pk], 'concepto': '',
                                                    'periodo': '', 'monto': '60.00'})
         self.assertRedirects(r, '/pagos/registrar/')
         self.assertEqual(self.saldos(), [D('0.00'), D('0.00'), D('45.00'), D('5.00')])
@@ -354,3 +354,36 @@ class PanelMoraMultaTests(TestCase):
         s.registrar_pago(self.dep, D('115.00'), periodo=date(2026, 10, 1), con_mora_anterior=True)
         for c in (self.mora_ago, self.mora_sep, self.mant_oct, self.multa_oct):
             self.assertEqual(c.saldo, D('0.00'))
+
+
+class PagoEnLoteTests(TestCase):
+    """Registrar pago con varios deptos: el mismo importe y motivo para cada uno
+    (ej. 25 de cuota extraordinaria a 56 deptos de una vez)."""
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        s.sembrar_conceptos()
+        self.cuota = Concepto.objects.get(codigo='CUOTA')
+        self.mant = Concepto.objects.get(codigo='MANTENIMIENTO')
+        self.deps = [Departamento.objects.create(numero_domicilio=n) for n in ('102', '108', '203')]
+        for d in self.deps:
+            s.crear_cargo(d, self.cuota, date(2026, 9, 1), D('50.00'))
+            s.crear_cargo(d, self.mant, date(2026, 8, 1), D('70.00'))   # más antigua: no se toca
+        self.client.force_login(User.objects.create_user('caja'))
+
+    def test_lote_aplica_solo_a_la_cuota(self):
+        r = self.client.post('/pagos/registrar/', {
+            'departamentos': [d.pk for d in self.deps], 'concepto': self.cuota.pk,
+            'periodo': '2026-09-01', 'monto': '25.00'})
+        self.assertRedirects(r, '/pagos/registrar/')
+        for d in self.deps:
+            saldos = {c.concepto.codigo: c.saldo for c in d.cargos.all()}
+            self.assertEqual(saldos, {'CUOTA': D('25.00'), 'MANTENIMIENTO': D('70.00')})
+
+    def test_lote_rechaza_si_alguno_no_debe(self):
+        from departamentos.forms import RegistroPagoForm
+        sin = Departamento.objects.create(numero_domicilio='999')
+        form = RegistroPagoForm({'departamentos': [self.deps[0].pk, sin.pk], 'concepto': self.cuota.pk,
+                                 'periodo': '', 'monto': '25'})
+        self.assertFalse(form.is_valid())
+        self.assertIn('999', str(form.non_field_errors()))

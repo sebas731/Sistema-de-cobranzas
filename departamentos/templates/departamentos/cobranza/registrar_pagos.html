@@ -3,9 +3,9 @@
 
 
 {% block content %}
-{% include 'departamentos/components/page_header.html' with title="Registrar pago" subtitle="Busca el departamento o el propietario, revisa a qué deuda se aplicará y registra." %}
+{% include 'departamentos/components/page_header.html' with title="Registrar pago" subtitle="Busca el departamento o el propietario (o escribe una lista: 102, 108, 203–205), revisa a qué deuda se aplicará y registra." %}
 
-{% include 'departamentos/components/form_card.html' with form=form form_id="formPago" title="Nuevo pago" subtitle="Motivo «General» y periodo «Automático» saldan la deuda más antigua." submit_label="Registrar pago" extra="departamentos/cobranza/partials/pago_vista_previa.html" %}
+{% include 'departamentos/components/form_card.html' with form=form form_id="formPago" title="Nuevo pago" subtitle="Motivo «General» y periodo «Automático» saldan la deuda más antigua. Con varios deptos, cada uno paga el mismo importe." submit_label="Registrar pago" extra="departamentos/cobranza/partials/pago_vista_previa.html" %}
 
 {{ deudas|json_script:"deudasData" }}
 {% endblock %}
@@ -17,7 +17,7 @@
   // Vienen ordenadas de la más antigua a la más nueva (mismo orden que usa el back).
   const DATOS = JSON.parse(document.getElementById('deudasData').textContent);
   const form = document.getElementById('formPago');
-  const depto = form.elements.departamento;
+  const caja = form.querySelector('[data-msel]');           // selector de deptos (chips)
   const motivo = form.elements.concepto;
   const periodo = form.elements.periodo;
   const importe = form.elements.monto;
@@ -29,11 +29,14 @@
   const soles = (c) => 'S/ ' + (c / 100).toFixed(2);
   const suma = (lista) => lista.reduce((s, d) => s + cent(d.saldo), 0);
 
-  let deudas = [];               // deudas del depto elegido
+  // Deptos elegidos (los pks viajan en inputs ocultos dentro de cada chip).
+  const elegidos = () => [...caja.querySelectorAll('input[type="hidden"]')]
+    .map(i => DATOS[i.value]).filter(Boolean);
+  let deptos = [];
   let importeTocado = !!importe.value;
 
-  // Deudas a las que se aplicaría el pago según motivo/periodo (vacío = sin filtro).
-  const aplicables = () => deudas.filter(d =>
+  // Deudas de un depto a las que se aplicaría el pago según motivo/periodo.
+  const aplicables = (deudas) => deudas.filter(d =>
     (!motivo.value || d.concepto === motivo.value) && (!periodo.value || d.periodo === periodo.value));
 
   // Reemplaza las opciones de un select y conserva la elegida si sigue existiendo.
@@ -44,26 +47,29 @@
     select.value = items.some(([v]) => v === actual) ? actual : '';
   }
 
-  // Solo se ofrecen motivos y meses con deuda, y cada uno filtra al otro.
+  // Solo se ofrecen motivos y meses con deuda (en alguno de los deptos elegidos),
+  // y cada uno filtra al otro.
   function armarSelectores() {
+    const todas = deptos.flatMap(d => d.deudas);
     const unicos = (lista, clave, texto) =>
       [...new Map(lista.map(d => [d[clave], d[texto]])).entries()];
-    opciones(motivo, 'General', unicos(deudas.filter(d => !periodo.value || d.periodo === periodo.value), 'concepto', 'motivo'));
-    opciones(periodo, 'Automático', unicos(deudas.filter(d => !motivo.value || d.concepto === motivo.value), 'periodo', 'mes'));
+    opciones(motivo, 'General', unicos(todas.filter(d => !periodo.value || d.periodo === periodo.value), 'concepto', 'motivo'));
+    opciones(periodo, 'Automático', unicos(todas.filter(d => !motivo.value || d.concepto === motivo.value), 'periodo', 'mes'));
   }
 
-  // Importe sugerido (si no lo escribieron a mano): la deuda más antigua,
-  // o el total del mes si se eligió un periodo.
+  // Importe sugerido (si no lo escribieron a mano y hay un solo depto): la deuda
+  // más antigua, o el total del mes si se eligió un periodo.
   function sugerirImporte() {
-    if (importeTocado) return;
-    const lista = aplicables();
+    if (importeTocado || deptos.length !== 1) return;
+    const lista = aplicables(deptos[0].deudas);
     const c = periodo.value ? suma(lista) : (lista[0] ? cent(lista[0].saldo) : 0);
     importe.value = c ? (c / 100).toFixed(2) : '';
   }
 
-  // <tr> de la vista previa: periodo, motivo, saldo, aplica (o un mensaje a todo el ancho).
-  function fila(celdas) {
+  // <tr> de la vista previa: 4 celdas (las 2 últimas, montos) o un mensaje a todo el ancho.
+  function fila(celdas, clase) {
     const tr = document.createElement('tr');
+    if (clase) tr.className = clase;
     celdas.forEach((texto, i) => {
       const td = tr.insertCell();
       td.textContent = texto;
@@ -73,45 +79,75 @@
     return tr;
   }
 
-  // Vista previa: reparte el importe de la deuda más antigua a la más nueva.
-  function vistaPrevia() {
-    const lista = aplicables();
-    preview.hidden = !depto.value;
-    if (preview.hidden) return;
-    let resto = cent(importe.value);
-    const filas = [];
+  // Reparte `importe` de la deuda más antigua a la más nueva: [{d, aplica}], resto.
+  function repartir(lista, importeC) {
+    let resto = importeC;
+    const partes = [];
     for (const d of lista) {
       if (resto <= 0) break;
       const aplica = Math.min(resto, cent(d.saldo));
       resto -= aplica;
-      filas.push(fila([d.mes, d.motivo, soles(cent(d.saldo)), soles(aplica)]));
+      partes.push({ d, aplica });
     }
-    if (!filas.length) filas.push(fila([lista.length ? 'Ingresa el importe.' : 'Sin deudas pendientes.']));
-    preview.querySelector('tbody').replaceChildren(...filas);
-    const nota = preview.querySelector('[data-nota]');
-    nota.classList.toggle('favor', resto > 0);
-    nota.textContent = resto > 0 ? `Sobran ${soles(resto)}: quedarán como saldo a favor.` : '';
+    return { partes, resto };
   }
 
-  // Al elegir depto: autocompleta sus datos y sus deudas (el resto se recalcula).
-  function alElegirDepto() {
-    const d = DATOS[depto.value];
-    deudas = d ? d.deudas : [];
-    info.hidden = !d;
-    if (d) {
-      info.querySelector('[data-info="numero"]').textContent = d.numero;
-      info.querySelector('[data-info="propietario"]').textContent = d.propietario;
-      info.querySelector('[data-info="deuda"]').textContent = soles(suma(deudas));
+  // Vista previa: un depto = detalle por deuda; varios = una fila por depto.
+  function vistaPrevia() {
+    preview.hidden = !deptos.length;
+    if (preview.hidden) return;
+    const imp = cent(importe.value);
+    const filas = [];
+    const nota = preview.querySelector('[data-nota]');
+    preview.querySelector('[data-col0]').textContent = deptos.length === 1 ? 'Periodo' : 'Depto';
+
+    if (deptos.length === 1) {
+      const lista = aplicables(deptos[0].deudas);
+      const { partes, resto } = repartir(lista, imp);
+      partes.forEach(({ d, aplica }) => filas.push(fila([d.mes, d.motivo, soles(cent(d.saldo)), soles(aplica)])));
+      if (!filas.length) filas.push(fila([lista.length ? 'Ingresa el importe.' : 'Sin deudas pendientes.']));
+      nota.classList.toggle('favor', resto > 0);
+      nota.textContent = resto > 0 ? `Sobran ${soles(resto)}: quedarán como saldo a favor.` : '';
+    } else {
+      let favor = 0;
+      const sinDeuda = [];
+      for (const dep of deptos) {
+        const lista = aplicables(dep.deudas);
+        if (!lista.length) { sinDeuda.push(dep.numero); continue; }
+        const { partes, resto } = repartir(lista, imp);
+        favor += resto;
+        const motivos = [...new Set(partes.map(p => `${p.d.motivo} ${p.d.mes}`))].join(', ') || '—';
+        filas.push(fila([dep.numero, motivos, soles(suma(lista)), soles(imp - resto)]));
+      }
+      if (!filas.length) filas.push(fila(['Ninguno tiene deuda para ese motivo y periodo.']));
+      const avisos = [`${deptos.length} pagos de ${soles(imp)} = total ${soles(imp * deptos.length)}.`];
+      if (sinDeuda.length) avisos.push(`Sin deuda para ese motivo/periodo (no se podrá registrar): ${sinDeuda.join(', ')}.`);
+      if (favor > 0) avisos.push(`Sobran ${soles(favor)} en total: quedarán como saldo a favor.`);
+      nota.classList.toggle('favor', favor > 0 || sinDeuda.length > 0);
+      nota.textContent = avisos.join(' ');
+    }
+    preview.querySelector('tbody').replaceChildren(...filas);
+  }
+
+  // Al cambiar los deptos: autocompleta sus datos y deudas (el resto se recalcula).
+  function alElegirDeptos() {
+    deptos = elegidos();
+    info.hidden = !deptos.length;
+    if (deptos.length) {
+      const uno = deptos.length === 1;
+      info.querySelector('[data-info="numero"]').textContent = uno ? deptos[0].numero : `${deptos.length} deptos`;
+      info.querySelector('[data-info="propietario"]').textContent = uno ? deptos[0].propietario : '—';
+      info.querySelector('[data-info="deuda"]').textContent = soles(deptos.reduce((s, d) => s + suma(d.deudas), 0));
     }
     armarSelectores(); sugerirImporte(); vistaPrevia();
   }
 
-  depto.addEventListener('change', alElegirDepto);
+  caja.addEventListener('change', alElegirDeptos);
   motivo.addEventListener('change', () => { armarSelectores(); sugerirImporte(); vistaPrevia(); });
   periodo.addEventListener('change', () => { armarSelectores(); sugerirImporte(); vistaPrevia(); });
   importe.addEventListener('input', () => { importeTocado = importe.value !== ''; vistaPrevia(); });
 
-  alElegirDepto();   // al volver con errores, el depto ya viene elegido
+  alElegirDeptos();   // al volver con errores, los deptos ya vienen elegidos
 })();
 </script>
 {% endblock %}

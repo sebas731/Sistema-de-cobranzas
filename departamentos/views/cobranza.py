@@ -30,17 +30,26 @@ def _deudas_para_pago():
 
 @login_required
 def registrar_pagos(request):
-    """Registrar UN pago con un formulario corto. El front muestra una vista previa
+    """Registrar pagos con un formulario corto: uno, o el mismo importe para varios
+    deptos a la vez (ej. la cuota extraordinaria). El front muestra una vista previa
     de a qué deudas se aplicará, pero la autoridad es el back: aquí se pone la fecha
     (hoy) y registrar_pago vuelve a aplicar la regla. Lo que sobre queda a favor."""
     form = RegistroPagoForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         d = form.cleaned_data
-        pago = registrar_pago(d['departamento'], d['monto'], concepto=d['concepto'],
-                              periodo=d['periodo'])
-        texto = f'Pago de S/ {pago.monto:.2f} registrado para el depto {pago.departamento.numero_domicilio}.'
-        if pago.saldo_a_favor > 0:
-            texto += f' Quedan S/ {pago.saldo_a_favor:.2f} a favor.'
+        with transaction.atomic():
+            pagos = [registrar_pago(dep, d['monto'], concepto=d['concepto'], periodo=d['periodo'])
+                     for dep in d['departamentos']]
+        numeros = ', '.join(p.departamento.numero_domicilio for p in pagos)
+        if len(pagos) == 1:
+            texto = f'Pago de S/ {d["monto"]:.2f} registrado para el depto {numeros}.'
+        else:
+            texto = (f'{len(pagos)} pagos de S/ {d["monto"]:.2f} registrados '
+                     f'(total S/ {d["monto"] * len(pagos):.2f}): {numeros}.')
+        favor = [p for p in pagos if p.saldo_a_favor > 0]
+        if favor:
+            texto += ' Quedan a favor: ' + ', '.join(
+                f'{p.departamento.numero_domicilio} S/ {p.saldo_a_favor:.2f}' for p in favor) + '.'
         messages.success(request, texto)
         return redirect('registrar_pagos')
     return render(request, 'departamentos/cobranza/registrar_pagos.html', {

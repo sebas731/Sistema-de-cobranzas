@@ -159,15 +159,26 @@ class BuscadorWidget(forms.Select):
     template_name = 'departamentos/widgets/buscador.html'
 
 
+class MultiBuscadorWidget(forms.SelectMultiple):
+    """Selección múltiple con autocompletado: se escribe el código o el nombre, se elige
+    de la lista y cada elegido queda como chip. Los pks viajan en inputs ocultos con el
+    nombre del campo (el JS de layouts/base.html los arma). También acepta una lista
+    con rangos ("102, 108, 203–205"). Reutilizable."""
+    template_name = 'departamentos/widgets/multi_buscador.html'
+
+
 class RegistroPagoForm(forms.Form):
     """Registro de un pago. Motivo y periodo vacíos = 'General' / 'Automático':
     el pago salda lo más antiguo; si se eligen, solo se aplica a ese motivo y/o mes
-    (la regla vive en servicios.registrar_pago). La fecha es hoy y no se edita."""
-    departamento = forms.ModelChoiceField(
-        label='Departamento o propietario',
+    (la regla vive en servicios.registrar_pago). La fecha es hoy y no se edita.
+    Con varios deptos se registra un pago igual (mismo importe) para cada uno."""
+    departamentos = forms.ModelMultipleChoiceField(
+        label='Departamento(s) o propietario',
         queryset=Departamento.objects.filter(activo=True),
-        widget=BuscadorWidget(attrs={**_control, 'data-ancho': 'full',
-                                     'placeholder': 'Buscar por N° de depto o nombre del propietario'}))
+        error_messages={'required': 'Elige al menos un departamento.'},
+        widget=MultiBuscadorWidget(attrs={
+            **_control, 'data-ancho': 'full',
+            'placeholder': 'N° de depto, propietario o una lista: 102, 108, 203–205'}))
     concepto = forms.ModelChoiceField(
         label='Motivo', queryset=Concepto.objects.filter(activo=True), required=False,
         empty_label='General', widget=forms.Select(attrs=_select))
@@ -184,7 +195,7 @@ class RegistroPagoForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['departamento'].label_from_instance = (
+        self.fields['departamentos'].label_from_instance = (
             lambda d: f'{d.numero_domicilio} — {d.propietario}')
         self.fields['fecha_pago'].initial = timezone.localdate()
         # Al volver con errores, el JS reconstruye el select y reelige este mes.
@@ -193,18 +204,15 @@ class RegistroPagoForm(forms.Form):
 
     def clean(self):
         datos = super().clean()
-        dep, concepto, periodo = (datos.get('departamento'), datos.get('concepto'),
-                                  datos.get('periodo'))
-        if dep and (concepto or periodo) and not cargos_pendientes(dep, concepto, periodo):
-            raise forms.ValidationError('No hay deuda pendiente para ese motivo y periodo.')
+        deps, concepto, periodo = (datos.get('departamentos') or [], datos.get('concepto'),
+                                   datos.get('periodo'))
+        if concepto or periodo:
+            sin_deuda = [d.numero_domicilio for d in deps
+                         if not cargos_pendientes(d, concepto, periodo)]
+            if sin_deuda:
+                raise forms.ValidationError(
+                    'No hay deuda pendiente para ese motivo y periodo en: ' + ', '.join(sin_deuda) + '.')
         return datos
-
-
-class MultiBuscadorWidget(forms.SelectMultiple):
-    """Selección múltiple con autocompletado: se escribe el código o el nombre, se elige
-    de la lista y cada elegido queda como chip. Los pks viajan en inputs ocultos con el
-    nombre del campo (el JS de layouts/base.html los arma). Reutilizable."""
-    template_name = 'departamentos/widgets/multi_buscador.html'
 
 
 class CargoMasivoForm(MesAnioForm):

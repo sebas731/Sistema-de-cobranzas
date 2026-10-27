@@ -146,6 +146,27 @@
         lista.hidden = false; texto.setAttribute('aria-expanded', 'true');
       }
       function elegir(op) { agregar(op); texto.value = ''; cerrar(); avisar(); texto.focus(); }
+
+      // Lista escrita o pegada: "102, 108, 203–205" (comas, espacios o ;; rangos con - – —).
+      // Elige todos los deptos que coinciden por N° y avisa los que no existen.
+      var numero = function (op) { return norm(op.texto.split(' — ')[0].trim()); };
+      var esLista = function (s) { return /[,;]|\d\s*[-–—]\s*\d|\d\s+\d/.test(s); };
+      function elegirLista(s) {
+        var tokens = s.replace(/\s*[-–—]\s*/g, '-').split(/[,;\s]+/).filter(Boolean);
+        var faltan = [];
+        tokens.forEach(function (t) {
+          var r = t.match(/^(\d+)-(\d+)$/), hallados;
+          if (r) {
+            var a = +r[1], b = +r[2];
+            hallados = opciones.filter(function (o) { var n = +numero(o); return n >= Math.min(a, b) && n <= Math.max(a, b); });
+          } else {
+            hallados = opciones.filter(function (o) { return numero(o) === norm(t); });
+          }
+          if (hallados.length) hallados.forEach(agregar); else faltan.push(t);
+        });
+        texto.value = ''; cerrar(); avisar();
+        if (faltan.length) cuenta.textContent += ' · No existen: ' + faltan.join(', ');
+      }
       function marcar(i) {
         var items = lista.querySelectorAll('.msel__op');
         if (!items.length) return;
@@ -155,11 +176,19 @@
       }
 
       texto.addEventListener('input', pintar);
+      texto.addEventListener('paste', function (e) {
+        var pegado = (e.clipboardData || window.clipboardData).getData('text');
+        if (esLista(pegado)) { e.preventDefault(); elegirLista(pegado); }
+      });
       texto.addEventListener('blur', cerrar);
       texto.addEventListener('keydown', function (e) {
         if (e.key === 'ArrowDown') { e.preventDefault(); lista.hidden ? pintar() : marcar(activo + 1); }
         else if (e.key === 'ArrowUp') { e.preventDefault(); marcar(activo - 1); }
-        else if (e.key === 'Enter') { e.preventDefault(); if (!lista.hidden && visibles[activo]) elegir(visibles[activo]); }
+        else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (esLista(texto.value)) elegirLista(texto.value);
+          else if (!lista.hidden && visibles[activo]) elegir(visibles[activo]);
+        }
         else if (e.key === 'Escape') { cerrar(); }
         else if (e.key === 'Backspace' && !texto.value && chips.lastElementChild) { chips.lastElementChild.remove(); avisar(); }
       });
