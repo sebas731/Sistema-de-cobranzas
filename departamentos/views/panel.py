@@ -33,7 +33,8 @@ def panel(request):
         dep = get_object_or_404(Departamento, pk=request.POST.get('departamento'))
         monto = a_decimal(request.POST.get('monto'), Decimal('0'))
         if monto > 0:
-            registrar_pago(dep, monto, metodo=request.POST.get('metodo', ''), periodo=periodo)
+            registrar_pago(dep, monto, metodo=request.POST.get('metodo', ''), periodo=periodo,
+                           con_mora_anterior=True)
             messages.success(request, f'Pago de S/ {monto:.2f} registrado para el depto {dep.numero_domicilio}.')
         else:
             messages.error(request, 'Ingresa un monto mayor a 0.')
@@ -46,7 +47,7 @@ def panel(request):
         F.rango('saldo', 'Saldo', sufijo='S/'),
     ])
     estado = request.GET.get('estado', '')
-    filas = [f for f in cargos_mes_por_departamento(periodo)
+    filas = [f for f in cargos_mes_por_departamento(periodo, con_mora_anterior=True)
              if F.coincide_texto(request, 'q', f['departamento'].numero_domicilio, f['departamento'].propietario)
              and (estado != 'deuda' or f['saldo'] > 0)
              and (estado != 'aldia' or f['saldo'] <= 0)
@@ -66,7 +67,9 @@ def panel(request):
     'area_comun': float(item['AREA_COMUN']),
     'cochera': float(item['COCHERA']),
     'cuota': float(item['CUOTA']),
-    'otros': float(item['extras'] - item['CUOTA']),
+    'multa': float(item['MULTA']),
+    'mora': float(item['MORA']),
+    'otros': float(item['extras'] - item['CUOTA'] - item['MULTA'] - item['MORA']),
     'total': float(item['total']),
     'pagado': float(item['pagado']),
     'saldo': float(item['saldo']),

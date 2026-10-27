@@ -149,19 +149,26 @@ def cargos_pendientes(departamento, concepto=None, periodo=None):
 
 
 @transaction.atomic
-def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', periodo=None):
+def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', periodo=None,
+                   con_mora_anterior=False):
     """Registra un pago y lo imputa a los cargos del depto (más antiguos primero).
 
     Si `concepto` está definido (ej. Mantenimiento), solo cancela cargos de ese
-    concepto. Si `periodo` está definido, solo los de ese mes. Lo que sobra queda
-    como saldo a favor del pago.
+    concepto. Si `periodo` está definido, solo los de ese mes; con
+    `con_mora_anterior`, antes salda la mora pendiente de meses anteriores (así
+    cobra el panel). Lo que sobra queda como saldo a favor del pago.
     """
     monto = redondear(monto)
     pago = Pago.objects.create(departamento=departamento, monto=monto, metodo=metodo,
                                concepto=concepto, nota=nota)
 
+    cargos = cargos_pendientes(departamento, concepto, periodo)
+    if con_mora_anterior and periodo is not None:
+        cargos = [c for c in cargos_pendientes(departamento)
+                  if c.periodo < periodo and c.concepto.codigo == 'MORA'] + cargos
+
     restante = monto
-    for cargo in cargos_pendientes(departamento, concepto, periodo):
+    for cargo in cargos:
         if restante <= 0:
             break
         aplicar = min(restante, cargo.saldo)
@@ -181,24 +188,45 @@ def deuda_anterior(departamento, periodo):
 COLUMNAS_MES = ('MANTENIMIENTO', 'AGUA', 'AREA_COMUN', 'COCHERA')
 
 
-def cargos_mes_por_departamento(periodo):
+# Partes de 'extras' que el panel muestra en su propia columna.
+COLUMNAS_APARTE = ('CUOTA', 'MULTA', 'MORA')
+
+
+def cargos_mes_por_departamento(periodo, con_mora_anterior=False):
     """Una fila por depto (como el Excel) con sus cargos del mes por concepto
     (MANTENIMIENTO/AGUA/AREA_COMUN/COCHERA; el resto suma en 'extras'), total,
-    pagado y saldo. 'CUOTA' es la parte de 'extras' que es cuota extraordinaria,
-    para mostrarla en su propia columna. Ordenado por número de depto."""
+    pagado y saldo. CUOTA/MULTA/MORA son la parte de 'extras' de ese concepto,
+    para mostrarlas en su propia columna. Ordenado por número de depto.
+
+    Con `con_mora_anterior`, la mora que se debe de meses anteriores se suma a
+    MORA, extras, total y saldo (el panel la cobra junto con el mes)."""
+    por_dep = {}
+
+    def fila_de(dep):
+        return por_dep.setdefault(dep.id, {
+            'departamento': dep,
+            **{k: CERO for k in COLUMNAS_MES + ('extras', *COLUMNAS_APARTE, 'total', 'pagado', 'saldo')}})
+
     cargos = (Cargo.objects.filter(periodo=periodo)
               .select_related('departamento', 'concepto').prefetch_related('imputaciones'))
-    por_dep = {}
     for c in cargos:
-        fila = por_dep.setdefault(c.departamento_id, {
-            'departamento': c.departamento,
-            **{k: CERO for k in COLUMNAS_MES + ('extras', 'CUOTA', 'total', 'pagado', 'saldo')}})
+        fila = fila_de(c.departamento)
         fila[c.concepto.codigo if c.concepto.codigo in COLUMNAS_MES else 'extras'] += c.monto
-        if c.concepto.codigo == 'CUOTA':
-            fila['CUOTA'] += c.monto
+        if c.concepto.codigo in COLUMNAS_APARTE:
+            fila[c.concepto.codigo] += c.monto
         fila['total'] += c.monto
         fila['pagado'] += c.total_imputado
         fila['saldo'] += c.saldo
+
+    if con_mora_anterior:
+        moras = (Cargo.objects.filter(periodo__lt=periodo, concepto__codigo='MORA')
+                 .select_related('departamento').prefetch_related('imputaciones'))
+        for c in moras:
+            if c.saldo > 0:
+                fila = fila_de(c.departamento)
+                for k in ('MORA', 'extras', 'total', 'saldo'):
+                    fila[k] += c.saldo
+
     return sorted(por_dep.values(), key=lambda f: f['departamento'].numero_domicilio)
 
 

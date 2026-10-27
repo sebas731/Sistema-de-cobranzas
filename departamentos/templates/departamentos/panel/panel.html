@@ -135,12 +135,19 @@
     { prop: 'agua', name: 'Agua', size: 90 ,readonly:true },
     { prop: 'area_comun', name: 'Á. común', size: 130 ,readonly:true },
     { prop: 'cochera', name: 'Cochera', size: 100 ,readonly:true },
+    // La columna de cuota solo aparece si alguien la tiene este mes.
+    ...(dataOriginal.some(f => f.cuota > 0) ? [{ prop: 'cuota', name: 'Cuota extr.', size: 110, readonly: true }] : []),
+    { prop: 'multa', name: 'Multa', size: 90, readonly: true },
+    // Mora = lo que se debe de mora de meses anteriores (se cobra junto con el mes).
+    { prop: 'mora', name: 'Mora', size: 90, readonly: true },
     { prop: 'otros', name: 'Otros', size: 100 ,readonly:true },
     { prop: 'total', name: 'Total', size: 90 , readonly:true },
     { prop: 'pagado', name: 'Pagado', size: 100 ,readonly:true },
     { prop: 'saldo', name: 'Saldo', size: 90 , readonly:true },
     { prop: 'cobrar', name: 'cobrar', size: 150 },
-    { prop: 'pk', name:'Accion' , size: 100 , cellTemplate: (h,props) =>  h("button",{ class: 'btn btn-sm btn-success', onClick: () => console.log(props)},"Cobrar") }
+    { prop: 'pk', name:'Accion' , size: 100 , cellTemplate: (h, props) => props.model.saldo > 0
+      ? h('button', { class: 'btn btn-sm btn-success', onClick: () => cobrar(props.model) }, 'Cobrar')
+      : h('span', { class: 'badge-soft badge-soft--success' }, 'Pagado') }
 
 ];
 
@@ -154,7 +161,6 @@ function cobrar(fila){
   fetch(location.href, { method:'POST',
                headers: {'X-CSRFToken':"{{csrf_token}}"},
                body:datos}).then( () => location.reload() )
-focus()
 }
 
 grid.columns = columns;

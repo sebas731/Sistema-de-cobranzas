@@ -320,3 +320,37 @@ class CostoAguaPlanaTests(TestCase):
         self.assertEqual(s.costo_agua(D('20')), D('78.62'))    # tope inclusivo: 20 × 3.931
         self.assertEqual(s.costo_agua(D('25')), D('138.10'))   # 25 × 5.524, no por tramos
         self.assertEqual(s.costo_agua(D('60')), D('331.44'))   # rango sin tope
+
+
+class PanelMoraMultaTests(TestCase):
+    """Panel del mes: Multa del mes y Mora pendiente de meses anteriores se suman
+    al saldo y el cobro del panel también salda esa mora."""
+
+    def setUp(self):
+        s.sembrar_conceptos()
+        self.dep = Departamento.objects.create(numero_domicilio='501-T')
+        c = lambda cod: Concepto.objects.get(codigo=cod)
+        self.mora_ago = s.crear_cargo(self.dep, c('MORA'), date(2026, 8, 1), D('15.00'))
+        self.mora_sep = s.crear_cargo(self.dep, c('MORA'), date(2026, 9, 1), D('15.00'))
+        self.mant_oct = s.crear_cargo(self.dep, c('MANTENIMIENTO'), date(2026, 10, 1), D('70.00'))
+        self.multa_oct = s.crear_cargo(self.dep, c('MULTA'), date(2026, 10, 1), D('20.00'))
+        s.registrar_pago(self.dep, D('5.00'), concepto=c('MORA'))  # mora de agosto queda en 10
+
+    def test_fila_suma_mora_anterior_y_multa(self):
+        f = s.cargos_mes_por_departamento(date(2026, 10, 1), con_mora_anterior=True)[0]
+        self.assertEqual(f['MORA'], D('25.00'))    # 10 (ago) + 15 (sep), pendientes
+        self.assertEqual(f['MULTA'], D('20.00'))
+        self.assertEqual(f['saldo'], D('115.00'))  # 70 + 20 + 25
+        sin = s.cargos_mes_por_departamento(date(2026, 10, 1))[0]
+        self.assertEqual(sin['saldo'], D('90.00'))  # el balance no cambia
+
+    def test_depto_solo_con_mora_aparece(self):
+        otro = Departamento.objects.create(numero_domicilio='502-T')
+        s.crear_cargo(otro, Concepto.objects.get(codigo='MORA'), date(2026, 9, 1), D('15.00'))
+        filas = s.cargos_mes_por_departamento(date(2026, 10, 1), con_mora_anterior=True)
+        self.assertEqual([f['departamento'].numero_domicilio for f in filas], ['501-T', '502-T'])
+
+    def test_cobro_del_panel_salda_mora_primero(self):
+        s.registrar_pago(self.dep, D('115.00'), periodo=date(2026, 10, 1), con_mora_anterior=True)
+        for c in (self.mora_ago, self.mora_sep, self.mant_oct, self.multa_oct):
+            self.assertEqual(c.saldo, D('0.00'))
