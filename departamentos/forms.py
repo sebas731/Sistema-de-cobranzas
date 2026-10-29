@@ -39,6 +39,16 @@ class GenerarRecibosForm(MesAnioForm):
         widget=forms.NumberInput(attrs=_control))
 
 
+class BorrarRecibosForm(MesAnioForm):
+    """Borrar las boletas generadas de un mes (va con prefix='b' junto a GenerarRecibosForm)."""
+    incluir_manuales = forms.BooleanField(
+        label='Incluir multas y cargos puestos a mano ese mes', required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
+    incluir_pagados = forms.BooleanField(
+        label='Incluir los que ya tienen pagos (esos pagos quedan como saldo a favor)', required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
+
+
 class ImportarExcelForm(MesAnioForm):
     archivo = forms.FileField(
         label='Archivo Excel (.xlsx)',

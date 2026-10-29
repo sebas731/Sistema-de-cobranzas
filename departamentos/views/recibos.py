@@ -12,14 +12,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.urls import reverse
 
-from ..forms import GenerarRecibosForm
+from ..forms import BorrarRecibosForm, GenerarRecibosForm
 from ..models import (
     ConfiguracionCondominio, Departamento, LecturaMedidor, PeriodoFacturacion, Recibo,
     TarifaAguaVersion,
 )
-from ..servicios import datos_boleta, generar_cargos_mes
+from ..servicios import borrar_generacion_mes, datos_boleta, generar_cargos_mes
 from ..servicios.comun import ordenar_tramos
 from .comun import periodo_de_request
 
@@ -53,11 +54,26 @@ def _edificio(per, agua_comun):
             'diferencia': f'{per.diferencia_ab:,.2f}', 'agua_comun': agua_comun}
 
 
+def _logo_url(logo):
+    """El logo de la configuración es una ruta bajo /static (img/logo.jpg) o una URL."""
+    if not logo or logo.startswith(('http://', 'https://', '/')):
+        return logo
+    return static(logo)
+
+
+def _aviso(config, r):
+    """Texto del aviso; `{vencimiento}` se reemplaza por la fecha de pago del recibo (05-09)."""
+    texto = config.texto_aviso if config else ''
+    venc = r.get('vencimiento')
+    return texto.replace('{vencimiento}', f'{venc:%d-%m}' if venc else '')
+
+
 def _render(request, r, volver):
     config = ConfiguracionCondominio.vigente()
     medios = list(config.medios_pago.filter(activo=True)) if config else []
     return render(request, 'departamentos/recibos/documento.html', {
         'r': r, 'config': config, 'volver': volver,
+        'logo_url': _logo_url(config.logo if config else ''), 'aviso': _aviso(config, r),
         'banco': next((m for m in medios if m.tipo == 'BANCO'), None),
         'billeteras': [m for m in medios if m.tipo in ('PLIN', 'YAPE')],
     })
@@ -140,6 +156,8 @@ def recibo_ver(request, pk):
 
 @login_required
 def generar_recibos(request):
+    if request.POST.get('accion') == 'borrar':
+        return _borrar_generacion(request)
     form = GenerarRecibosForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         periodo = form.periodo
@@ -153,4 +171,28 @@ def generar_recibos(request):
                 f"{resumen['actualizados']} actualizados, "
                 f"{resumen['omitidos_pagados']} ya pagados.")
         return redirect(f'{reverse("balance_mes")}?mes={periodo.month}&anio={periodo.year}')
-    return render(request, 'departamentos/recibos/generar.html', {'form': form})
+
+    # Borrar: con "Ver qué se borra" (GET b-mes) se muestra la vista previa y se confirma.
+    borrar = BorrarRecibosForm(request.GET if 'b-mes' in request.GET else None, prefix='b')
+    previa = None
+    if borrar.is_bound and borrar.is_valid():
+        previa = {'periodo': borrar.periodo, **borrar_generacion_mes(
+            borrar.periodo, borrar.cleaned_data['incluir_manuales'], borrar.cleaned_data['incluir_pagados'])}
+    return render(request, 'departamentos/recibos/generar.html', {
+        'form': form, 'borrar': borrar, 'previa': previa})
+
+
+def _borrar_generacion(request):
+    borrar = BorrarRecibosForm(request.POST, prefix='b')
+    if not borrar.is_valid():
+        messages.error(request, 'Elige un mes válido para borrar.')
+        return redirect('generar_recibos')
+    periodo, datos = borrar.periodo, borrar.cleaned_data
+    r = borrar_generacion_mes(periodo, datos['incluir_manuales'], datos['incluir_pagados'], aplicar=True)
+    texto = f"Boletas de {periodo:%m/%Y}: se borraron {r['n']} cargo(s) de {r['deptos']} depto(s) (S/ {r['total']:.2f})."
+    if r['pagos_liberados']:
+        texto += f" S/ {r['pagos_liberados']:.2f} de pagos quedaron como saldo a favor."
+    if r['conservados']:
+        texto += f" Se conservaron {r['conservados']} cargo(s) con pagos."
+    messages.success(request, texto)
+    return redirect('generar_recibos')

@@ -103,7 +103,11 @@
   <div class="table-responsive">
     <table class="table ds-table ds-table--link ds-table--stack">
       <thead>
-        <tr><th>Departamento</th><th>Propietario</th><th class="num">Total adeudado</th><th>Estado</th><th></th></tr>
+        <tr><th>Departamento</th><th>Propietario</th>
+          <th class="num" title="Toda la deuda de hace más de 2 meses, de cualquier concepto">Acumulado<br><span class="th-sub">hasta {{ col_hasta }}</span></th>
+          {% for m in col_meses %}<th class="num">{{ m }}</th>{% endfor %}
+          {% if hay_posterior %}<th class="num">Posterior</th>{% endif %}
+          <th class="num">Total adeudado</th><th>Estado</th><th></th></tr>
       </thead>
       <tbody id="dzRows">
         {% for f in filas %}
@@ -112,6 +116,9 @@
             data-total="{{ f.total|stringformat:'.2f' }}" onclick="dzOpen({{ f.id }})">
           <td data-label="Departamento" class="fw-semibold">{{ f.numero }}</td>
           <td data-label="Propietario">{{ f.propietario }}</td>
+          <td data-label="Acumulado" class="num{% if not f.acumulado %} muted{% endif %}">{% if f.acumulado %}{% include 'departamentos/components/amount.html' with value=f.acumulado %}{% else %}—{% endif %}</td>
+          {% for m in f.por_mes %}<td data-label="{{ m.mes }}" class="num{% if not m.monto %} muted{% endif %}">{% if m.monto %}{% include 'departamentos/components/amount.html' with value=m.monto %}{% else %}—{% endif %}</td>{% endfor %}
+          {% if hay_posterior %}<td data-label="Posterior" class="num{% if not f.posterior %} muted{% endif %}">{% if f.posterior %}{% include 'departamentos/components/amount.html' with value=f.posterior %}{% else %}—{% endif %}</td>{% endif %}
           <td data-label="Total" class="num fw-semibold">{% include 'departamentos/components/amount.html' with value=f.total tone=f.total_tone %}</td>
           <td data-label="Estado">{% include 'departamentos/components/status_badge.html' with text=f.estado_label tone=f.estado_tone %}</td>
           <td class="num"><span class="link-more">Ver detalle →</span></td>
@@ -147,7 +154,7 @@
     </div>
     <div class="section-title mt-0">Detalle de deuda</div>
     <div id="dzDesglose"></div>
-    <div class="section-title">Historial de deuda</div>
+    <div class="section-title">Deuda por antigüedad</div>
     <div id="dzHistorial"></div>
     <div class="d-grid gap-2 mt-4">
       <a id="dzPagar" href="#" class="btn btn-success">Registrar pago</a>

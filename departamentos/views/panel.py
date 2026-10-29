@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, render
 from .. import filtros as F
 from ..models import Departamento, LecturaMedidor
 from ..servicios import (
-    COLUMNAS_MES, a_decimal, cargos_mes_por_departamento, desglose_gastos_mes,
+    COLUMNAS_COBRO, COLUMNAS_MES, a_decimal, cargos_mes_por_departamento, desglose_gastos_mes,
     prorrateo_mes, registrar_pago,
 )
 from .comun import periodo_de_request, redirigir_al_periodo
@@ -32,10 +32,13 @@ def panel(request):
     if request.method == 'POST' and request.POST.get('accion') == 'pago':
         dep = get_object_or_404(Departamento, pk=request.POST.get('departamento'))
         monto = a_decimal(request.POST.get('monto'), Decimal('0'))
+        # Columnas elegidas en el panel (vacío = todas: lo más antiguo primero).
+        columnas = [c for c in request.POST.getlist('columnas') if c in COLUMNAS_COBRO]
         if monto > 0:
             registrar_pago(dep, monto, metodo=request.POST.get('metodo', ''), periodo=periodo,
-                           con_mora_anterior=True)
-            messages.success(request, f'Pago de S/ {monto:.2f} registrado para el depto {dep.numero_domicilio}.')
+                           con_mora_anterior=True, columnas=columnas)
+            texto = f'Pago de S/ {monto:.2f} registrado para el depto {dep.numero_domicilio}'
+            messages.success(request, texto + (f' ({", ".join(columnas)}).' if columnas else '.'))
         else:
             messages.error(request, 'Ingresa un monto mayor a 0.')
         return redirigir_al_periodo(request, periodo)
@@ -73,7 +76,9 @@ def panel(request):
     'total': float(item['total']),
     'pagado': float(item['pagado']),
     'saldo': float(item['saldo']),
-    'cobrar': float(item['saldo']),   
+    'cobrar': float(item['saldo']),
+    # Lo que falta cobrar de cada columna (para cobrar solo las elegidas).
+    'pendiente': {k: float(v) for k, v in item['pendiente'].items()},
 
     } for item in filas]
 

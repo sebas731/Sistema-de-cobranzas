@@ -1,7 +1,7 @@
 {% comment %}Sidebar simplificado: lo frecuente arriba, configuración escondida
 en un desplegable. Estado activo por url_name.{% endcomment %}
 {% with cur=request.resolver_match.url_name %}
-{% with conf="balance balance_mes gastos_fijos gasto_fijo_editar tarifas tarifa_nueva tarifa_editar departamento_lista departamento_detalle departamento_editar departamento_nuevo proveedores proveedor_editar importar_excel estilos" %}
+{% with conf="balance balance_mes gastos_fijos gasto_fijo_editar tarifas tarifa_nueva tarifa_editar departamento_lista departamento_detalle departamento_editar departamento_nuevo proveedores proveedor_editar importar_excel estilos carga_deudas" %}
 <aside class="sidebar">
   <a href="{% url 'inicio' %}" class="sidebar__brand">
     <span class="logo">C</span> Cobranzas
@@ -42,6 +42,8 @@ en un desplegable. Estado activo por url_name.{% endcomment %}
         <svg><use href="#i-building"/></svg> Departamentos</a>
       <a href="{% url 'proveedores' %}" class="nav-item-ds {% if cur == 'proveedores' or cur == 'proveedor_editar' %}active{% endif %}">
         <svg><use href="#i-truck"/></svg> Proveedores</a>
+      <a href="{% url 'carga_deudas' %}" class="nav-item-ds {% if cur == 'carga_deudas' %}active{% endif %}">
+        <svg><use href="#i-wallet"/></svg> Carga inicial de deudas</a>
       <a href="{% url 'importar_excel' %}" class="nav-item-ds {% if cur == 'importar_excel' %}active{% endif %}">
         <svg><use href="#i-upload"/></svg> Importar Excel</a>
     </details>

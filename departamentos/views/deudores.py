@@ -9,10 +9,14 @@ from django.utils import timezone
 
 from ..forms import MESES_ES
 from ..models import Concepto
-from ..servicios import deudores
+from ..servicios import agrupar_deuda, deudores
 from .comun import periodo_de_request
 
 CERO = Decimal('0.00')
+
+
+def _mes(p):
+    return f'{MESES_ES[p.month]} {p.year}'
 
 
 def _estado(impagos, hoy, pronto):
@@ -34,6 +38,7 @@ def vista_deudores(request):
     nombres = dict(Concepto.objects.values_list('codigo', 'nombre'))
 
     filas, drawer_json = [], []
+    hay_posterior = False
     tot_general = tot_vencido = tot_por_vencer = CERO
     por_concepto = {}
 
@@ -52,17 +57,22 @@ def vista_deudores(request):
         for cod, monto in f['por_concepto'].items():
             por_concepto[cod] = por_concepto.get(cod, CERO) + monto
 
-        # Historial de deuda por mes (para el drawer)
-        hist = {}
-        for c in impagos:
-            hist[c.periodo] = hist.get(c.periodo, CERO) + c.saldo
-        historial = [{'mes': f'{MESES_ES[p.month]} {p.year}', 'monto': f'{m:.2f}'}
-                     for p, m in sorted(hist.items())]
+        # Deuda por antigüedad: el mes y los 2 anteriores sueltos, lo más antiguo acumulado.
+        grupo = agrupar_deuda(impagos, periodo)
+        historial = ([{'mes': f'Acumulado (hasta {_mes(grupo["hasta"])})', 'monto': f'{grupo["acumulado"]:.2f}'}]
+                     if grupo['acumulado'] else [])
+        historial += [{'mes': _mes(p), 'monto': f'{m:.2f}'} for p, m in grupo['meses'] if m]
+        if grupo['posterior']:
+            historial.append({'mes': f'Posterior a {_mes(periodo)}', 'monto': f'{grupo["posterior"]:.2f}'})
+        hay_posterior = hay_posterior or grupo['posterior'] > 0
 
         url = reverse('departamento_detalle', args=[dep.pk])
         filas.append({
             'id': dep.pk, 'numero': dep.numero_domicilio, 'propietario': dep.propietario,
             'total': f['total'], 'mes': f['mes'], 'anterior': f['anterior'],
+            'acumulado': grupo['acumulado'],
+            'por_mes': [{'mes': MESES_ES[p.month][:3] + f' {p.year}', 'monto': m} for p, m in grupo['meses']],
+            'posterior': grupo['posterior'],
             'desglose': desglose, 'estado': estado, 'estado_label': estado_label,
             'estado_tone': estado_tone,
             'total_tone': 'danger' if estado == 'vencido' else '',
@@ -93,8 +103,12 @@ def vista_deudores(request):
                      'pct': int(f['total'] / max_t * 100) if max_t else 0}
                     for f in filas[:8]]
 
+    ref = agrupar_deuda([], periodo)
     return render(request, 'departamentos/deudores/deudores.html', {
         'periodo_form': form, 'periodo': periodo, 'filas': filas,
+        # Columnas por antigüedad: "Acumulado (hasta junio)", julio, agosto, septiembre.
+        'col_hasta': _mes(ref['hasta']), 'col_meses': [MESES_ES[p.month][:3] + f' {p.year}' for p, _ in ref['meses']],
+        'hay_posterior': hay_posterior,
         'conceptos': list(Concepto.objects.order_by('orden').values_list('codigo', 'nombre')),
         'kpi': {'total': tot_general, 'n_deudores': n_deud, 'vencido': tot_vencido,
                 'promedio': (tot_general / n_deud) if n_deud else CERO},

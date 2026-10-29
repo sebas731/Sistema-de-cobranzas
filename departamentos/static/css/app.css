@@ -624,6 +624,10 @@ a { text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .ds-table .pagado { color: var(--success); }
 .ds-table .saldo-deuda { color: var(--danger); font-weight: 700; }
 .ds-table .idx { color: var(--text-muted); text-align: center; width: 44px; font-size: 12px; }
+.pago-antig { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 18px; padding-top: 6px; border-top: 1px dashed var(--border); }
+.pago-antig__item { display: inline-flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.pago-antig__item--acum strong { color: var(--danger); }
+.ds-table thead .th-sub { display: block; font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text-muted); }
 /* Fila de agrupación (subtítulo dentro de la tabla) */
 .ds-table tr.ds-group > * {
   background: var(--surface-wash); color: var(--color-plum-shadow);
@@ -1049,6 +1053,53 @@ revo-grid.bal-grid { border: 0; border-radius: 0; }
 .gm-comp-lbl { color: var(--text-muted); white-space: nowrap; }
 .gm-deptos { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px; }
 .cargo-item { cursor: pointer; }
+
+/* ---------- Carga inicial de deudas (grilla tipo Excel) ---------- */
+.cd-carga { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); gap: var(--sp-md); align-items: stretch; }
+.cd-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+  min-height: 96px; padding: var(--sp-md); border: 1.5px dashed var(--gray-300); border-radius: var(--radius-lg);
+  background: var(--gray-50); color: var(--text-2); cursor: pointer; margin: 0;
+}
+.cd-drop:hover, .cd-drop.is-over { border-color: var(--color-aubergine); background: var(--surface-wash); }
+.cd-carga__opts { display: flex; flex-direction: column; gap: 4px; }
+.cd-hojas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--sp-sm); }
+.cd-hoja { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--gray-100); color: var(--text-muted); }
+.cd-hoja--ok { background: var(--success-soft); color: var(--success); font-weight: 600; }
+.cd-aviso { font-size: .85rem; padding: 6px 10px; border-radius: var(--radius); margin-top: 4px; }
+.cd-aviso--err { background: var(--danger-soft); color: var(--danger); }
+.cd-aviso--warn { background: var(--warning-soft); color: var(--warning); }
+.cd-aviso--ok { background: var(--success-soft); color: var(--success); }
+.cd-resumen { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-sm); }
+.cd-kpi { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.cd-kpi__l { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: var(--tracking-eyebrow); }
+.cd-kpi__v { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cd-kpi__s { font-size: .78rem; color: var(--text-muted); }
+.cd-ok { color: var(--success) !important; }
+.cd-mal { color: var(--danger) !important; }
+.cd-filtro { display: inline-flex; align-items: center; gap: 6px; font-size: .88rem; white-space: nowrap; }
+.cd-msg { min-height: 1.4em; font-size: .9rem; font-weight: 600; margin: -4px 0 8px; }
+.cd-msg--ok { color: var(--success); } .cd-msg--err { color: var(--danger); }
+.cd-msg--warn { color: var(--warning); } .cd-msg--info { color: var(--text-muted); }
+revo-grid.cd-grid { --grid-h: 64vh; }
+revo-grid.cd-grid--cob { --grid-h: 42vh; }
+.cd-cob-res { display: flex; flex-wrap: wrap; gap: var(--sp-lg); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.cd-grid .rgCell.cd-col-num, .cd-grid .rgHeaderCell.cd-col-num { justify-content: flex-end; text-align: right; }
+.cd-vacio { padding: var(--sp-md); margin-top: var(--sp-sm); text-align: center; color: var(--text-muted); border: 1px dashed var(--gray-300); border-radius: var(--radius-lg); }
+.cd-grid .cd-num { font-variant-numeric: tabular-nums; }
+.cd-grid .cd-cero { color: var(--gray-400); }
+.cd-grid .rgRow.cd-warn .rgCell { background: var(--warning-soft); }
+.cd-grid .rgRow.cd-err .rgCell { background: var(--danger-soft); box-shadow: inset 0 1px 0 var(--danger), inset 0 -1px 0 var(--danger); }
+.cd-grid .rgRow.cd-dirty .rgCell:first-child { box-shadow: inset 3px 0 0 var(--color-aubergine); }
+.cd-btn-det { border: 0; background: transparent; cursor: pointer; padding: 0 4px; line-height: 1; }
+.cd-estado { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.cd-estado--err { color: var(--danger); } .cd-estado--warn { color: var(--warning); }
+.cd-estado--ok { color: var(--success); } .cd-estado--dirty { color: var(--color-aubergine); }
+.cd-drawer { width: min(1080px, 96vw) !important; }
+.cd-det th, .cd-det td { padding: 4px; font-size: 12.5px; }
+.cd-det__in { min-width: 64px; padding: 3px 5px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+@media (max-width: 991.98px) { .cd-carga { grid-template-columns: 1fr; } .cd-resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 
 /* =====================================================================
    IMPRESIÓN

@@ -1,4 +1,5 @@
 {% extends 'departamentos/layouts/base.html' %}
+{% load l10n %}
 {% block title %}Generar recibos{% endblock %}
 
 {% block content %}
@@ -27,6 +28,65 @@
           </div>
           <button type="submit" class="btn btn-success w-100">Generar recibos</button>
         </form>
+      </div>
+    </div>
+
+    {# ---------- Borrar una generación ---------- #}
+    <div class="card mt-4" id="borrar">
+      <div class="card-header"><strong>Borrar boletas generadas</strong></div>
+      <div class="card-body p-4">
+        <p class="text-muted small">
+          Quita los cargos que creó <em>Generar recibos</em> en un mes (mantenimiento, agua, área común,
+          cochera, adicionales). Primero ves qué se borra y luego confirmas. No toca la carga inicial de deudas.
+        </p>
+        <form method="get" action="#borrar" novalidate>
+          <div class="row g-2">
+            <div class="col"><label class="form-label">Mes</label>{{ borrar.mes }}</div>
+            <div class="col"><label class="form-label">Año</label>{{ borrar.anio }}</div>
+          </div>
+          <div class="form-check mt-3">{{ borrar.incluir_manuales }}
+            <label class="form-check-label" for="{{ borrar.incluir_manuales.id_for_label }}">{{ borrar.incluir_manuales.label }}</label></div>
+          <div class="form-check mb-3">{{ borrar.incluir_pagados }}
+            <label class="form-check-label" for="{{ borrar.incluir_pagados.id_for_label }}">{{ borrar.incluir_pagados.label }}</label></div>
+          <button type="submit" class="btn btn-outline-secondary w-100">Ver qué se borra</button>
+        </form>
+
+        {% if previa %}{% localize off %}
+        <div class="mt-4">
+          <div class="section-title mt-0">{{ previa.periodo|date:"F Y"|capfirst }}</div>
+          {% if previa.n %}
+          <div class="table-responsive mb-2">
+            <table class="table ds-table">
+              <thead><tr><th>Concepto</th><th class="num">Cargos</th><th class="num">Monto</th></tr></thead>
+              <tbody>
+                {% for c in previa.por_concepto %}
+                <tr><td>{{ c.nombre }}</td><td class="num">{{ c.n }}</td><td class="num">S/ {{ c.total|stringformat:".2f" }}</td></tr>
+                {% endfor %}
+              </tbody>
+              <tfoot><tr><th>Total ({{ previa.deptos }} depto{{ previa.deptos|pluralize }})</th><th class="num">{{ previa.n }}</th><th class="num">S/ {{ previa.total|stringformat:".2f" }}</th></tr></tfoot>
+            </table>
+          </div>
+          {% if previa.pagos_liberados %}
+          <div class="alert alert-warning py-2 small">⚠ Incluye cargos con pagos: S/ {{ previa.pagos_liberados|stringformat:".2f" }} de pagos quedarán como saldo a favor de sus deptos.</div>
+          {% endif %}
+          {% if previa.conservados %}
+          <div class="alert alert-info py-2 small">Se conservan {{ previa.conservados }} cargo{{ previa.conservados|pluralize }} que ya tienen pagos (S/ {{ previa.conservados_pagado|stringformat:".2f" }} pagado). Marca la segunda casilla si también quieres quitarlos.</div>
+          {% endif %}
+          <form method="post" onsubmit="return confirm('¿Borrar {{ previa.n }} cargo(s) de {{ previa.periodo|date:"m/Y" }}? No se puede deshacer.')">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="borrar">
+            <input type="hidden" name="b-mes" value="{{ previa.periodo.month }}">
+            <input type="hidden" name="b-anio" value="{{ previa.periodo.year }}">
+            {% if borrar.cleaned_data.incluir_manuales %}<input type="hidden" name="b-incluir_manuales" value="on">{% endif %}
+            {% if borrar.cleaned_data.incluir_pagados %}<input type="hidden" name="b-incluir_pagados" value="on">{% endif %}
+            <button type="submit" class="btn btn-danger w-100">Borrar {{ previa.n }} cargo{{ previa.n|pluralize }} de {{ previa.periodo|date:"m/Y" }}</button>
+          </form>
+          {% else %}
+          {% include 'departamentos/components/empty_state.html' with icon="inbox" title="No hay nada que borrar" text="Ese mes no tiene boletas generadas sin pagos. Revisa las casillas si quieres incluir más." %}
+          {% if previa.conservados %}<p class="text-muted small mt-2">Hay {{ previa.conservados }} cargo{{ previa.conservados|pluralize }} con pagos que se conservan.</p>{% endif %}
+          {% endif %}
+        </div>
+        {% endlocalize %}{% endif %}
       </div>
     </div>
   </div>

@@ -5,7 +5,7 @@ from django.db import transaction
 
 from ..models import Cargo, Concepto, Departamento, GastoEdificio, Imputacion, LecturaMedidor, Pago
 from .agua import costo_agua
-from .comun import CERO, fecha_vencimiento, redondear
+from .comun import CERO, fecha_vencimiento, redondear, sumar_meses
 from .gastos import fijos_aparte_por_depto, prorrateo_mes
 
 # (código, nombre, orden, es_recurrente)
@@ -24,6 +24,8 @@ CONCEPTOS_ESTANDAR = [
     ('MULTA', 'Multa', 100, False),
     ('MORA', 'Mora', 110, False),
     ('OTRO', 'Otro', 120, False),
+    # Deuda sin mes de la carga inicial ("D. anteriores" sin detalle): se cobra primero.
+    ('DEUDA_ANT', 'Deuda anterior', 5, False),
 ]
 
 # Conceptos recurrentes → de dónde sale su monto por depto.
@@ -120,6 +122,45 @@ def generar_cargos_mes(periodo, dia_vencimiento=5):
     return resumen
 
 
+def borrar_generacion_mes(periodo, incluir_manuales=False, incluir_pagados=False, aplicar=False):
+    """Vista previa (y, con `aplicar`, borrado) de las boletas generadas de un mes.
+
+    Por defecto solo los cargos que crea la generación (conceptos recurrentes) y
+    sin pagos. `incluir_manuales` suma las multas/cargos puestos a mano ese mes;
+    `incluir_pagados` también quita cargos con pagos: sus imputaciones se borran y
+    esos pagos quedan como saldo a favor del depto. Nunca toca la carga inicial.
+    Devuelve el resumen de lo que se borra (o se borró) y de lo que se conserva.
+    """
+    cargos = (Cargo.objects.filter(periodo=periodo, origen=Cargo.Origen.SISTEMA)
+              .select_related('departamento', 'concepto').prefetch_related('imputaciones'))
+    if not incluir_manuales:
+        cargos = cargos.filter(concepto__es_recurrente=True)
+    borrar, con_pagos = [], []
+    for c in cargos:
+        (con_pagos if c.total_imputado > 0 else borrar).append(c)
+    if incluir_pagados:
+        borrar, conservados = borrar + con_pagos, []
+    else:
+        conservados = con_pagos
+
+    por_concepto = {}
+    for c in borrar:
+        fila = por_concepto.setdefault(c.concepto.nombre, {'n': 0, 'total': CERO, 'orden': c.concepto.orden})
+        fila['n'] += 1
+        fila['total'] += c.monto
+    resumen = {
+        'n': len(borrar), 'total': sum((c.monto for c in borrar), CERO),
+        'deptos': len({c.departamento_id for c in borrar}),
+        'por_concepto': [{'nombre': k, **v} for k, v in sorted(por_concepto.items(), key=lambda x: x[1]['orden'])],
+        'pagos_liberados': sum((c.total_imputado for c in borrar), CERO),
+        'conservados': len(conservados), 'conservados_pagado': sum((c.total_imputado for c in conservados), CERO),
+    }
+    if aplicar and borrar:
+        with transaction.atomic():
+            Cargo.objects.filter(pk__in=[c.pk for c in borrar]).delete()
+    return resumen
+
+
 @transaction.atomic
 def crear_cargo(departamento, concepto, periodo, monto, descripcion='', dia_vencimiento=5):
     """Crea o actualiza un cargo (puertas, cámara, cuota, multa, mora, etc.).
@@ -150,13 +191,14 @@ def cargos_pendientes(departamento, concepto=None, periodo=None):
 
 @transaction.atomic
 def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', periodo=None,
-                   con_mora_anterior=False):
+                   con_mora_anterior=False, columnas=None):
     """Registra un pago y lo imputa a los cargos del depto (más antiguos primero).
 
     Si `concepto` está definido (ej. Mantenimiento), solo cancela cargos de ese
     concepto. Si `periodo` está definido, solo los de ese mes; con
     `con_mora_anterior`, antes salda la mora pendiente de meses anteriores (así
-    cobra el panel). Lo que sobra queda como saldo a favor del pago.
+    cobra el panel). `columnas` (columnas del panel, ej. ['agua', 'mora']) limita
+    el pago a esos conceptos. Lo que sobra queda como saldo a favor del pago.
     """
     monto = redondear(monto)
     pago = Pago.objects.create(departamento=departamento, monto=monto, metodo=metodo,
@@ -166,6 +208,8 @@ def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', perio
     if con_mora_anterior and periodo is not None:
         cargos = [c for c in cargos_pendientes(departamento)
                   if c.periodo < periodo and c.concepto.codigo == 'MORA'] + cargos
+    if columnas:
+        cargos = [c for c in cargos if columna_panel(c.concepto.codigo) in columnas]
 
     restante = monto
     for cargo in cargos:
@@ -191,6 +235,18 @@ COLUMNAS_MES = ('MANTENIMIENTO', 'AGUA', 'AREA_COMUN', 'COCHERA')
 # Partes de 'extras' que el panel muestra en su propia columna.
 COLUMNAS_APARTE = ('CUOTA', 'MULTA', 'MORA')
 
+# Columna del panel en la que cae cada concepto (el resto va a 'otros'). Sirve
+# para cobrar solo las columnas que se eligen en el panel.
+COLUMNA_PANEL = {
+    'MANTENIMIENTO': 'mantenimiento', 'AGUA': 'agua', 'AREA_COMUN': 'area_comun',
+    'COCHERA': 'cochera', 'CUOTA': 'cuota', 'MULTA': 'multa', 'MORA': 'mora',
+}
+COLUMNAS_COBRO = (*COLUMNA_PANEL.values(), 'otros')
+
+
+def columna_panel(codigo):
+    return COLUMNA_PANEL.get(codigo, 'otros')
+
 
 def cargos_mes_por_departamento(periodo, con_mora_anterior=False):
     """Una fila por depto (como el Excel) con sus cargos del mes por concepto
@@ -199,13 +255,17 @@ def cargos_mes_por_departamento(periodo, con_mora_anterior=False):
     para mostrarlas en su propia columna. Ordenado por número de depto.
 
     Con `con_mora_anterior`, la mora que se debe de meses anteriores se suma a
-    MORA, extras, total y saldo (el panel la cobra junto con el mes)."""
+    MORA, extras, total y saldo (el panel la cobra junto con el mes).
+
+    'pendiente' = {columna del panel: saldo por cobrar}, para cobrar solo las
+    columnas elegidas."""
     por_dep = {}
 
     def fila_de(dep):
         return por_dep.setdefault(dep.id, {
             'departamento': dep,
-            **{k: CERO for k in COLUMNAS_MES + ('extras', *COLUMNAS_APARTE, 'total', 'pagado', 'saldo')}})
+            **{k: CERO for k in COLUMNAS_MES + ('extras', *COLUMNAS_APARTE, 'total', 'pagado', 'saldo')},
+            'pendiente': {k: CERO for k in COLUMNAS_COBRO}})
 
     cargos = (Cargo.objects.filter(periodo=periodo)
               .select_related('departamento', 'concepto').prefetch_related('imputaciones'))
@@ -217,6 +277,7 @@ def cargos_mes_por_departamento(periodo, con_mora_anterior=False):
         fila['total'] += c.monto
         fila['pagado'] += c.total_imputado
         fila['saldo'] += c.saldo
+        fila['pendiente'][columna_panel(c.concepto.codigo)] += max(c.saldo, CERO)
 
     if con_mora_anterior:
         moras = (Cargo.objects.filter(periodo__lt=periodo, concepto__codigo='MORA')
@@ -226,8 +287,39 @@ def cargos_mes_por_departamento(periodo, con_mora_anterior=False):
                 fila = fila_de(c.departamento)
                 for k in ('MORA', 'extras', 'total', 'saldo'):
                     fila[k] += c.saldo
+                fila['pendiente']['mora'] += c.saldo
 
     return sorted(por_dep.values(), key=lambda f: f['departamento'].numero_domicilio)
+
+
+# Meses previos al de referencia que se muestran sueltos; lo más antiguo va acumulado.
+MESES_SUELTOS = 2
+
+
+def agrupar_deuda(cargos, referencia, meses_sueltos=MESES_SUELTOS):
+    """Saldo pendiente agrupado para MOSTRAR (no cambia cómo se aplican los pagos).
+
+    Viendo septiembre: julio, agosto y septiembre van por separado y todo lo
+    anterior (de cualquier concepto) en un solo `acumulado`. Lo posterior al mes
+    de referencia (boletas ya emitidas de meses siguientes) va en `posterior`.
+    Devuelve {'acumulado', 'hasta' (último mes del acumulado), 'meses':
+    [(periodo, monto)], 'posterior', 'total'}.
+    """
+    inicio = sumar_meses(referencia, -meses_sueltos)
+    por_mes = {sumar_meses(inicio, k): CERO for k in range(meses_sueltos + 1)}
+    acumulado = posterior = CERO
+    for c in cargos:
+        saldo = c.saldo
+        if saldo <= 0:
+            continue
+        if c.periodo < inicio:
+            acumulado += saldo
+        elif c.periodo > referencia:
+            posterior += saldo
+        else:
+            por_mes[c.periodo] += saldo
+    return {'acumulado': acumulado, 'hasta': sumar_meses(inicio, -1), 'meses': sorted(por_mes.items()),
+            'posterior': posterior, 'total': acumulado + posterior + sum(por_mes.values(), CERO)}
 
 
 def deudores(periodo=None):

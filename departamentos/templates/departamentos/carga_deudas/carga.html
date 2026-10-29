@@ -1,0 +1,588 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% load l10n %}
+{% block title %}Carga inicial de deudas{% endblock %}
+
+{% block extra_head %}
+<script type="importmap">
+{ "imports": {
+  "@stencil/core/internal/client": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/client/index.js",
+  "@stencil/core/internal/app-data": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-data/index.js",
+  "@stencil/core/internal/app-globals": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-globals/index.js"
+}}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Carga inicial de deudas</h1>
+    <p class="page-header__subtitle">Deuda de cada departamento hasta el corte de <strong id="cdCorteTexto">{{ corte_texto }}</strong>. Es deuda real: aparece en los recibos siguientes como deuda pendiente y se paga con el flujo normal.</p>
+  </div>
+  <form method="get" class="d-flex gap-2 align-items-end">
+    <div>
+      <label class="form-card__label" for="cdCorte">Mes de corte</label>
+      <input type="month" id="cdCorte" name="corte" value="{{ corte_valor }}" class="form-control">
+    </div>
+    <button class="btn btn-outline-secondary">Cambiar</button>
+  </form>
+</div>
+
+{# ---------- 1. Cargar Excel ---------- #}
+<div class="c c-pad mb-3">
+  <div class="cd-carga">
+    <label class="cd-drop" id="cdDrop" for="cdArchivo">
+      <svg width="22" height="22"><use href="#i-upload"/></svg>
+      <span><strong>Arrastra el Excel aquí</strong> o haz clic para elegirlo (.xlsx)</span>
+      <small id="cdArchivoNombre" class="text-muted"></small>
+    </label>
+    <input type="file" id="cdArchivo" accept=".xlsx,.xlsm" hidden>
+    <div class="cd-carga__opts">
+      <label class="form-card__label" for="cdAnio">Año de los meses (JULIO, AGOSTO…)</label>
+      <input type="number" id="cdAnio" class="form-control" value="{{ corte.year|unlocalize }}" min="2000" max="2100">
+      <small class="text-muted">Cargar el Excel solo llena la grilla para revisarla; no guarda nada.</small>
+    </div>
+  </div>
+  <div id="cdHojas" class="cd-hojas" hidden></div>
+  <div id="cdAvisosLibro" class="mt-2"></div>
+</div>
+
+{# ---------- 2. Resumen ---------- #}
+<div class="cd-resumen mb-3" id="cdResumen">
+  <div class="cd-kpi"><span class="cd-kpi__l">Deptos con deuda</span><span class="cd-kpi__v" id="kDeptos">—</span></div>
+  <div class="cd-kpi"><span class="cd-kpi__l">Total en la grilla</span><span class="cd-kpi__v" id="kTotal">—</span></div>
+  <div class="cd-kpi"><span class="cd-kpi__l">Total de control (Excel)</span><span class="cd-kpi__v" id="kControl">—</span><span class="cd-kpi__s" id="kControlEstado"></span></div>
+  <div class="cd-kpi"><span class="cd-kpi__l">Guardado en el sistema</span><span class="cd-kpi__v" id="kMigrado">—</span><span class="cd-kpi__s" id="kMigradoDet"></span></div>
+  <div class="cd-kpi"><span class="cd-kpi__l">Problemas</span><span class="cd-kpi__v" id="kProblemas">—</span><span class="cd-kpi__s" id="kProblemasDet"></span></div>
+</div>
+
+{# ---------- 3. Grilla ---------- #}
+<div class="fa-toolbar">
+  <input type="text" id="cdBuscar" class="form-control fa-search" placeholder="🔍 Buscar depto o propietario...">
+  <label class="form-check-label cd-filtro"><input type="checkbox" id="cdSoloDeuda" class="form-check-input" checked> Solo con deuda</label>
+  <label class="form-check-label cd-filtro"><input type="checkbox" id="cdSoloProblemas" class="form-check-input"> Solo filas con problemas</label>
+  <button id="cdQuitar" type="button" class="btn btn-outline-danger">Quitar toda la carga</button>
+  <button id="cdGuardar" type="button" class="btn btn-success" disabled>💾 Guardar cambios</button>
+</div>
+<div id="cdMsg" class="cd-msg" role="status"></div>
+
+<revo-grid id="cdGrid" theme="compact" row-size="36" class="cd-grid"></revo-grid>
+<div id="cdVacio" class="cd-vacio" hidden>Aún no hay deuda cargada. Carga el Excel, o desmarca <strong>Solo con deuda</strong> para escribirla a mano por departamento.</div>
+<div class="fa-fallback alert alert-warning" id="cdFallback">No se pudo cargar la tabla interactiva. Revisa tu conexión e inténtalo de nuevo.</div>
+
+<p class="fa-hint">
+  Edita las celdas como en Excel (doble clic o escribe encima; Ctrl+C / Ctrl+V pega bloques). Un monto en 0 quita esa deuda.
+  <strong>D. anteriores</strong>: con 🔍 abres el detalle año × mes y lo corriges ahí; si no tiene detalle, se edita en la celda.
+  Los cambios se marcan como <em>sin guardar</em> hasta que pulses <strong>Guardar cambios</strong>.
+</p>
+
+{# ---------- 4. Deudas ya cobradas (→ ingresos) ---------- #}
+<div class="c c-pad mt-4 mb-2">
+  <div class="d-flex justify-content-between align-items-end flex-wrap gap-3">
+    <div>
+      <div class="c-title">Deudas ya cobradas → ingresos</div>
+      <div class="c-sub">Tabla <em>Deudores del mantenimiento de mayo y junio</em> de DEUDAS ANTERIORES. Se registran como deuda
+        saldada con su pago: no salen como deuda y suman en <strong>Ingresos</strong> del balance en la fecha de cobro.</div>
+    </div>
+    <div class="d-flex gap-2 align-items-end flex-wrap">
+      <div><label class="form-card__label" for="cdFechaCobro">Fecha de cobro</label>
+        <input type="date" id="cdFechaCobro" class="form-control" value="{{ fecha_cobro }}"></div>
+      <div><label class="form-card__label" for="cdCobMes">Agregar mes</label>
+        <input type="month" id="cdCobMes" class="form-control"></div>
+      <button type="button" class="btn btn-outline-secondary" id="cdCobAgregar">Agregar</button>
+      <label class="form-check-label cd-filtro"><input type="checkbox" id="cdCobTodos" class="form-check-input"> Todos los deptos</label>
+    </div>
+  </div>
+  <div class="cd-cob-res mt-2">
+    <span>Total cobrado: <strong id="kCob">—</strong></span>
+    <span>Control (Excel): <strong id="kCobControl">—</strong> <span id="kCobEstado"></span></span>
+  </div>
+</div>
+<revo-grid id="cdGridCob" theme="compact" row-size="36" class="cd-grid cd-grid--cob"></revo-grid>
+<div id="cdCobVacio" class="cd-vacio" hidden>No hay deudas cobradas cargadas. Vienen del Excel, o marca <strong>Todos los deptos</strong> y agrega un mes para escribirlas.</div>
+
+{# ---------- Panel: detalle de D. ANTERIORES ---------- #}
+<div class="offcanvas offcanvas-end drawer cd-drawer" tabindex="-1" id="cdDrawer">
+  <div class="offcanvas-header border-bottom">
+    <div>
+      <div class="text-muted small">D. anteriores · detalle mes a mes</div>
+      <h5 class="mb-0" id="cdDetTitulo">—</h5>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div class="table-responsive mb-2">
+      <table class="table ds-table cd-det">
+        <thead><tr></tr></thead>
+        <tbody id="cdDetFilas"></tbody>
+      </table>
+    </div>
+    <div class="d-flex gap-2 align-items-end flex-wrap mb-3">
+      <div><label class="form-card__label" for="cdDetAnio">Agregar año</label>
+        <input type="number" id="cdDetAnio" class="form-control" min="2000" max="2100" placeholder="2025"></div>
+      <button type="button" class="btn btn-outline-secondary" id="cdDetAgregar">Agregar</button>
+      <div class="ms-auto"><label class="form-card__label" for="cdDetSinPeriodo">Sin mes (S/)</label>
+        <input type="number" step="0.01" min="0" id="cdDetSinPeriodo" class="form-control cd-det__in"></div>
+    </div>
+    <div class="cd-conc" id="cdDetConc"></div>
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+      <button type="button" class="btn btn-success" id="cdDetAplicar">Aplicar a la fila</button>
+    </div>
+  </div>
+</div>
+
+{{ filas_json|json_script:"cdFilas" }}
+{{ meses_json|json_script:"cdMeses" }}
+{{ servicios_json|json_script:"cdServicios" }}
+{{ otros_json|json_script:"cdOtros" }}
+{{ migrado|json_script:"cdMigrado" }}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module">
+  import { defineCustomElement } from 'https://cdn.jsdelivr.net/npm/@revolist/revogrid@4.29.1/standalone/revo-grid.js';
+  defineCustomElement();
+
+  const CSRF = '{{ csrf_token }}';
+  let URL_POST = location.pathname + location.search;
+  const $ = (id) => document.getElementById(id);
+  const leer = (id) => JSON.parse($(id).textContent);
+  let MESES = leer('cdMeses');                       // [{clave:'2026-07', nombre:'JULIO'}, ...]
+  const SERVICIOS = leer('cdServicios'), OTROS = leer('cdOtros');
+  const montos = () => [...SERVICIOS.map(c => c.prop), 'd_ant', ...MESES.map(m => mp(m.clave)), ...OTROS.map(c => c.prop)];
+  let MONTOS = montos();
+  const MES_CORTO = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SET','OCT','NOV','DIC'];
+  function mp(clave) { return 'm_' + clave.replace('-', '_'); }
+
+  const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
+  const soles = (x) => 'S/ ' + r2(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Número pegado o escrito: "1.207,96", "1,207.96", "75,37", " S/ 12 " → número; vacío/texto → null.
+  function parseNum(v) {
+    if (v == null) return null;
+    if (typeof v === 'number') return isNaN(v) ? null : v;
+    let s = String(v).replace(/[^\d.,-]/g, '');
+    if (!s) return null;
+    const p = s.lastIndexOf('.'), c = s.lastIndexOf(',');
+    if (p >= 0 && c >= 0) s = p > c ? s.replace(/,/g, '') : s.replace(/\./g, '').replace(',', '.');
+    else if (c >= 0) s = (s.match(/,/g).length === 1 && /,\d{1,2}$/.test(s)) ? s.replace(',', '.') : s.replace(/,/g, '');
+    const n = Number(s);
+    return isNaN(n) ? null : n;
+  }
+
+  // ---------- Filas: forma del servidor ↔ forma de la grilla (meses planos) ----------
+  function aGrilla(f) {
+    const r = { ...f, _dirty: false, errores: [...(f.errores || [])], advertencias: [...(f.advertencias || [])] };
+    MESES.forEach(m => { r[mp(m.clave)] = (f.meses || {})[m.clave] || 0; });
+    r.detalle = { meses: { ...((f.detalle || {}).meses || {}) }, sin_periodo: (f.detalle || {}).sin_periodo || 0 };
+    r.cobradas = { ...(f.cobradas || {}) };
+    aplanarCobradas(r);
+    return recalcular(r);
+  }
+  function aServidor(r) {
+    const meses = {};
+    MESES.forEach(m => { meses[m.clave] = r2(r[mp(m.clave)]); });
+    const cobradas = {};
+    Object.entries(r.cobradas).forEach(([k, v]) => { if (r2(v)) cobradas[k] = r2(v); });
+    const out = { pk: r.pk, dpto: r.dpto, d_ant: r2(r.d_ant), meses, detalle: r.detalle, cobradas };
+    [...SERVICIOS, ...OTROS].forEach(c => { out[c.prop] = r2(r[c.prop]); });
+    return out;
+  }
+  const sumaDetalle = (r) => r2(Object.values(r.detalle.meses).reduce((a, v) => a + (Number(v) || 0), 0) + (Number(r.detalle.sin_periodo) || 0));
+  const conDetalle = (r) => Object.keys(r.detalle.meses).length > 0;
+  function recalcular(r) {
+    r.total = r2(MONTOS.reduce((a, p) => a + (Number(r[p]) || 0), 0));
+    // Validación local (bloquea guardar): montos negativos y D. anteriores ≠ su detalle.
+    r._local = [];
+    if (MONTOS.some(p => Number(r[p]) < 0)) r._local.push('Hay montos negativos.');
+    if (r2(r.d_ant) !== sumaDetalle(r)) r._local.push(`D. anteriores ${soles(r.d_ant)} ≠ su detalle ${soles(sumaDetalle(r))}.`);
+    if (!r.pk) r._local.push('El depto no existe en el sistema: no se puede guardar.');
+    r.cobrado = r2(Object.values(r.cobradas).reduce((a, v) => a + (Number(v) || 0), 0));
+    if (Object.values(r.cobradas).some(v => Number(v) < 0)) r._local.push('Hay montos cobrados negativos.');
+    const errs = r.errores.length + r._local.length;
+    r._cls = errs ? 'cd-err' : (r.advertencias.length ? 'cd-warn' : (r._dirty ? 'cd-dirty' : ''));
+    return r;
+  }
+  const problemas = (r) => [...r.errores, ...r._local];
+
+  // Deudas ya cobradas: meses como columnas planas (c_2026_05) para la segunda grilla.
+  let COB_MESES = [];
+  const cp = (clave) => 'c_' + clave.replace('-', '_');
+  function aplanarCobradas(r) { COB_MESES.forEach(k => { r[cp(k)] = r.cobradas[k] || 0; }); }
+  function recalcularCobMeses(extra = []) {
+    const todos = new Set([...COB_MESES, ...extra]);
+    filas.forEach(r => Object.keys(r.cobradas).forEach(k => todos.add(k)));
+    COB_MESES = [...todos].sort();
+    filas.forEach(aplanarCobradas);
+  }
+  let cobControl = null;
+
+  let filas = leer('cdFilas').map(aGrilla);
+  recalcularCobMeses();
+  function migrado(m) {
+    $('kMigrado').textContent = soles(m.total);
+    $('kMigradoDet').textContent = `${m.n} cargo${m.n === 1 ? '' : 's'}` + (m.cobrado ? ` · ${soles(m.cobrado)} cobrado (ingreso)` : '')
+      + (m.pagado ? ` · ${soles(m.pagado)} pagado después` : '');
+  }
+  migrado(leer('cdMigrado'));
+  let totalControl = null;
+
+  // ---------- Grilla ----------
+  const grid = $('cdGrid');
+  const gridCob = $('cdGridCob');
+  const montoCelda = (h, props) => {
+    const v = Number(props.model[props.prop]) || 0;
+    if (props.model._total) return h('span', { class: 'cd-num' }, soles(v));
+    return v ? h('span', { class: 'cd-num' }, soles(v)) : h('span', { class: 'cd-cero' }, '—');
+  };
+  const col = (prop, name, extra = {}) => ({ prop, name, size: 112, cellTemplate: montoCelda,
+    readonly: ({ model }) => !!(model && model._total), columnProperties: () => ({ class: { 'cd-col-num': true } }),
+    cellProperties: () => ({ class: { 'cd-col-num': true } }), ...extra });
+
+  const columnas = () => [
+    { prop: 'dpto', name: 'Depto', size: 82, readonly: true, pin: 'colPinStart', filter: true },
+    { prop: 'propietario', name: 'Propietario', size: 190, readonly: true },
+    { name: 'Servicios', children: SERVICIOS.map(c => col(c.prop, c.nombre)) },
+    { name: 'Mantenimiento', children: [
+      col('d_ant', 'D. anteriores', { size: 128,
+        // Con detalle mes a mes, D. anteriores es la suma: se corrige en el panel (🔍).
+        readonly: ({ model }) => !!(model && (model._total || conDetalle(model))) }),
+      { prop: '_det', name: '', size: 40, readonly: true,
+        cellTemplate: (h, props) => props.model._total ? '' : h('button', {
+          class: 'cd-btn-det', title: 'Detalle año × mes', 'data-dpto': props.model.dpto,
+          onClick: (e) => { e.stopPropagation(); abrirDetalle(props.model); } }, '🔍') },
+      ...MESES.map(m => col(mp(m.clave), m.nombre)),
+    ] },
+    { name: 'Otros', children: OTROS.map(c => col(c.prop, c.nombre, { size: 96 })) },
+    { prop: 'total', name: 'Total', size: 122, readonly: true, cellTemplate: (h, p) => h('strong', { class: 'cd-num' }, soles(p.model.total)) },
+    { prop: '_estado', name: 'Estado', size: 150, readonly: true, cellTemplate: (h, props) => {
+      const r = props.model;
+      if (r._total) return '';
+      const p = problemas(r);
+      if (p.length) return h('span', { class: 'cd-estado cd-estado--err', title: p.join('\n') }, `✕ ${p.length} error${p.length > 1 ? 'es' : ''}`);
+      if (r.advertencias.length) return h('span', { class: 'cd-estado cd-estado--warn', title: r.advertencias.join('\n') }, `⚠ ${r.advertencias.length} aviso${r.advertencias.length > 1 ? 's' : ''}`);
+      if (r._dirty) return h('span', { class: 'cd-estado cd-estado--dirty' }, '● Sin guardar');
+      return r.total ? h('span', { class: 'cd-estado cd-estado--ok' }, '✓ Guardado') : '';
+    } },
+  ];
+
+  const NOMBRE_MES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SETIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const columnasCob = () => [
+    { prop: 'dpto', name: 'Depto', size: 82, readonly: true, pin: 'colPinStart' },
+    { prop: 'propietario', name: 'Propietario', size: 190, readonly: true },
+    ...COB_MESES.map(k => col(cp(k), `${NOMBRE_MES[Number(k.slice(5)) - 1]} ${k.slice(0, 4)}`, { size: 130 })),
+    { prop: 'cobrado', name: 'Total cobrado', size: 130, readonly: true, cellTemplate: (h, p) => h('strong', { class: 'cd-num' }, soles(p.model.cobrado)) },
+    { prop: '_estado', name: 'Estado', size: 150, readonly: true, cellTemplate: columnas().slice(-1)[0].cellTemplate },
+  ];
+  function visiblesCob() {
+    const q = $('cdBuscar').value.trim().toLowerCase();
+    return filas.filter(r => (!q || String(r.dpto).toLowerCase().includes(q) || String(r.propietario || '').toLowerCase().includes(q))
+      && ($('cdCobTodos').checked || r.cobrado || (r._dirty && Object.keys(r.cobradas).length)));
+  }
+
+  function visibles() {
+    const q = $('cdBuscar').value.trim().toLowerCase();
+    const soloDeuda = $('cdSoloDeuda').checked, soloProb = $('cdSoloProblemas').checked;
+    return filas.filter(r =>
+      (!q || String(r.dpto).toLowerCase().includes(q) || String(r.propietario || '').toLowerCase().includes(q))
+      && (!soloDeuda || r.total || problemas(r).length || (r._dirty && !r.cobrado))
+      && (!soloProb || problemas(r).length || r.advertencias.length));
+  }
+  function totales() {
+    const t = { dpto: 'TOTAL', propietario: '', _total: true, _cls: 'total', errores: [], advertencias: [], _local: [] };
+    [...MONTOS, 'total', 'cobrado', ...COB_MESES.map(cp)].forEach(p => { t[p] = r2(filas.reduce((a, r) => a + (Number(r[p]) || 0), 0)); });
+    return t;
+  }
+  function pintar() {
+    grid.source = visibles();
+    $('cdVacio').hidden = grid.source.length > 0;
+    grid.pinnedBottomSource = [totales()];
+    if (gridCob.columns && gridCob.columns.length) {
+      gridCob.source = visiblesCob();
+      gridCob.pinnedBottomSource = [totales()];
+      $('cdCobVacio').hidden = gridCob.source.length > 0;
+    }
+    resumen();
+  }
+
+  function resumen() {
+    const conDeuda = filas.filter(r => r.total > 0);
+    const total = r2(filas.reduce((a, r) => a + r.total, 0));
+    $('kDeptos').textContent = conDeuda.length;
+    $('kTotal').textContent = soles(total);
+    if (totalControl == null) {
+      $('kControl').textContent = '—'; $('kControlEstado').textContent = 'Carga el Excel para comparar';
+      $('kControlEstado').className = 'cd-kpi__s';
+    } else {
+      $('kControl').textContent = soles(totalControl);
+      const dif = r2(total - totalControl);
+      $('kControlEstado').textContent = dif === 0 ? '✓ Cuadra con la grilla' : `✕ Diferencia ${soles(dif)}`;
+      $('kControlEstado').className = 'cd-kpi__s ' + (dif === 0 ? 'cd-ok' : 'cd-mal');
+    }
+    const nErr = filas.filter(r => problemas(r).length).length;
+    const nAdv = filas.filter(r => r.advertencias.length).length;
+    const nSucias = filas.filter(r => r._dirty).length;
+    $('kProblemas').textContent = nErr ? `✕ ${nErr}` : '✓ 0';
+    $('kProblemas').className = 'cd-kpi__v ' + (nErr ? 'cd-mal' : 'cd-ok');
+    $('kProblemasDet').textContent = `${nErr} fila${nErr === 1 ? '' : 's'} con error · ${nAdv} con aviso`;
+    const bloqueadas = filas.filter(r => r._dirty && problemas(r).length).length;
+    const btn = $('cdGuardar');
+    btn.disabled = !nSucias || bloqueadas > 0;
+    btn.textContent = nSucias ? `💾 Guardar cambios (${nSucias})` : '💾 Guardar cambios';
+    btn.title = bloqueadas ? `Corrige primero ${bloqueadas} fila(s) con error.` : '';
+    const cob = r2(filas.reduce((a, r) => a + r.cobrado, 0));
+    $('kCob').textContent = soles(cob);
+    $('kCobControl').textContent = cobControl == null ? '—' : soles(cobControl);
+    const difC = cobControl == null ? null : r2(cob - cobControl);
+    $('kCobEstado').textContent = difC == null ? '' : (difC === 0 ? '✓ Cuadra' : `✕ Diferencia ${soles(difC)}`);
+    $('kCobEstado').className = difC == null ? '' : (difC === 0 ? 'cd-ok' : 'cd-mal');
+  }
+
+  function setupGrid() {
+    grid.range = true; grid.useClipboard = true; grid.resize = true;
+    grid.rowClass = '_cls';
+    grid.columns = columnas();
+    pintar();
+    grid.addEventListener('afteredit', (e) => {
+      const d = e.detail || {};
+      const aplicar = (r, prop, val) => {
+        if (!r || r._total || !MONTOS.includes(prop)) return;
+        const n = parseNum(val);
+        r[prop] = n == null ? 0 : r2(n);
+        if (prop === 'd_ant' && !conDetalle(r)) r.detalle.sin_periodo = r[prop];
+        r._dirty = true; r.errores = [];
+        recalcular(r);
+      };
+      const fila = (ri, model) => model || grid.source[ri];
+      if (d.prop !== undefined) aplicar(fila(d.rowIndex, d.model), d.prop, d.val);
+      else if (d.data) for (const ri in d.data) for (const p in d.data[ri]) aplicar(fila(Number(ri), d.models && d.models[ri]), p, d.data[ri][p]);
+      pintar();
+    });
+
+    gridCob.range = true; gridCob.useClipboard = true; gridCob.resize = true;
+    gridCob.rowClass = '_cls';
+    gridCob.columns = columnasCob();
+    gridCob.addEventListener('afteredit', (e) => {
+      const d = e.detail || {};
+      const aplicar = (r, prop, val) => {
+        const clave = COB_MESES.find(k => cp(k) === prop);
+        if (!r || r._total || !clave) return;
+        const n = parseNum(val);
+        r.cobradas[clave] = n == null ? 0 : r2(n);
+        r[prop] = r.cobradas[clave];
+        r._dirty = true; r.errores = [];
+        recalcular(r);
+      };
+      const fila = (ri, model) => model || gridCob.source[ri];
+      if (d.prop !== undefined) aplicar(fila(d.rowIndex, d.model), d.prop, d.val);
+      else if (d.data) for (const ri in d.data) for (const p in d.data[ri]) aplicar(fila(Number(ri), d.models && d.models[ri]), p, d.data[ri][p]);
+      pintar();
+    });
+    pintar();
+  }
+  function rearmarCob() { recalcularCobMeses(); gridCob.columns = columnasCob(); }
+  $('cdCobTodos').addEventListener('input', pintar);
+  $('cdCobAgregar').addEventListener('click', () => {
+    const k = $('cdCobMes').value;
+    if (!k || COB_MESES.includes(k)) return;
+    recalcularCobMeses([k]); gridCob.columns = columnasCob(); $('cdCobMes').value = ''; pintar();
+  });
+  // Cambiar la fecha de cobro vuelve a guardar los pagos de todas las filas con cobros.
+  $('cdFechaCobro').addEventListener('change', () => {
+    filas.forEach(r => { if (r.cobrado) { r._dirty = true; recalcular(r); } }); pintar();
+  });
+  customElements.whenDefined('revo-grid').then(setupGrid);
+  setTimeout(() => { if (!customElements.get('revo-grid')) $('cdFallback').style.display = 'block'; }, 6000);
+
+  ['cdBuscar', 'cdSoloDeuda', 'cdSoloProblemas'].forEach(id => $(id).addEventListener('input', pintar));
+
+  // ---------- Mensajes ----------
+  function msg(texto, tono = 'ok') { const m = $('cdMsg'); m.textContent = texto; m.className = 'cd-msg cd-msg--' + tono; }
+
+  // ---------- Cargar Excel ----------
+  // El Excel llega a un mes posterior al corte: el servidor movió el corte y manda
+  // las columnas de mes nuevas y lo ya guardado con ese corte; se rearma la grilla.
+  function cambiarCorte(d) {
+    MESES = d.meses; MONTOS = montos();
+    filas = d.filas_sistema.map(aGrilla);
+    recalcularCobMeses();
+    const url = new URL(location.href); url.searchParams.set('corte', d.corte);
+    history.replaceState(null, '', url); URL_POST = url.pathname + url.search;
+    $('cdCorte').value = d.corte; $('cdCorteTexto').textContent = d.corte_texto;
+    $('cdAnio').value = d.corte.slice(0, 4);
+    grid.columns = columnas();
+  }
+  const drop = $('cdDrop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('is-over'); }));
+  drop.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) cargarExcel(e.dataTransfer.files[0]); });
+  $('cdArchivo').addEventListener('change', (e) => { if (e.target.files[0]) cargarExcel(e.target.files[0]); });
+
+  function cargarExcel(archivo) {
+    if (filas.some(r => r._dirty) && !confirm('Hay cambios sin guardar en la grilla. ¿Reemplazarlos con el Excel?')) return;
+    $('cdArchivoNombre').textContent = archivo.name;
+    msg('Leyendo el Excel…', 'info');
+    const datos = new FormData();
+    datos.append('archivo', archivo);
+    datos.append('anio', $('cdAnio').value);
+    fetch(URL_POST, { method: 'POST', headers: { 'X-CSRFToken': CSRF }, body: datos })
+      .then(r => r.json()).then(d => {
+        if (!d.ok) { msg('✕ ' + d.error, 'err'); return; }
+        $('cdHojas').hidden = false;
+        $('cdHojas').replaceChildren(...d.hojas.map(([nombre, ok]) => {
+          const s = document.createElement('span');
+          s.className = 'cd-hoja' + (ok ? ' cd-hoja--ok' : '');
+          s.textContent = (ok ? '✓ ' : '') + nombre.trim();
+          s.title = ok ? 'Hoja reconocida' : 'Se ignora en esta vista';
+          return s;
+        }));
+        const avisos = [...d.errores.map(t => ['err', '✕ ' + t]), ...d.advertencias.map(t => ['warn', '⚠ ' + t])];
+        $('cdAvisosLibro').replaceChildren(...avisos.map(([tono, t]) => {
+          const p = document.createElement('div'); p.className = 'cd-aviso cd-aviso--' + tono; p.textContent = t; return p;
+        }));
+        totalControl = d.total_control != null ? d.total_control : d.total_calculado;
+        cobControl = d.cobradas_control != null ? d.cobradas_control : d.cobradas_total;
+        if (d.filas_sistema) cambiarCorte(d);
+        // Las filas del Excel reemplazan a las de la grilla (se marcan sin guardar).
+        const porDpto = new Map(filas.map(r => [r.dpto, r]));
+        const enExcel = new Set();
+        d.filas.forEach(f => {
+          const r = aGrilla(f); r._dirty = true; enExcel.add(r.dpto);
+          if (porDpto.has(r.dpto)) Object.assign(porDpto.get(r.dpto), r, { propietario: porDpto.get(r.dpto).propietario });
+          else filas.push(r);
+        });
+        // Lo ya guardado de deptos que el Excel no trae se deja, con aviso.
+        filas.forEach(r => {
+          if (!enExcel.has(r.dpto) && (r.total > 0 || r.cobrado > 0)) r.advertencias = ['No está en el Excel (se mantiene lo guardado).'];
+          recalcular(r);
+        });
+        rearmarCob();
+        pintar();
+        const n = d.filas.length;
+        msg(`✓ Excel leído: ${n} depto${n === 1 ? '' : 's'}. Revisa la grilla y pulsa Guardar cambios.`, 'ok');
+      }).catch(() => msg('✕ Error de red al leer el Excel.', 'err'));
+  }
+
+  // ---------- Guardar ----------
+  $('cdGuardar').addEventListener('click', () => {
+    const sucias = filas.filter(r => r._dirty && r.pk && !problemas(r).length);
+    if (!sucias.length) return;
+    msg('Guardando…', 'info');
+    fetch(URL_POST, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                      body: JSON.stringify({ accion: 'guardar', fecha_cobro: $('cdFechaCobro').value, rows: sucias.map(aServidor) }) })
+      .then(r => r.json()).then(d => {
+        if (!d.ok) { msg('✕ ' + (d.error || 'No se pudo guardar.'), 'err'); return; }
+        const fallidas = new Map((d.errores || []).map(e => [e.pk, e.error]));
+        const locales = new Map(filas.filter(r => fallidas.has(r.pk)).map(r => [r.pk, r]));
+        // Lo guardado se vuelve a leer del sistema; las filas que fallaron conservan lo editado.
+        const nuevas = d.filas.map(f => {
+          if (locales.has(f.pk)) { const r = locales.get(f.pk); r.errores = [fallidas.get(f.pk)]; return recalcular(r); }
+          return aGrilla(f);
+        });
+        filas.filter(r => !r.pk).forEach(r => nuevas.push(r));
+        filas = nuevas;
+        migrado(d.migrado);
+        rearmarCob();
+        pintar();
+        const s = d.resumen;
+        msg(`✓ ${s.deptos} depto(s) guardado(s): ${s.creados} creados, ${s.actualizados} actualizados, ${s.borrados} quitados.`
+            + (fallidas.size ? ` ✕ ${fallidas.size} sin guardar (filas en rojo).` : ''), fallidas.size ? 'warn' : 'ok');
+      }).catch(() => msg('✕ Error de red al guardar.', 'err'));
+  });
+
+  // ---------- Quitar toda la carga ----------
+  $('cdQuitar').addEventListener('click', () => {
+    if (!confirm('¿Quitar TODA la carga inicial de deudas guardada? Los cargos que ya tienen pagos se conservan.')) return;
+    fetch(URL_POST, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                      body: JSON.stringify({ accion: 'quitar_todo' }) })
+      .then(r => r.json()).then(d => {
+        filas = d.filas.map(aGrilla); totalControl = null; cobControl = null; migrado(d.migrado); rearmarCob(); pintar();
+        msg(`✓ Se quitaron ${d.borrados} cargo(s).` + (d.con_pagos ? ` ⚠ ${d.con_pagos} con pagos se conservaron.` : ''), d.con_pagos ? 'warn' : 'ok');
+      }).catch(() => msg('✕ Error de red.', 'err'));
+  });
+
+  // ---------- Panel de detalle (año × mes) ----------
+  const drawerEl = $('cdDrawer');
+  let filaDet = null;
+  const anchoMeses = () => MES_CORTO.map(m => `<th class="num">${m}</th>`).join('');
+  drawerEl.querySelector('thead tr').innerHTML = '<th>Año</th>' + anchoMeses() + '<th class="num">Total</th>';
+
+  function filaAnio(anio, valores) {
+    const tr = document.createElement('tr');
+    tr.dataset.anio = anio;
+    tr.innerHTML = `<td class="fw-semibold">${anio}</td>` + MES_CORTO.map((_, i) => {
+      const v = valores[i];
+      return `<td><input type="text" inputmode="decimal" class="form-control cd-det__in" data-m="${i + 1}" value="${v ? r2(v).toFixed(2) : ''}"></td>`;
+    }).join('') + '<td class="num fw-semibold" data-tot></td>';
+    return tr;
+  }
+  function leerPanel() {
+    const meses = {};
+    $('cdDetFilas').querySelectorAll('tr').forEach(tr => tr.querySelectorAll('input').forEach(inp => {
+      const n = parseNum(inp.value);
+      if (n) meses[`${tr.dataset.anio}-${String(inp.dataset.m).padStart(2, '0')}`] = r2(n);
+    }));
+    return { meses, sin_periodo: r2(parseNum($('cdDetSinPeriodo').value) || 0) };
+  }
+  function actualizarPanel() {
+    $('cdDetFilas').querySelectorAll('tr').forEach(tr => {
+      const t = [...tr.querySelectorAll('input')].reduce((a, i) => a + (parseNum(i.value) || 0), 0);
+      tr.querySelector('[data-tot]').textContent = t ? r2(t).toFixed(2) : '—';
+    });
+    const det = leerPanel();
+    const suma = r2(Object.values(det.meses).reduce((a, v) => a + v, 0) + det.sin_periodo);
+    const n = Object.keys(det.meses).length;
+    $('cdDetConc').innerHTML = `<div class="drawer-row"><span>Meses con monto</span><strong>${n}</strong></div>`
+      + `<div class="drawer-row"><span>Suma del detalle (sin puertas)</span><strong>${soles(suma)}</strong></div>`
+      + `<div class="drawer-row"><span>D. anteriores en la fila</span><strong>${soles(filaDet ? filaDet.d_ant : 0)}</strong></div>`
+      + (filaDet && r2(filaDet.d_ant) !== suma
+          ? `<div class="cd-aviso cd-aviso--warn mt-2">⚠ Al aplicar, D. anteriores pasa a ${soles(suma)} (diferencia ${soles(suma - filaDet.d_ant)}).</div>`
+          : `<div class="cd-aviso cd-aviso--ok mt-2">✓ El detalle cuadra con D. anteriores.</div>`);
+  }
+  function abrirDetalle(r) {
+    filaDet = r;
+    $('cdDetTitulo').textContent = 'Depto ' + r.dpto + (r.propietario ? ' · ' + r.propietario : '');
+    const porAnio = {};
+    Object.entries(r.detalle.meses).forEach(([k, v]) => {
+      const [a, m] = k.split('-'); (porAnio[a] = porAnio[a] || Array(12).fill(0))[Number(m) - 1] = v;
+    });
+    $('cdDetFilas').replaceChildren(...Object.keys(porAnio).sort().map(a => filaAnio(a, porAnio[a])));
+    $('cdDetSinPeriodo').value = r.detalle.sin_periodo ? r2(r.detalle.sin_periodo).toFixed(2) : '';
+    actualizarPanel();
+    bootstrap.Offcanvas.getOrCreateInstance(drawerEl).show();
+  }
+  $('cdDetAgregar').addEventListener('click', () => {
+    const a = Number($('cdDetAnio').value);
+    if (!a || $('cdDetFilas').querySelector(`tr[data-anio="${a}"]`)) return;
+    const trs = [...$('cdDetFilas').querySelectorAll('tr'), filaAnio(a, Array(12).fill(0))]
+      .sort((x, y) => Number(x.dataset.anio) - Number(y.dataset.anio));
+    $('cdDetFilas').replaceChildren(...trs);
+    $('cdDetAnio').value = '';
+    actualizarPanel();
+  });
+  // Pegar una fila de Excel (12 celdas con tabulador) desde un mes: llena hacia la derecha.
+  drawerEl.addEventListener('paste', (e) => {
+    const inp = e.target.closest('.cd-det__in[data-m]');
+    if (!inp) return;
+    const celdas = (e.clipboardData.getData('text') || '').replace(/\r?\n$/, '').split(/\t/);
+    if (celdas.length < 2) return;
+    e.preventDefault();
+    const ins = [...inp.closest('tr').querySelectorAll('input')];
+    celdas.slice(0, 12 - ins.indexOf(inp)).forEach((v, k) => {
+      const n = parseNum(v); ins[ins.indexOf(inp) + k].value = n == null ? '' : r2(n).toFixed(2);
+    });
+    actualizarPanel();
+  });
+  drawerEl.addEventListener('input', actualizarPanel);
+  $('cdDetAplicar').addEventListener('click', () => {
+    if (!filaDet) return;
+    filaDet.detalle = leerPanel();
+    filaDet.d_ant = sumaDetalle(filaDet);
+    filaDet._dirty = true; filaDet.errores = [];
+    recalcular(filaDet);
+    pintar();
+    bootstrap.Offcanvas.getOrCreateInstance(drawerEl).hide();
+  });
+
+  window.addEventListener('beforeunload', (e) => { if (filas.some(r => r._dirty)) { e.preventDefault(); e.returnValue = ''; } });
+</script>
+{% endblock %}

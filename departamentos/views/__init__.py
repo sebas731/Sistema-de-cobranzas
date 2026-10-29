@@ -11,6 +11,7 @@ archivo de rutas homónimo en `departamentos/urls/`.
 - gastos.py:        gastos fijos y gastos del mes.
 - agua.py:          lecturas, facturas de agua y tarifas.
 - importar.py:      importación desde Excel.
+- carga_deudas.py: carga inicial de deudas desde Excel (grilla editable).
 - proveedores.py:   proveedores.
 - comun.py:         helpers compartidos.
 """

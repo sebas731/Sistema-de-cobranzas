@@ -42,7 +42,7 @@
 /* ---------- Cabecera ---------- */
 .recibo-mantenimiento .rm-cabecera td { vertical-align: bottom; }
 .recibo-mantenimiento .rm-cab-cond { width: 42%; text-align: center; }
-.recibo-mantenimiento .rm-cab-cond img { max-height: 42px; margin-bottom: 2px; }
+.recibo-mantenimiento .rm-cab-cond img { max-height: 58px; max-width: 100%; margin-bottom: 3px; }
 .recibo-mantenimiento .rm-cab-nombre { font-weight: bold; text-transform: uppercase; font-size: 13px; line-height: 1.3; }
 .recibo-mantenimiento .rm-cab-dir { font-weight: bold; text-transform: uppercase; font-size: 11px; }
 .recibo-mantenimiento .rm-cab-datos { width: 36%; padding-left: 10px; }

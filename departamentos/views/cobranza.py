@@ -3,10 +3,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from ..forms import MESES_ES, CargoMasivoForm, RegistroPagoForm
 from ..models import Cargo, Departamento
-from ..servicios import cargos_pendientes, crear_cargo, registrar_pago
+from ..servicios import MESES_SUELTOS, cargos_pendientes, crear_cargo, registrar_pago, sumar_meses
 
 
 def _deudas_para_pago():
@@ -52,8 +53,15 @@ def registrar_pagos(request):
                 f'{p.departamento.numero_domicilio} S/ {p.saldo_a_favor:.2f}' for p in favor) + '.'
         messages.success(request, texto)
         return redirect('registrar_pagos')
+    # Para mostrar la deuda por antigüedad: el mes actual y los 2 anteriores sueltos,
+    # lo más antiguo en un solo "acumulado" (solo vista; el pago sigue saldando lo más antiguo).
+    hoy = timezone.localdate().replace(day=1)
+    inicio = sumar_meses(hoy, -MESES_SUELTOS)
+    hasta = sumar_meses(inicio, -1)
     return render(request, 'departamentos/cobranza/registrar_pagos.html', {
         'form': form, 'deudas': _deudas_para_pago(),
+        'antiguedad': {'inicio': inicio.isoformat(), 'actual': hoy.isoformat(),
+                       'hasta': f'{MESES_ES[hasta.month]} {hasta.year}'},
     })
 
 

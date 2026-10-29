@@ -10,6 +10,13 @@
   "@stencil/core/internal/app-globals": "https://cdn.jsdelivr.net/npm/@stencil/core@4.43.5/internal/app-globals/index.js"
 }}
 </script>
+<style>
+  /* Columnas a cobrar: casilla en el encabezado y columna resaltada. */
+  .cobro-cols__hint { font-size:.8rem; color:var(--text-muted); margin:0 0 var(--sp-sm, 8px); }
+  revo-grid .col-check { display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; }
+  revo-grid .col-check input { cursor:pointer; accent-color:var(--primary); }
+  revo-grid .col-cobro { background:var(--primary-soft, #dcfce7) !important; font-weight:600; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -37,7 +44,9 @@
 
 {% if filas_json %}
 {# Grilla: se activa cuando la vista envía `filas_json` (claves en el script de abajo). #}
-<revo-grid 
+{# Las columnas a cobrar se eligen con la casilla de su encabezado; aquí se resume. #}
+<p class="cobro-cols__hint" id="cobroHint"></p>
+<revo-grid
   id="gridPanel"
   theme="compact" 
   row-size="40">
@@ -124,46 +133,88 @@
   import { defineCustomElement } from 'https://cdn.jsdelivr.net/npm/@revolist/revogrid@4.29.1/standalone/revo-grid.js';
   defineCustomElement();
   const jsonElement = document.getElementById('filas_json');
+if (jsonElement) {
   const dataOriginal = JSON.parse(jsonElement.textContent)
   const grid = document.querySelector('revo-grid');
+  const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 
-  grid.source = dataOriginal;
-  const columns = [
+  // Columnas que se pueden cobrar por separado (la de cuota solo si alguien la tiene).
+  const COBRABLES = [
+    ['mantenimiento', 'Mantenim.'], ['agua', 'Agua'], ['area_comun', 'Á. común'], ['cochera', 'Cochera'],
+    ...(dataOriginal.some(f => f.cuota > 0) ? [['cuota', 'Cuota extr.']] : []),
+    ['multa', 'Multa'], ['mora', 'Mora'], ['otros', 'Otros'],
+  ];
+  const seleccion = new Set();   // columnas elegidas; vacío = cobrar todo
+
+  // Lo que se le puede cobrar a la fila con la selección actual.
+  const debe = (f) => seleccion.size ? r2([...seleccion].reduce((s, k) => s + (f.pendiente[k] || 0), 0)) : f.saldo;
+
+  // Columna cobrable: checkbox en su encabezado para elegirla, y resaltada si está elegida.
+  const marcada = (prop) => ({
+    columnTemplate: (h, col) => h('label', { class: 'col-check', onClick: (e) => e.stopPropagation() }, [
+      h('input', { type: 'checkbox', checked: seleccion.has(prop), title: 'Cobrar esta columna',
+                   onChange: (e) => { e.target.checked ? seleccion.add(prop) : seleccion.delete(prop); aplicarSeleccion(); } }),
+      ' ', col.name]),
+    ...(seleccion.has(prop) ? {
+      cellProperties: () => ({ class: { 'col-cobro': true } }),
+      columnProperties: () => ({ class: { 'col-cobro': true } }),
+    } : {}),
+  });
+
+  const columnas = () => [
     { prop: 'numero', name: 'Depto', size: 90,  readonly: true, filter: true, pin: 'colPinStart' },
     { prop: 'propietario',name: 'Propietario', size: 240, readonly: true, filter: true },
-    { prop: 'mantenimiento', name: 'Mantenimiento', size: 150, filter: true , readonly: true},
-    { prop: 'agua', name: 'Agua', size: 90 ,readonly:true },
-    { prop: 'area_comun', name: 'Á. común', size: 130 ,readonly:true },
-    { prop: 'cochera', name: 'Cochera', size: 100 ,readonly:true },
+    { prop: 'mantenimiento', name: 'Mantenimiento', size: 150, filter: true , readonly: true, ...marcada('mantenimiento') },
+    { prop: 'agua', name: 'Agua', size: 90 ,readonly:true, ...marcada('agua') },
+    { prop: 'area_comun', name: 'Á. común', size: 130 ,readonly:true, ...marcada('area_comun') },
+    { prop: 'cochera', name: 'Cochera', size: 100 ,readonly:true, ...marcada('cochera') },
     // La columna de cuota solo aparece si alguien la tiene este mes.
-    ...(dataOriginal.some(f => f.cuota > 0) ? [{ prop: 'cuota', name: 'Cuota extr.', size: 110, readonly: true }] : []),
-    { prop: 'multa', name: 'Multa', size: 90, readonly: true },
+    ...(dataOriginal.some(f => f.cuota > 0) ? [{ prop: 'cuota', name: 'Cuota extr.', size: 110, readonly: true, ...marcada('cuota') }] : []),
+    { prop: 'multa', name: 'Multa', size: 90, readonly: true, ...marcada('multa') },
     // Mora = lo que se debe de mora de meses anteriores (se cobra junto con el mes).
-    { prop: 'mora', name: 'Mora', size: 90, readonly: true },
-    { prop: 'otros', name: 'Otros', size: 100 ,readonly:true },
+    { prop: 'mora', name: 'Mora', size: 90, readonly: true, ...marcada('mora') },
+    { prop: 'otros', name: 'Otros', size: 100 ,readonly:true, ...marcada('otros') },
     { prop: 'total', name: 'Total', size: 90 , readonly:true },
     { prop: 'pagado', name: 'Pagado', size: 100 ,readonly:true },
     { prop: 'saldo', name: 'Saldo', size: 90 , readonly:true },
-    { prop: 'cobrar', name: 'cobrar', size: 150 },
-    { prop: 'pk', name:'Accion' , size: 100 , cellTemplate: (h, props) => props.model.saldo > 0
+    { prop: 'cobrar', name: 'Cobrar', size: 120 },
+    { prop: 'pk', name:'Accion' , size: 100 , cellTemplate: (h, props) => debe(props.model) > 0
       ? h('button', { class: 'btn btn-sm btn-success', onClick: () => cobrar(props.model) }, 'Cobrar')
-      : h('span', { class: 'badge-soft badge-soft--success' }, 'Pagado') }
+      : h('span', { class: 'badge-soft badge-soft--success' }, seleccion.size ? 'Sin deuda' : 'Pagado') }
+  ];
 
-];
+  // Al cambiar la selección: el monto a cobrar de cada fila pasa a ser lo que
+  // debe de esas columnas, y se redibuja la grilla con las columnas resaltadas.
+  function aplicarSeleccion() {
+    dataOriginal.forEach(f => { f.cobrar = debe(f); });
+    grid.columns = columnas();
+    grid.source = [...dataOriginal];
+    const nombres = COBRABLES.filter(([k]) => seleccion.has(k)).map(([, t]) => t);
+    document.getElementById('cobroHint').textContent = nombres.length
+      ? `Cobrar aplica solo a: ${nombres.join(', ')}.`
+      : 'Marca la casilla de una o varias columnas para cobrar solo eso. Sin marcar: se cobra todo, lo más antiguo primero.';
+  }
 
-function cobrar(fila){
- 
-  const datos = new FormData();
-  datos.append('accion', 'pago');
-  datos.append('monto', fila.cobrar);
-  datos.append('departamento', fila.pk);
+  // La celda Cobrar es editable (pago parcial): guarda el número en la fila.
+  grid.addEventListener('afteredit', (e) => {
+    const d = e.detail || {};
+    if (d.prop === 'cobrar' && d.model) d.model.cobrar = r2(d.val);
+  });
 
-  fetch(location.href, { method:'POST',
-               headers: {'X-CSRFToken':"{{csrf_token}}"},
-               body:datos}).then( () => location.reload() )
+  function cobrar(fila){
+    const datos = new FormData();
+    datos.append('accion', 'pago');
+    datos.append('monto', fila.cobrar);
+    datos.append('departamento', fila.pk);
+    seleccion.forEach(k => datos.append('columnas', k));   // vacío = todo
+
+    fetch(location.href, { method:'POST',
+                 headers: {'X-CSRFToken':"{{csrf_token}}"},
+                 body:datos}).then( () => location.reload() )
+  }
+
+  aplicarSeleccion();
 }
-
-grid.columns = columns;
 
 </script>
 {% endblock %}

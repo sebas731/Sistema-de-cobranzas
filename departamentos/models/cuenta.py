@@ -52,7 +52,14 @@ class Cargo(models.Model):
     La deuda NO se guarda como un número editable: cada cargo es una línea del
     libro, y su saldo = monto − pagos imputados. El saldo del depto/mes/concepto
     se deriva sumando cargos y restando imputaciones.
+
+    `origen` distingue lo que generó el sistema de lo cargado en la carga
+    inicial de deudas (migración desde Excel), que se edita en su propia vista.
     """
+
+    class Origen(models.TextChoices):
+        SISTEMA = 'SISTEMA', 'Sistema'
+        MIGRACION = 'MIGRACION', 'Carga inicial (migración)'
 
     departamento = models.ForeignKey(Departamento, on_delete=models.CASCADE, related_name='cargos')
     concepto = models.ForeignKey(Concepto, on_delete=models.PROTECT, related_name='cargos')
@@ -61,6 +68,7 @@ class Cargo(models.Model):
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     fecha_emision = models.DateField(auto_now_add=True)
     fecha_vencimiento = models.DateField()
+    origen = models.CharField(max_length=10, choices=Origen.choices, default=Origen.SISTEMA)
 
     class Meta:
         verbose_name = 'Cargo'
@@ -109,6 +117,8 @@ class Pago(models.Model):
                                  related_name='pagos',
                                  help_text='Vacío = pago general (cancela lo más antiguo).')
     nota = models.CharField(max_length=200, blank=True)
+    # MIGRACION = deuda antigua ya cobrada, cargada en la carga inicial (cuenta como ingreso).
+    origen = models.CharField(max_length=10, choices=Cargo.Origen.choices, default=Cargo.Origen.SISTEMA)
 
     class Meta:
         verbose_name = 'Pago'

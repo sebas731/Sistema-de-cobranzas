@@ -8,6 +8,7 @@
 {% include 'departamentos/components/form_card.html' with form=form form_id="formPago" title="Nuevo pago" subtitle="Motivo «General» y periodo «Automático» saldan la deuda más antigua. Con varios deptos, cada uno paga el mismo importe." submit_label="Registrar pago" extra="departamentos/cobranza/partials/pago_vista_previa.html" %}
 
 {{ deudas|json_script:"deudasData" }}
+{{ antiguedad|json_script:"antiguedadData" }}
 {% endblock %}
 
 {% block extra_js %}
@@ -16,6 +17,9 @@
   // Deudas pendientes de todos los deptos: {pk: {numero, propietario, deudas: [...]}}.
   // Vienen ordenadas de la más antigua a la más nueva (mismo orden que usa el back).
   const DATOS = JSON.parse(document.getElementById('deudasData').textContent);
+  // Deuda por antigüedad (solo para mostrar): lo anterior a `inicio` va en una línea "Acumulado".
+  const ANTIG = JSON.parse(document.getElementById('antiguedadData').textContent);
+  const ACUM = `Acumulado (hasta ${ANTIG.hasta})`;
   const form = document.getElementById('formPago');
   const caja = form.querySelector('[data-msel]');           // selector de deptos (chips)
   const motivo = form.elements.concepto;
@@ -92,6 +96,25 @@
     return { partes, resto };
   }
 
+  // Desglose de la deuda del depto: acumulado + el mes actual y los 2 anteriores (+ posterior).
+  function antiguedad(deudas) {
+    const grupos = new Map([[ACUM, 0]]);
+    deudas.forEach(d => {
+      const k = d.periodo < ANTIG.inicio ? ACUM : (d.periodo > ANTIG.actual ? 'Posterior' : d.mes);
+      grupos.set(k, (grupos.get(k) || 0) + cent(d.saldo));
+    });
+    return [...grupos].filter(([, c]) => c > 0);
+  }
+  // Partes de la vista previa con lo antiguo juntado en una sola fila "Acumulado".
+  function agruparPartes(partes) {
+    const viejas = partes.filter(p => p.d.periodo < ANTIG.inicio);
+    if (viejas.length < 2) return partes.map(p => ({ mes: p.d.mes, motivo: p.d.motivo, saldo: cent(p.d.saldo), aplica: p.aplica }));
+    const motivos = [...new Set(viejas.map(p => p.d.motivo))];
+    return [{ mes: ACUM, motivo: motivos.length > 2 ? `${viejas.length} deudas` : motivos.join(', '),
+              saldo: viejas.reduce((s, p) => s + cent(p.d.saldo), 0), aplica: viejas.reduce((s, p) => s + p.aplica, 0) },
+            ...partes.filter(p => p.d.periodo >= ANTIG.inicio).map(p => ({ mes: p.d.mes, motivo: p.d.motivo, saldo: cent(p.d.saldo), aplica: p.aplica }))];
+  }
+
   // Vista previa: un depto = detalle por deuda; varios = una fila por depto.
   function vistaPrevia() {
     preview.hidden = !deptos.length;
@@ -104,7 +127,7 @@
     if (deptos.length === 1) {
       const lista = aplicables(deptos[0].deudas);
       const { partes, resto } = repartir(lista, imp);
-      partes.forEach(({ d, aplica }) => filas.push(fila([d.mes, d.motivo, soles(cent(d.saldo)), soles(aplica)])));
+      agruparPartes(partes).forEach(p => filas.push(fila([p.mes, p.motivo, soles(p.saldo), soles(p.aplica)])));
       if (!filas.length) filas.push(fila([lista.length ? 'Ingresa el importe.' : 'Sin deudas pendientes.']));
       nota.classList.toggle('favor', resto > 0);
       nota.textContent = resto > 0 ? `Sobran ${soles(resto)}: quedarán como saldo a favor.` : '';
@@ -138,6 +161,15 @@
       info.querySelector('[data-info="numero"]').textContent = uno ? deptos[0].numero : `${deptos.length} deptos`;
       info.querySelector('[data-info="propietario"]').textContent = uno ? deptos[0].propietario : '—';
       info.querySelector('[data-info="deuda"]').textContent = soles(deptos.reduce((s, d) => s + suma(d.deudas), 0));
+      const antig = info.querySelector('[data-info="antiguedad"]');
+      antig.replaceChildren(...(uno ? antiguedad(deptos[0].deudas) : []).map(([k, c]) => {
+        const s = document.createElement('span');
+        s.className = 'pago-antig__item' + (k === ACUM ? ' pago-antig__item--acum' : '');
+        s.innerHTML = `<span class="pago-info__k"></span><strong></strong>`;
+        s.firstChild.textContent = k; s.lastChild.textContent = soles(c);
+        return s;
+      }));
+      antig.hidden = !antig.children.length;
     }
     armarSelectores(); sugerirImporte(); vistaPrevia();
   }

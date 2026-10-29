@@ -38,6 +38,12 @@ def aplicar_redondeo(valor, estrategia=TRUNCAR_DECIMAS):
     return Decimal(valor).quantize(paso, rounding=modo).quantize(CENTIMOS)
 
 
+def sumar_meses(periodo, k):
+    """Día 1 del mes que está `k` meses después (k negativo: antes) de `periodo`."""
+    n = periodo.year * 12 + periodo.month - 1 + k
+    return date(n // 12, n % 12 + 1, 1)
+
+
 def fecha_vencimiento(periodo, dia=5):
     """Día `dia` del mes siguiente al periodo (por defecto, el 5, como el Excel)."""
     if periodo.month == 12:

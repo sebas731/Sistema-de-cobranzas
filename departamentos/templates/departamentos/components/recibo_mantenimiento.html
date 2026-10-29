@@ -1,7 +1,7 @@
 {% load l10n %}{% comment %}
 Recibo de mantenimiento (réplica del recibo físico). Uso:
   {% include 'departamentos/components/recibo_mantenimiento.html' %}
-Contexto: r (views/recibos.py: snapshot o cargos), config, banco, billeteras.
+Contexto: r (views/recibos.py: snapshot o cargos), config, logo_url, aviso, banco, billeteras.
 Estilos SOLO en static/css/recibo_mantenimiento.css, todos bajo .recibo-mantenimiento.
 Secciones de r en None no se muestran (no se inventan datos).
 {% endcomment %}
@@ -14,7 +14,7 @@ Secciones de r en None no se muestran (no se inventan datos).
     <table class="rm-cabecera">
       <tr>
         <td class="rm-cab-cond">
-          {% if config.logo %}<img src="{{ config.logo }}" alt=""><br>{% endif %}
+          {% if logo_url %}<img src="{{ logo_url }}" alt="{{ config.nombre }}" class="rm-logo"><br>{% endif %}
           <div class="rm-cab-nombre">{{ config.nombre }}</div>
           {% if config.direccion %}<div class="rm-cab-dir">{{ config.direccion }}</div>{% endif %}
         </td>
@@ -116,7 +116,7 @@ Secciones de r en None no se muestran (no se inventan datos).
     {# ---------------- Aviso ---------------- #}
     <div class="rm-aviso">
       <div class="rm-aviso-titulo">Aviso importante</div>
-      <div class="rm-aviso-texto">{{ config.texto_aviso }}{% if r.restriccion %} Evita la restricción del servicio el {{ r.restriccion|date:"d" }} de {{ r.restriccion|date:"F"|capfirst }}.{% endif %}</div>
+      <div class="rm-aviso-texto">{{ aviso }}{% if r.restriccion %} Evita la restricción del servicio el {{ r.restriccion|date:"d" }} de {{ r.restriccion|date:"F"|capfirst }}.{% endif %}</div>
     </div>
     <table class="rm-contacto">
       <tr>
