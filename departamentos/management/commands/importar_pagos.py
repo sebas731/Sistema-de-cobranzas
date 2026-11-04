@@ -58,6 +58,36 @@ class Command(BaseCommand):
         parser.add_argument('--hoja', default=HOJA,
                             help=f"Hoja donde está el bloque. Def: '{HOJA}'.")
 
+    def _leer_col_g(self, wb):
+        """{depto: D. ANTERIORES} de la hoja 'DEUDAS ACTUALES' (col C=depto, G=7)."""
+        hoja = next((s for s in wb.sheetnames if s.strip().upper() == 'DEUDAS ACTUALES'), None)
+        if hoja is None:
+            return {}
+        wa = wb[hoja]
+        out = {}
+        for r in range(5, wa.max_row + 1):
+            raw = wa.cell(row=r, column=3).value
+            if raw is None:
+                continue
+            num = str(int(raw)) if isinstance(raw, (int, float)) else str(raw).strip()
+            if not num or not num[0].isdigit():
+                continue
+            g = _dec(wa.cell(row=r, column=7).value)
+            if g:
+                out[num] = g
+        return out
+
+    def _deptos_con_detalle(self, ws):
+        """Deptos que SÍ tienen desglose en el bloque izquierdo (col A, filas 5..32)."""
+        out = set()
+        for r in range(5, 33):
+            a = ws.cell(row=r, column=1).value
+            if isinstance(a, (int, float)):
+                out.add(str(int(a)))
+            elif a and str(a).strip() and str(a).strip()[0].isdigit():
+                out.add(str(a).strip())
+        return out
+
     def _ubicar_bloque(self, ws):
         """Fila/columna del encabezado (DEPT | MAYO | JUNIO | TOTAL)."""
         for row in ws.iter_rows():
@@ -99,6 +129,17 @@ class Command(BaseCommand):
         fecha_mayo = date(anio, 5, 31)
         fecha_junio = date(anio, 6, 30)
 
+        # Saldos no pagados de mayo/junio: un depto del bloque que ADEMÁS aparece
+        # en col G (D. ANTERIORES) SIN detalle propio en el bloque izquierdo pagó
+        # solo en parte; su col G es lo que quedó debiendo (ya cargado como deuda
+        # por importar_deudas). Ese saldo se DESCUENTA del ingreso para no inflarlo
+        # (ej. 202: debía 467.25, pagó 345, debe 122.25). Si el depto tiene detalle
+        # propio (ej. 501), su col G es deuda antigua aparte y NO se descuenta.
+        col_g = self._leer_col_g(wb)
+        con_detalle = self._deptos_con_detalle(ws)
+        saldo_pendiente = {d: g for d, g in col_g.items()
+                           if g > 0 and d not in con_detalle}
+
         concepto, _ = Concepto.objects.get_or_create(
             codigo=COD_CONCEPTO,
             defaults={'nombre': NOMBRE_CONCEPTO, 'orden': 15, 'es_recurrente': False,
@@ -112,6 +153,7 @@ class Command(BaseCommand):
         creados = 0
         total = Decimal('0.00')
         sin_depto = []
+        ajustados = []
         for r in range(fila_h + 1, ws.max_row + 1):
             raw = ws.cell(row=r, column=col_d).value
             if raw in (None, ''):
@@ -123,11 +165,23 @@ class Command(BaseCommand):
             if not dep:
                 sin_depto.append(numero)
                 continue
-            mayo = _dec(ws.cell(row=r, column=col_d + 1).value)
-            junio = _dec(ws.cell(row=r, column=col_d + 2).value)
+            mayo = _dec(ws.cell(row=r, column=col_d + 1).value) or Decimal('0.00')
+            junio = _dec(ws.cell(row=r, column=col_d + 2).value) or Decimal('0.00')
+
+            # Pago parcial: descuenta el saldo pendiente, lo más reciente primero
+            # (se pagó lo antiguo: mayo completo, luego junio). El resto es deuda.
+            pendiente = saldo_pendiente.get(numero, Decimal('0.00'))
+            if pendiente > 0:
+                bruto = mayo + junio
+                pagado_total = max(bruto - pendiente, Decimal('0.00'))
+                mayo_pagado = min(mayo, pagado_total)
+                junio_pagado = pagado_total - mayo_pagado
+                ajustados.append((numero, bruto, pagado_total, min(pendiente, bruto)))
+                mayo, junio = mayo_pagado, junio_pagado
+
             for monto, fecha, etiqueta in ((mayo, fecha_mayo, 'Mantenimiento mayo'),
                                            (junio, fecha_junio, 'Mantenimiento junio')):
-                if not monto:
+                if monto <= 0:
                     continue
                 cargo = Cargo.objects.create(
                     departamento=dep, concepto=concepto, periodo=fecha.replace(day=1),
@@ -143,6 +197,10 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'{creados} ingresos creados por S/ {total:.2f} '
             f'(mayo {fecha_mayo:%m/%Y} + junio {fecha_junio:%m/%Y}).'))
+        for numero, bruto, pagado, pend in ajustados:
+            self.stdout.write(self.style.WARNING(
+                f'Depto {numero}: pago PARCIAL -> debía {bruto:.2f}, pagó {pagado:.2f} '
+                f'(ingreso); quedan {pend:.2f} de deuda (ya en D. anteriores).'))
         if n_pagos_prev:
             self.stdout.write(self.style.WARNING(
                 f'Se reemplazaron {n_pagos_prev} ingreso(s) de una carga anterior.'))
