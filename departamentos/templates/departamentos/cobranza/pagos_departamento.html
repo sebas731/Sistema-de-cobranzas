@@ -1,0 +1,104 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% block title %}Pagos por departamento{% endblock %}
+
+{% block content %}
+{# ---------- Header ---------- #}
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="page-title">Pagos por departamento</h1>
+    <p class="page-lead">Pagos registrados, agrupados por departamento.</p>
+  </div>
+  <form method="get" class="d-flex align-items-end gap-2">
+    <select name="mes" class="form-select w-170">
+      <option value="">Todos los meses</option>
+      {% for i, nom in meses %}<option value="{{ i }}" {% if sel_mes == i|stringformat:'s' %}selected{% endif %}>{{ nom }}</option>{% endfor %}
+    </select>
+    <select name="anio" class="form-select w-120">
+      <option value="">Todos</option>
+      {% for a in anios %}<option value="{{ a }}" {% if sel_anio == a|stringformat:'s' %}selected{% endif %}>{{ a }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-success">Aplicar</button>
+  </form>
+</div>
+
+{# ---------- KPIs ---------- #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-4"><div class="c c-pad kpi">
+    <span class="kpi__ic"><svg><use href="#i-cash"/></svg></span>
+    <span class="kpi__l">Total recaudado</span>
+    <span class="kpi__v">S/ {{ total|floatformat:2 }}</span>
+    <span class="kpi__s">Suma de los pagos mostrados</span>
+  </div></div>
+  <div class="col-6 col-lg-4"><div class="c c-pad kpi kpi--info">
+    <span class="kpi__ic"><svg><use href="#i-receipt"/></svg></span>
+    <span class="kpi__l">Nº de pagos</span>
+    <span class="kpi__v">{{ n_pagos }}</span>
+    <span class="kpi__s">Movimientos registrados</span>
+  </div></div>
+  <div class="col-6 col-lg-4"><div class="c c-pad kpi">
+    <span class="kpi__ic"><svg><use href="#i-people"/></svg></span>
+    <span class="kpi__l">Departamentos que pagaron</span>
+    <span class="kpi__v">{{ n_deptos }}</span>
+    <span class="kpi__s">Con al menos un pago</span>
+  </div></div>
+</div>
+
+{# ---------- Buscador ---------- #}
+<div class="c c-pad mb-3">
+  <div class="fsearch">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg>
+    <input id="pgSearch" class="form-control" placeholder="Buscar departamento o propietario...">
+  </div>
+</div>
+
+{# ---------- Tabla ---------- #}
+<div class="c">
+  <div class="table-responsive">
+    <table class="table ds-table">
+      <thead>
+        <tr>
+          <th>Depto</th><th>Fecha</th><th>Concepto</th><th>Método</th><th>Detalle</th><th class="num">Monto</th>
+        </tr>
+      </thead>
+      <tbody id="pgRows">
+        {% for g in grupos %}
+        <tr class="ds-group" data-search="{{ g.numero|lower }} {{ g.propietario|lower }}">
+          <td colspan="5"><strong>{{ g.numero }}</strong> · {{ g.propietario }}</td>
+          <td class="num"><strong>S/ {{ g.subtotal|floatformat:2 }}</strong></td>
+        </tr>
+        {% for p in g.pagos %}
+        <tr data-search="{{ g.numero|lower }} {{ g.propietario|lower }}">
+          <td class="muted">{{ g.numero }}</td>
+          <td>{{ p.fecha|date:'d/m/Y' }}</td>
+          <td>{{ p.label }}</td>
+          <td>{{ p.metodo|default:'—' }}</td>
+          <td class="muted">{{ p.nota|default:'' }}</td>
+          <td class="num">{% include 'departamentos/components/amount.html' with value=p.monto %}</td>
+        </tr>
+        {% endfor %}
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-5">Sin pagos registrados para el filtro elegido.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if grupos %}
+      <tfoot>
+        <tr><td colspan="5" class="num"><strong>Total</strong></td><td class="num"><strong>S/ {{ total|floatformat:2 }}</strong></td></tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  var s = document.getElementById('pgSearch');
+  if (!s) return;
+  s.addEventListener('input', function () {
+    var q = this.value.trim().toLowerCase();
+    document.querySelectorAll('#pgRows tr[data-search]').forEach(function (tr) {
+      tr.style.display = (!q || tr.dataset.search.indexOf(q) >= 0) ? '' : 'none';
+    });
+  });
+})();
+</script>
+{% endblock %}

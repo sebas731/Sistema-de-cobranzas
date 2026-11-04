@@ -4,5 +4,6 @@ from ..views import cobranza as v
 
 urlpatterns = [
     path('pagos/registrar/', v.registrar_pagos, name='registrar_pagos'),
+    path('pagos/', v.pagos_departamento, name='pagos_departamento'),
     path('cargos/asignar/', v.registrar_cargos, name='registrar_cargos'),
 ]

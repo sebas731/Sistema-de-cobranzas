@@ -19,6 +19,8 @@ en un desplegable. Estado activo por url_name.{% endcomment %}
       <svg><use href="#i-people"/></svg> Deudores</a>
     <a href="{% url 'registrar_pagos' %}" class="nav-item-ds {% if cur == 'registrar_pagos' %}active{% endif %}">
       <svg><use href="#i-cash"/></svg> Registrar pagos</a>
+    <a href="{% url 'pagos_departamento' %}" class="nav-item-ds {% if cur == 'pagos_departamento' %}active{% endif %}">
+      <svg><use href="#i-receipt"/></svg> Pagos por depto</a>
     <a href="{% url 'registrar_cargos' %}" class="nav-item-ds {% if cur == 'registrar_cargos' %}active{% endif %}">
       <svg><use href="#i-alert"/></svg> Multas / cargos</a>
 
