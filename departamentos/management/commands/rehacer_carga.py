@@ -187,7 +187,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"Cargos: {Cargo.objects.count()}  S/{db_c}  (CSV {tc})")
                 self.stdout.write(f"Pagos:  {Pago.objects.count()}  S/{tp}")
                 self.stdout.write(f"Imputado: S/{db_i}  (CSV {ti})")
-                self.stdout.write(f"DEUDA TOTAL: S/{db_c - db_i}   (esperado 18534.56)")
+                self.stdout.write(f"DEUDA TOTAL: S/{db_c - db_i}   (esperado 19502.83)")
                 if db_c != tc or db_i != ti or tp != ti:
                     raise CommandError("Los totales no cuadran: se revierte todo.")
 
