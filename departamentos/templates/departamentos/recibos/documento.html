@@ -14,7 +14,20 @@
     <a href="{{ volver }}" class="btn btn-link px-0">&larr; Volver</a>
     <h1 class="page-header__title">Recibo {{ r.departamento.numero_domicilio }} · {{ r.periodo|date:"F Y"|capfirst }}</h1>
   </div>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 align-items-end flex-wrap">
+    <form method="get" action="{% url 'recibo_boleta' r.departamento.pk %}" class="d-flex gap-1 align-items-end">
+      <div>
+        <label class="form-label small mb-0">Mes</label>
+        <select name="mes" class="form-select form-select-sm">
+          {% for i, nom in meses %}<option value="{{ i }}" {% if i == r.periodo.month %}selected{% endif %}>{{ nom }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label small mb-0">Año</label>
+        <input type="number" name="anio" value="{{ r.periodo.year }}" class="form-control form-control-sm" style="width:90px">
+      </div>
+      <button class="btn btn-sm btn-outline-secondary">Ver</button>
+    </form>
     <button type="button" onclick="window.print()" class="btn btn-outline-secondary">Imprimir</button>
     <button type="button" onclick="window.print()" class="btn btn-success">Descargar PDF</button>
   </div>

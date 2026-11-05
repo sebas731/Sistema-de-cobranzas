@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.urls import reverse
 
-from ..forms import BorrarRecibosForm, GenerarRecibosForm
+from ..forms import MESES_ES, BorrarRecibosForm, GenerarRecibosForm
 from ..models import (
     ConfiguracionCondominio, Departamento, LecturaMedidor, PeriodoFacturacion, Recibo,
     TarifaAguaVersion,
@@ -76,6 +76,7 @@ def _render(request, r, volver):
         'logo_url': _logo_url(config.logo if config else ''), 'aviso': _aviso(config, r),
         'banco': next((m for m in medios if m.tipo == 'BANCO'), None),
         'billeteras': [m for m in medios if m.tipo in ('PLIN', 'YAPE')],
+        'meses': [(i, MESES_ES[i]) for i in range(1, 13)],
     })
 
 
