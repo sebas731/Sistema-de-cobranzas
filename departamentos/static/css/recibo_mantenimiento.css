@@ -25,7 +25,7 @@
 
 /* ---------- Hoja A4 ---------- */
 .recibo-mantenimiento .rm-hoja {
-  width: 210mm; min-height: 297mm; margin: 0 auto 16px; padding: 10mm 9mm;
+  width: auto; min-height: auto; margin: 0 auto 16px; padding: 10mm 9mm;
   background: #fff; border: 1px solid #c8c8c8;
 }
 .recibo-mantenimiento .rm-recibo { border: 1px solid var(--rm-linea); padding: 6px 8px 8px; }
@@ -115,6 +115,8 @@
    aquí solo la hoja: A4 sin márgenes del navegador (el margen lo da .rm-hoja). */
 @media print {
   @page { size: A4 portrait; margin: 0; }
-  .recibo-mantenimiento { overflow: visible; }
-  .recibo-mantenimiento .rm-hoja { margin: 0; border: 0; min-height: 0; page-break-after: avoid; }
+  .recibo-mantenimiento { overflow: visible; width: 240; height: auto;}
+   .recibo-mantenimiento .rm-hoja {
+    width: auto; margin: 0 auto; border: 0; min-height: auto;
+  }
 }
