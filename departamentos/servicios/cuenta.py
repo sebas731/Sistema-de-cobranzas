@@ -206,8 +206,13 @@ def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', perio
 
     cargos = cargos_pendientes(departamento, concepto, periodo)
     if con_mora_anterior and periodo is not None:
-        cargos = [c for c in cargos_pendientes(departamento)
-                  if c.periodo < periodo and c.concepto.codigo == 'MORA'] + cargos
+        # Antes del mes actual, salda lo pendiente de meses anteriores de los
+        # conceptos "aparte" (cuota, multa, mora), lo más antiguo primero. Así el
+        # cobro acompaña al panel, que muestra esos saldos acumulados.
+        previos = sorted((c for c in cargos_pendientes(departamento)
+                          if c.periodo < periodo and c.concepto.codigo in COLUMNAS_APARTE),
+                         key=lambda c: (c.periodo, c.concepto.orden))
+        cargos = previos + cargos
     if columnas:
         cargos = [c for c in cargos if columna_panel(c.concepto.codigo) in columnas]
 
@@ -280,14 +285,18 @@ def cargos_mes_por_departamento(periodo, con_mora_anterior=False):
         fila['pendiente'][columna_panel(c.concepto.codigo)] += max(c.saldo, CERO)
 
     if con_mora_anterior:
-        moras = (Cargo.objects.filter(periodo__lt=periodo, concepto__codigo='MORA')
-                 .select_related('departamento').prefetch_related('imputaciones'))
-        for c in moras:
+        # Arrastra el saldo pendiente de meses anteriores de los conceptos "aparte"
+        # (cuota, multa, mora), para que el panel muestre lo acumulado por concepto
+        # (ej. cuota de agosto no pagada + la de septiembre), no solo el mes.
+        previos = (Cargo.objects.filter(periodo__lt=periodo, concepto__codigo__in=COLUMNAS_APARTE)
+                   .select_related('departamento', 'concepto').prefetch_related('imputaciones'))
+        for c in previos:
             if c.saldo > 0:
                 fila = fila_de(c.departamento)
-                for k in ('MORA', 'extras', 'total', 'saldo'):
+                cod = c.concepto.codigo
+                for k in (cod, 'extras', 'total', 'saldo'):
                     fila[k] += c.saldo
-                fila['pendiente']['mora'] += c.saldo
+                fila['pendiente'][columna_panel(cod)] += c.saldo
 
     return sorted(por_dep.values(), key=lambda f: f['departamento'].numero_domicilio)
 
