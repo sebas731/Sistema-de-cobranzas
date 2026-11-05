@@ -31,7 +31,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **opts):
         cfg = ConfiguracionCondominio.vigente() or ConfiguracionCondominio(activo=True)
-        cfg.nombre, cfg.logo, cfg.texto_aviso, cfg.activo = NOMBRE, LOGO, AVISO, True
+        cfg.nombre, cfg.logo, cfg.texto_aviso, cfg.activo,cfg.whatsapp= NOMBRE, LOGO, AVISO, True, "+51 955 372 605",
         cfg.save()
 
         banco, creado = MedioPago.objects.update_or_create(

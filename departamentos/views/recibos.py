@@ -18,31 +18,30 @@ from django.urls import reverse
 from ..forms import MESES_ES, BorrarRecibosForm, GenerarRecibosForm
 from ..models import (
     ConfiguracionCondominio, Departamento, LecturaMedidor, PeriodoFacturacion, Recibo,
-    TarifaAguaVersion,
+    TarifaAgua,
 )
 from ..servicios import borrar_generacion_mes, datos_boleta, generar_cargos_mes
 from ..servicios.comun import ordenar_tramos
 from .comun import periodo_de_request
 
 
-def _estructura_tarifaria(version):
+def _estructura_tarifaria(tramos):
     """Tramos de la tarifa con el rango legible ('0 a 10', '50 a más')."""
     def m3(d):  # 10.00 → '10', 2.50 → '2.5'
         s = f'{d:f}'
         return s.rstrip('0').rstrip('.') if '.' in s else s
 
-    tramos, piso = [], Decimal('0')
-    for t in ordenar_tramos(version.tramos.all(), 'consumo_hasta'):
-        rango = f'{m3(piso)} a más' if t.consumo_hasta is None else f'{m3(piso)} a {m3(t.consumo_hasta)}'
-        tramos.append({'rango': rango, 'agua': t.precio_agua, 'saneamiento': t.precio_saneamiento})
-        if t.consumo_hasta is not None:
-            piso = t.consumo_hasta
-    return tramos
+    out, piso = [], Decimal('0')
+    for t in ordenar_tramos(tramos, 'consumo_limite'):   # campo de TarifaAgua
+        rango = f'{m3(piso)} a más' if t.consumo_limite is None else f'{m3(piso)} a {m3(t.consumo_limite)}'
+        out.append({'rango': rango, 'precio': t.tarifa})  # un solo precio
+        if t.consumo_limite is not None:
+            piso = t.consumo_limite
 
+    return out
 
-def _tarifa_vigente(periodo):
-    return (TarifaAguaVersion.objects.filter(activo=True, vigencia_desde__lte=periodo)
-            .filter(Q(vigencia_hasta__isnull=True) | Q(vigencia_hasta__gte=periodo)).first())
+def _tarifa_vigente():
+    return (TarifaAgua.objects.filter(activo=True))
 
 
 def _edificio(per, agua_comun):
@@ -113,7 +112,7 @@ def _contexto_cargos(departamento, periodo):
     b = datos_boleta(departamento, periodo)
     per = PeriodoFacturacion.objects.filter(periodo=periodo).select_related('tarifa_agua').first()
     lectura = LecturaMedidor.objects.filter(departamento=departamento, periodo=periodo).first()
-    tarifa = (per.tarifa_agua if per and per.tarifa_agua_id else None) or _tarifa_vigente(periodo)
+    tramos = _tarifa_vigente()
     agua_comun = next((i['monto'] for i in b['items'] if i['codigo'] == 'AREA_COMUN'), Decimal('0.00'))
     return {
         'departamento': departamento, 'periodo': periodo,
@@ -125,7 +124,7 @@ def _contexto_cargos(departamento, periodo):
         'lineas': [{'etiqueta': i['nombre'], 'monto': i['monto']} for i in b['items']],
         'descuento': None, 'saldo_favor': None,
         'total_mes': b['total_mes'], 'deuda': b['anterior'], 'total_pagar': b['total_pagar'],
-        'tarifa': tarifa, 'tramos': _estructura_tarifaria(tarifa) if tarifa else [],
+        'tarifa': tramos.first(), 'tramos': _estructura_tarifaria(tramos),
         'facturacion': None,  # el desglose SEDAPAL solo existe en el snapshot
         'edificio': _edificio(per, agua_comun),
         'emision': b['emision'] or (per and per.fecha_emision),

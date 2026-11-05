@@ -42,8 +42,8 @@ class Command(BaseCommand):
             nombre='Conjunto Residencial Los Parques del Agustino',
             defaults={
                 'direccion': 'El Agustino, Lima',
-                'email': 'residencial.demo@gmail.com',            # PLACEHOLDER (tapado en la foto)
-                'whatsapp': '999999999',                          # PLACEHOLDER
+                'email': 'girasoles.demo@gmail.com',            # PLACEHOLDER (tapado en la foto)
+                'whatsapp': '+51 955 372 605',                          # PLACEHOLDER
                 'horario_atencion': ('Lunes a Viernes 08:00am a 13:00pm y de 15:00 a 18:00pm.\n'
                                      'Sábado 08:00 a 13:00pm.'),
                 'texto_aviso': ('Recuerda cancelar a tiempo tu recibo. Paga completo. No te olvides '
