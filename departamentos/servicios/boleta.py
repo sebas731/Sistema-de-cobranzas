@@ -44,15 +44,34 @@ def datos_boleta(departamento, periodo):
         items.append({'codigo': c.concepto.codigo, 'nombre': nombre, 'monto': c.monto})
         if c.saldo > 0 and c.fecha_vencimiento < hoy:
             hay_vencido = True
-        if c.concepto.codigo == Concepto.AGUA:
-            agua_total += c.monto
-            hay_agua = True
-        else:
-            mant_items.append({'nombre': c.concepto.nombre, 'monto': c.monto})
-            mant_total += c.monto
 
+    # Cuota/multa/mora: suma a la línea del mes lo pendiente de ESE concepto de
+    # meses anteriores (ej. cuota de agosto no pagada + la de septiembre). El
+    # resto de la deuda (mantenimiento, agua...) queda en "deuda anterior".
+    APARTE = {'CUOTA', 'MULTA', 'MORA'}
+    prev_aparte, prev_otros = {}, CERO
+    for c in departamento.cargos.all():
+        if c.periodo >= periodo or c.saldo <= 0:
+            continue
+        if c.concepto.codigo in APARTE:
+            prev_aparte[c.concepto.codigo] = prev_aparte.get(c.concepto.codigo, CERO) + c.saldo
+        else:
+            prev_otros += c.saldo
+    nombres = {c.codigo: c.nombre for c in Concepto.objects.filter(codigo__in=APARTE)}
+    for codigo, saldo in prev_aparte.items():
+        it = next((i for i in items if i['codigo'] == codigo), None)
+        if it:
+            it['monto'] += saldo
+        else:
+            items.append({'codigo': codigo, 'nombre': nombres.get(codigo, codigo), 'monto': saldo})
+
+    # Totales finales (ya con lo anterior de cuota/multa/mora sumado a su línea).
+    agua_total = sum((i['monto'] for i in items if i['codigo'] == Concepto.AGUA), CERO)
+    mant_items = [{'nombre': i['nombre'], 'monto': i['monto']} for i in items if i['codigo'] != Concepto.AGUA]
+    mant_total = sum((i['monto'] for i in items if i['codigo'] != Concepto.AGUA), CERO)
+    hay_agua = agua_total > 0
     total_mes = mant_total + agua_total
-    anterior = deuda_anterior(departamento, periodo)
+    anterior = prev_otros
 
     # Estado real (no inventado): pagado si no queda saldo del mes; vencido si
     # algún cargo del mes ya venció con saldo; si no, pendiente.
