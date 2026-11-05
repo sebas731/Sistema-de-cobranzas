@@ -8,15 +8,78 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..forms import MESES_ES
-from ..models import Concepto
-from ..servicios import agrupar_deuda, deudores
+from ..models import Concepto, Departamento
+from ..servicios import agrupar_deuda, deudores, sumar_meses
 from .comun import periodo_de_request
 
 CERO = Decimal('0.00')
 
+# Conceptos con columna propia en "Deudas actuales"; el resto (mantenimiento,
+# agua, área común, cochera...) es el "general" de cada mes.
+_APARTE = {'PUERTAS': 'puertas', 'CAMARA': 'camara', 'ASCENSORES': 'ascensores',
+           'CUOTA': 'cuota', 'MULTA': 'multa', 'MORA': 'mora'}
+
+
+def _num_key(numero):
+    try:
+        return (0, int(numero))
+    except (TypeError, ValueError):
+        return (1, str(numero))
+
 
 def _mes(p):
     return f'{MESES_ES[p.month]} {p.year}'
+
+
+@login_required
+def deudas_actuales(request):
+    """Tabla de deudas por depto al estilo del Excel «DEUDORES»: una fila por
+    deudor con el saldo por concepto, y el general del mes (mant+agua+área+
+    cochera) separado por mes (anterior + 3 meses recientes). Se actualiza con
+    los cargos reales, se filtra por texto y se exporta a PDF (imprimir)."""
+    form, ref = periodo_de_request(request)
+    meses = [sumar_meses(ref, -2), sumar_meses(ref, -1), ref]   # ej. jul, ago, set
+    q = request.GET.get('q', '').strip().lower()
+
+    deps = (Departamento.objects.filter(activo=True)
+            .prefetch_related('cargos__concepto', 'cargos__imputaciones'))
+    cols = ['puertas', 'camara', 'ascensores', 'ant', 'm0', 'm1', 'm2',
+            'cuota', 'multa', 'mora', 'total']
+    filas = []
+    for dep in deps:
+        r = {k: CERO for k in cols}
+        r['depto'] = dep
+        for c in dep.cargos.all():
+            s = c.saldo
+            if s <= 0:
+                continue
+            r['total'] += s
+            col = _APARTE.get(c.concepto.codigo)
+            if col:
+                r[col] += s
+            elif c.periodo == meses[0]:
+                r['m0'] += s
+            elif c.periodo == meses[1]:
+                r['m1'] += s
+            elif c.periodo == meses[2]:
+                r['m2'] += s
+            else:   # general anterior (o posterior) = acumulado
+                r['ant'] += s
+        if r['total'] > 0:
+            filas.append(r)
+
+    if q:
+        filas = [f for f in filas
+                 if q in f['depto'].numero_domicilio.lower()
+                 or q in (f['depto'].propietario or '').lower()]
+    filas.sort(key=lambda f: _num_key(f['depto'].numero_domicilio))
+    tot = {k: sum((f[k] for f in filas), CERO) for k in cols}
+
+    return render(request, 'departamentos/deudores/deudas_actuales.html', {
+        'periodo_form': form, 'ref': ref, 'filas': filas, 'tot': tot, 'n': len(filas),
+        'q': request.GET.get('q', ''),
+        'mes_labels': [MESES_ES[m.month] for m in meses],
+    })
 
 
 def _estado(impagos, hoy, pronto):

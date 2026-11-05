@@ -1,0 +1,102 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% block title %}Deudas actuales{% endblock %}
+
+{% block extra_head %}
+<style>
+  .da-wrap { overflow-x:auto; }
+  .da-table th, .da-table td { text-align:right; white-space:nowrap; }
+  .da-table th.l, .da-table td.l { text-align:left; }
+  .da-table .grp { text-align:center; background:var(--purple-haze, #f9f0ff); font-weight:700; }
+  .da-table tfoot td { font-weight:700; border-top:2px solid var(--border, #ddd); }
+  .da-table td.z { color:var(--text-muted, #999); }
+  @media print {
+    .sidebar, .app-header, .appbar, header, .no-print,
+    .page-header .d-flex, .filters { display:none !important; }
+    .page-container, .main, main, .content { margin:0 !important; padding:0 !important; max-width:none !important; }
+    .da-table { font-size:10px; }
+    .da-wrap { overflow:visible !important; }
+    @page { size:A4 landscape; margin:10mm; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Deudas actuales</h1>
+    <p class="page-header__subtitle">{{ n }} deudor{{ n|pluralize:"es" }} · referencia {{ ref|date:"F Y"|capfirst }}</p>
+  </div>
+  <div class="d-flex gap-2 align-items-end no-print flex-wrap">
+    <form method="get" class="d-flex gap-2 align-items-end flex-wrap">
+      <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+             style="width:220px" placeholder="Buscar depto o propietario...">
+      <div>{{ periodo_form.mes }}</div>
+      <div>{{ periodo_form.anio }}</div>
+      <button class="btn btn-sm btn-success">Ver</button>
+    </form>
+    <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary">🖨️ Exportar PDF</button>
+  </div>
+</div>
+
+<div class="c da-wrap">
+  <table class="table ds-table da-table">
+    <thead>
+      <tr>
+        <th class="l" rowspan="2">Depto</th>
+        <th class="l" rowspan="2">Propietario</th>
+        <th rowspan="2">Puertas</th>
+        <th rowspan="2">Cámara</th>
+        <th rowspan="2">Ascensor</th>
+        <th class="grp" colspan="4">Mantenimiento (general del mes)</th>
+        <th rowspan="2">Cuota</th>
+        <th rowspan="2">Multa</th>
+        <th rowspan="2">Mora</th>
+        <th rowspan="2">TOTAL</th>
+      </tr>
+      <tr>
+        <th>Anterior</th>
+        <th>{{ mes_labels.0 }}</th>
+        <th>{{ mes_labels.1 }}</th>
+        <th>{{ mes_labels.2 }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in filas %}
+      <tr>
+        <td class="l fw-semibold">{{ f.depto.numero_domicilio }}</td>
+        <td class="l">{{ f.depto.propietario|default:"—" }}</td>
+        <td class="{% if not f.puertas %}z{% endif %}">{% if f.puertas %}{{ f.puertas|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.camara %}z{% endif %}">{% if f.camara %}{{ f.camara|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.ascensores %}z{% endif %}">{% if f.ascensores %}{{ f.ascensores|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.ant %}z{% endif %}">{% if f.ant %}{{ f.ant|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.m0 %}z{% endif %}">{% if f.m0 %}{{ f.m0|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.m1 %}z{% endif %}">{% if f.m1 %}{{ f.m1|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.m2 %}z{% endif %}">{% if f.m2 %}{{ f.m2|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.cuota %}z{% endif %}">{% if f.cuota %}{{ f.cuota|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.multa %}z{% endif %}">{% if f.multa %}{{ f.multa|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.mora %}z{% endif %}">{% if f.mora %}{{ f.mora|floatformat:2 }}{% else %}·{% endif %}</td>
+        <td class="fw-semibold">{{ f.total|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="13" class="text-center text-muted py-4">Sin deudores para este filtro. 🎉</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td class="l" colspan="2">TOTAL ({{ n }})</td>
+        <td>{{ tot.puertas|floatformat:2 }}</td>
+        <td>{{ tot.camara|floatformat:2 }}</td>
+        <td>{{ tot.ascensores|floatformat:2 }}</td>
+        <td>{{ tot.ant|floatformat:2 }}</td>
+        <td>{{ tot.m0|floatformat:2 }}</td>
+        <td>{{ tot.m1|floatformat:2 }}</td>
+        <td>{{ tot.m2|floatformat:2 }}</td>
+        <td>{{ tot.cuota|floatformat:2 }}</td>
+        <td>{{ tot.multa|floatformat:2 }}</td>
+        <td>{{ tot.mora|floatformat:2 }}</td>
+        <td>{{ tot.total|floatformat:2 }}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% endblock %}

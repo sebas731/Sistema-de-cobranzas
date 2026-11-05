@@ -15,8 +15,10 @@ en un desplegable. Estado activo por url_name.{% endcomment %}
       <svg><use href="#i-calendar"/></svg> Panel del mes</a>
 
     <div class="sidebar__group">Cobranzas</div>
+    <a href="{% url 'deudas_actuales' %}" class="nav-item-ds {% if cur == 'deudas_actuales' %}active{% endif %}">
+      <svg><use href="#i-people"/></svg> Deudas actuales</a>
     <a href="{% url 'deudores' %}" class="nav-item-ds {% if cur == 'deudores' %}active{% endif %}">
-      <svg><use href="#i-people"/></svg> Deudores</a>
+      <svg><use href="#i-wallet"/></svg> Deudores (resumen)</a>
     <a href="{% url 'registrar_pagos' %}" class="nav-item-ds {% if cur == 'registrar_pagos' %}active{% endif %}">
       <svg><use href="#i-cash"/></svg> Registrar pagos</a>
     <a href="{% url 'pagos_departamento' %}" class="nav-item-ds {% if cur == 'pagos_departamento' %}active{% endif %}">
