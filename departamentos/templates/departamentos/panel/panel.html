@@ -138,11 +138,10 @@ if (jsonElement) {
   const grid = document.querySelector('revo-grid');
   const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 
-  // Columnas que se pueden cobrar por separado (la de cuota solo si alguien la tiene).
+  // Columnas que se pueden cobrar por separado (las de la hoja AGUA + otros).
   const COBRABLES = [
-    ['mantenimiento', 'Mantenim.'], ['agua', 'Agua'], ['area_comun', 'Á. común'], ['cochera', 'Cochera'],
-    ...(dataOriginal.some(f => f.cuota > 0) ? [['cuota', 'Cuota extr.']] : []),
-    ['multa', 'Multa'], ['mora', 'Mora'], ['otros', 'Otros'],
+    ['agua', 'Monto'], ['area_comun', 'Á. común'], ['cochera', 'Cochera'], ['mantenimiento', 'Mantenim.'],
+    ['cuota', 'Gastos adic.'], ['mora', 'Mora'], ['multa', 'Multa'], ['otros', 'Otros'],
   ];
   const seleccion = new Set();   // columnas elegidas; vacío = cobrar todo
 
@@ -161,24 +160,31 @@ if (jsonElement) {
     } : {}),
   });
 
+  // Columnas en el mismo orden que la hoja AGUA de la clienta: lecturas, M3,
+  // monto, área, total agua, cochera, mantenimiento, general, gastos adic.,
+  // mora, multa, total. Los subtotales (total agua, general, total) son de solo
+  // lectura; las columnas cobrables llevan casilla para cobrar solo esa.
   const columnas = () => [
-    { prop: 'numero', name: 'Depto', size: 90,  readonly: true, filter: true, pin: 'colPinStart' },
-    { prop: 'propietario',name: 'Propietario', size: 240, readonly: true, filter: true },
-    { prop: 'mantenimiento', name: 'Mantenimiento', size: 150, filter: true , readonly: true, ...marcada('mantenimiento') },
-    { prop: 'agua', name: 'Agua', size: 90 ,readonly:true, ...marcada('agua') },
-    { prop: 'area_comun', name: 'Á. común', size: 130 ,readonly:true, ...marcada('area_comun') },
-    { prop: 'cochera', name: 'Cochera', size: 100 ,readonly:true, ...marcada('cochera') },
-    // La columna de cuota solo aparece si alguien la tiene este mes.
-    ...(dataOriginal.some(f => f.cuota > 0) ? [{ prop: 'cuota', name: 'Cuota extr.', size: 110, readonly: true, ...marcada('cuota') }] : []),
-    { prop: 'multa', name: 'Multa', size: 90, readonly: true, ...marcada('multa') },
-    // Mora = lo que se debe de mora de meses anteriores (se cobra junto con el mes).
-    { prop: 'mora', name: 'Mora', size: 90, readonly: true, ...marcada('mora') },
-    { prop: 'otros', name: 'Otros', size: 100 ,readonly:true, ...marcada('otros') },
-    { prop: 'total', name: 'Total', size: 90 , readonly:true },
-    { prop: 'pagado', name: 'Pagado', size: 100 ,readonly:true },
-    { prop: 'saldo', name: 'Saldo', size: 90 , readonly:true },
-    { prop: 'cobrar', name: 'Cobrar', size: 120 },
-    { prop: 'pk', name:'Accion' , size: 100 , cellTemplate: (h, props) => debe(props.model) > 0
+    { prop: 'numero', name: 'Depto', size: 70, readonly: true, filter: true, pin: 'colPinStart' },
+    { prop: 'propietario', name: 'Propietario', size: 150, readonly: true, filter: true },
+    { prop: 'lect_ant', name: 'Lect. ant.', size: 95, readonly: true },
+    { prop: 'lect_act', name: 'Lect. act.', size: 95, readonly: true },
+    { prop: 'm3', name: 'M³', size: 65, readonly: true },
+    { prop: 'agua', name: 'Monto', size: 90, readonly: true, ...marcada('agua') },
+    { prop: 'area_comun', name: 'Á. común', size: 95, readonly: true, ...marcada('area_comun') },
+    { prop: 'total_agua', name: 'Total agua', size: 100, readonly: true },
+    { prop: 'cochera', name: 'Cochera', size: 90, readonly: true, ...marcada('cochera') },
+    { prop: 'mantenimiento', name: 'Mantenim.', size: 110, readonly: true, ...marcada('mantenimiento') },
+    { prop: 'general', name: 'General', size: 95, readonly: true },
+    { prop: 'cuota', name: 'Gastos adic.', size: 110, readonly: true, ...marcada('cuota') },
+    { prop: 'mora', name: 'Mora', size: 80, readonly: true, ...marcada('mora') },
+    { prop: 'multa', name: 'Multa', size: 80, readonly: true, ...marcada('multa') },
+    { prop: 'otros', name: 'Otros', size: 80, readonly: true, ...marcada('otros') },
+    { prop: 'total', name: 'TOTAL', size: 95, readonly: true },
+    { prop: 'pagado', name: 'Pagado', size: 90, readonly: true },
+    { prop: 'saldo', name: 'Saldo', size: 90, readonly: true },
+    { prop: 'cobrar', name: 'Cobrar', size: 110 },
+    { prop: 'pk', name: 'Acción', size: 100, cellTemplate: (h, props) => debe(props.model) > 0
       ? h('button', { class: 'btn btn-sm btn-success', onClick: () => cobrar(props.model) }, 'Cobrar')
       : h('span', { class: 'badge-soft badge-soft--success' }, seleccion.size ? 'Sin deuda' : 'Pagado') }
   ];

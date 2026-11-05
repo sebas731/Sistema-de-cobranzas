@@ -58,29 +58,43 @@ def panel(request):
              and F.en_rango(f['saldo'], request, 'saldo')]
 
 
+    # Lecturas del periodo (julio→agosto para septiembre): referencia visual
+    # estilo hoja AGUA. El monto de agua sale del cargo, no de recalcular.
+    lecturas = {l.departamento_id: l for l in LecturaMedidor.objects.filter(periodo=periodo)}
+
     # filas JSON
+    def _f(x):
+        return float(x) if x is not None else None
 
-    filas_json = [  {
-
-    'pk': item['departamento'].pk,
-    'numero': item['departamento'].numero_domicilio,
-    'propietario': item['departamento'].propietario,
-    'mantenimiento': float(item['MANTENIMIENTO']),
-    'agua': float(item['AGUA']),
-    'area_comun': float(item['AREA_COMUN']),
-    'cochera': float(item['COCHERA']),
-    'cuota': float(item['CUOTA']),
-    'multa': float(item['MULTA']),
-    'mora': float(item['MORA']),
-    'otros': float(item['extras'] - item['CUOTA'] - item['MULTA'] - item['MORA']),
-    'total': float(item['total']),
-    'pagado': float(item['pagado']),
-    'saldo': float(item['saldo']),
-    'cobrar': float(item['saldo']),
-    # Lo que falta cobrar de cada columna (para cobrar solo las elegidas).
-    'pendiente': {k: float(v) for k, v in item['pendiente'].items()},
-
-    } for item in filas]
+    filas_json = []
+    for item in filas:
+        lec = lecturas.get(item['departamento'].pk)
+        agua, area, cochera, mant = item['AGUA'], item['AREA_COMUN'], item['COCHERA'], item['MANTENIMIENTO']
+        filas_json.append({
+            'pk': item['departamento'].pk,
+            'numero': item['departamento'].numero_domicilio,
+            'propietario': item['departamento'].propietario,
+            # Lecturas (hoja AGUA): anterior, actual, consumo.
+            'lect_ant': _f(lec.lectura_anterior) if lec else None,
+            'lect_act': _f(lec.lectura_actual) if lec else None,
+            'm3': _f(lec.m3_consumidos) if lec else None,
+            'agua': float(agua),            # MONTO (agua)
+            'area_comun': float(area),
+            'total_agua': float(agua + area),   # TOTAL (agua + área), como el Excel
+            'cochera': float(cochera),
+            'mantenimiento': float(mant),
+            'general': float(mant + agua + area + cochera),  # GENERAL
+            'cuota': float(item['CUOTA']),      # GASTOS ADIC.
+            'mora': float(item['MORA']),
+            'multa': float(item['MULTA']),
+            'otros': float(item['extras'] - item['CUOTA'] - item['MULTA'] - item['MORA']),
+            'total': float(item['total']),
+            'pagado': float(item['pagado']),
+            'saldo': float(item['saldo']),
+            'cobrar': float(item['saldo']),
+            # Lo que falta cobrar de cada columna (para cobrar solo las elegidas).
+            'pendiente': {k: float(v) for k, v in item['pendiente'].items()},
+        })
 
     return render(request, 'departamentos/panel/panel.html', {
         'periodo_form': form, 'periodo': periodo, 'filas': filas,'filas_json':filas_json,
