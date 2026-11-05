@@ -101,6 +101,19 @@ def departamento_detalle(request, pk):
                 messages.success(request, 'Cargo agregado.')
             else:
                 messages.error(request, 'Revisa los datos del cargo.')
+        elif accion == 'exonerar':
+            cargo = (departamento.cargos.select_related('concepto')
+                     .filter(pk=request.POST.get('cargo_id')).first())
+            if cargo:
+                etiqueta = f'{cargo.concepto.nombre} {cargo.periodo:%m/%Y}'
+                monto, liberado = cargo.monto, cargo.total_imputado
+                cargo.delete()
+                texto = f'Cargo exonerado: {etiqueta} (S/ {monto:.2f}).'
+                if liberado:
+                    texto += f' S/ {liberado:.2f} de pagos quedaron a favor del depto.'
+                messages.success(request, texto)
+            else:
+                messages.error(request, 'No se encontró el cargo a exonerar.')
         return redirect('departamento_detalle', pk=departamento.pk)
 
     cargos = list(departamento.cargos.select_related('concepto').prefetch_related('imputaciones'))

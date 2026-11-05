@@ -69,7 +69,7 @@
   <div class="table-responsive">
     <table class="table ds-table">
       <thead>
-        <tr><th>Mes</th><th>Concepto</th><th class="text-end">Monto</th><th class="text-end">Pagado</th><th class="text-end">Saldo</th><th>Estado</th></tr>
+        <tr><th>Mes</th><th>Concepto</th><th class="text-end">Monto</th><th class="text-end">Pagado</th><th class="text-end">Saldo</th><th>Estado</th><th></th></tr>
       </thead>
       <tbody>
         {% for c in cargos %}
@@ -85,9 +85,18 @@
             {% elif c.estado == 'PARCIAL' %}<span class="badge bg-info text-dark">Parcial</span>
             {% else %}<span class="badge bg-warning text-dark">Pendiente</span>{% endif %}
           </td>
+          <td class="text-end">
+            <form method="post" class="d-inline"
+                  onsubmit="return confirm('¿Exonerar «{{ c.concepto.nombre }} {{ c.periodo|date:'m/Y' }}» de S/ {{ c.monto }}? Se elimina el cargo.{% if c.total_imputado %} Los S/ {{ c.total_imputado }} ya pagados quedarán a favor del depto.{% endif %}');">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="exonerar">
+              <input type="hidden" name="cargo_id" value="{{ c.pk }}">
+              <button class="btn btn-sm btn-outline-danger" title="Exonerar / eliminar este cargo">Exonerar</button>
+            </form>
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="6" class="text-center text-muted py-4">Sin cargos. Genera los cobros del mes o agrega un cargo.</td></tr>
+        <tr><td colspan="7" class="text-center text-muted py-4">Sin cargos. Genera los cobros del mes o agrega un cargo.</td></tr>
         {% endfor %}
       </tbody>
     </table>
