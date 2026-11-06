@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.db import transaction
 
 from ..models import Departamento, LecturaMedidor, TarifaAgua
-from .comun import CERO, TRUNCAR_DECIMAS, aplicar_redondeo, escalonar, ordenar_tramos, redondear
+from .comun import CERO, REDONDEAR_CENTIMOS, aplicar_redondeo, escalonar, ordenar_tramos, redondear
 
 
 def costo_agua(m3):
@@ -21,7 +21,7 @@ def costo_agua(m3):
     return CERO
 
 
-def calcular_agua_sedapal(m3, version, estrategia=TRUNCAR_DECIMAS):
+def calcular_agua_sedapal(m3, version, estrategia=REDONDEAR_CENTIMOS):
     """Cobro de agua estilo SEDAPAL para `m3` con una `TarifaAguaVersion`.
 
     Agua potable y saneamiento escalonados por tramos (cada m³ paga la tarifa
@@ -47,7 +47,7 @@ def calcular_agua_sedapal(m3, version, estrategia=TRUNCAR_DECIMAS):
     }
 
 
-def agua_comun_por_departamento(periodo_fac, criterio='iguales', estrategia=TRUNCAR_DECIMAS,
+def agua_comun_por_departamento(periodo_fac, criterio='iguales', estrategia=REDONDEAR_CENTIMOS,
                                 departamento=None):
     """Agua común del depto = (A − B) del edificio prorrateado.
 

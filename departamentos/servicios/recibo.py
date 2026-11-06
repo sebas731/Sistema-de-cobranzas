@@ -9,7 +9,7 @@ from ..models import (
     Recibo, ReciboLinea, ReciboSubLinea,
 )
 from .agua import agua_comun_por_departamento, calcular_agua_sedapal
-from .comun import CERO, TRUNCAR_DECIMAS, redondear
+from .comun import CERO, REDONDEAR_CENTIMOS, redondear
 from .cuenta import deuda_anterior
 
 
@@ -72,7 +72,7 @@ def conceptos_mensuales(departamento, periodo_fac):
 
 
 def calcular_recibo(departamento, periodo_fac, *, criterio_agua_comun='iguales',
-                    estrategia=TRUNCAR_DECIMAS, descuento=None):
+                    estrategia=REDONDEAR_CENTIMOS, descuento=None):
     """Calcula (sin persistir) el recibo de un departamento para un periodo.
 
     Reglas: m³ = lectura actual − anterior; agua SEDAPAL escalonada; agua común

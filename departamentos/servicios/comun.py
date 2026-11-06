@@ -24,7 +24,7 @@ def redondear(valor):
     return Decimal(valor).quantize(CENTIMOS, rounding=ROUND_HALF_UP)
 
 
-def aplicar_redondeo(valor, estrategia=TRUNCAR_DECIMAS):
+def aplicar_redondeo(valor, estrategia=REDONDEAR_CENTIMOS):
     """Redondea un importe según la estrategia elegida y lo deja a 2 decimales.
 
     - truncar_decimas (por defecto): trunca a la décima (47.13 → 47.10).
