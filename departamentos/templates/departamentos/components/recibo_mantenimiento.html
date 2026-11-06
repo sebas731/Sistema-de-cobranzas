@@ -37,20 +37,23 @@ Secciones de r en None no se muestran (no se inventan datos).
         {# ----- Izquierda: DETALLE DE CONSUMO ----- #}
         <td class="rm-col-izq">
           <table class="rm-consumo">
-            <tr class="rm-cab-verde"><td colspan="2">Detalle de consumo</td></tr>
+            <tr class="rm-cab-verde"><td colspan="3">Detalle de consumo</td></tr>
             {% if r.lecturas %}
-            <tr><td>Lect. Anterior &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td class="rm-num">{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
+            <tr><td>Lect. Anterior &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td class="rm-num col-2" >{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
             <tr class="rm-hueco"><td colspan="2"></td></tr>
             <tr><td>Lect. Actual &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
             <tr><td>Total m³ Consumidos</td><td class="rm-num">{{ r.lecturas.m3|floatformat:0 }}</td></tr>
             {% endif %}
+            
             {% for l in r.lineas %}
-            <tr><td>{{ l.etiqueta }}</td><td class="rm-num">{{ l.monto|stringformat:".2f" }}</td></tr>
+            <tr><td>{{ l.etiqueta }}</td> <td class="rm-num">{{ l.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
+            
             {% if r.desglose %}
-            <tr class="rm-cab-verde"><td colspan="2">Detalle de gastos del mes</td></tr>
+            <tr class="rm-cab-verde"><td colspan="3">Detalle de gastos del mes</td></tr>
+            <tr><td class="rm-cab-verde"><strong>CONCEPTO<strong/></td><td class="rm-cab-verde"><strong>TORRE D<strong/></td><td class="rm-cab-verde"><strong>TOTAL<strong/> </td></tr>
             {% for g in r.desglose %}
-            <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
+            <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td>1<td/><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
             {% endif %}
             {% if r.descuento is not None %}

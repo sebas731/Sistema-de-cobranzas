@@ -7,17 +7,19 @@ from ..models import Departamento, LecturaMedidor, TarifaAgua
 from .comun import CERO, REDONDEAR_CENTIMOS, aplicar_redondeo, escalonar, ordenar_tramos, redondear
 
 
-def costo_agua(m3):
+def costo_agua(m3, redondeo=True):
     """Costo del agua con tarifa plana por rango (como el Excel del condominio):
     TODOS los m³ se cobran a la tarifa del rango en que cae el consumo total.
     Ej.: 18 m³ → 18 × 3.931 (rango 0–20); 25 m³ → 25 × 5.524 (rango 20–50).
-    El tope de cada rango es inclusivo (20 m³ va en 0–20)."""
+    El tope de cada rango es inclusivo (20 m³ va en 0–20). Con `redondeo=False`
+    devuelve el bruto sin redondear (para sumar estilo Excel: suma → 1 redondeo)."""
     m3 = Decimal(m3)
     if m3 <= 0:
         return CERO
     for t in ordenar_tramos(TarifaAgua.objects.filter(activo=True), 'consumo_limite'):
         if t.consumo_limite is None or m3 <= t.consumo_limite:
-            return redondear(m3 * t.tarifa)
+            bruto = m3 * t.tarifa
+            return redondear(bruto) if redondeo else bruto
     return CERO
 
 

@@ -45,6 +45,7 @@ def prorrateo_mes(periodo):
                               ('adicionales', 'total_adicional', Categoria.ADICIONAL)):
         compartido, directo = suma(cat, True), suma(cat, False)
         datos[clave] = _por_depto(compartido, directo, n)
+        datos[clave + '_raw'] = (compartido / n if n else CERO) + directo   # sin redondear
         datos[total] = compartido + directo
     return datos
 

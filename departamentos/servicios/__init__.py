@@ -25,7 +25,7 @@ from .comun import (
 from .cuenta import (
     COLUMNAS_COBRO, COLUMNAS_MES, CONCEPTOS_ESTANDAR, MESES_SUELTOS, agrupar_deuda, borrar_generacion_mes,
     cargos_mes_por_departamento, cargos_pendientes, crear_cargo, deuda_anterior, deudores,
-    generar_cargos_mes, registrar_pago, sembrar_conceptos,
+    generar_cargos_mes, registrar_pago, sembrar_conceptos, total_mes_excel,
 )
 from .gastos import desglose_gastos_mes, prorrateo_mes
 from .importacion import importar_lecturas_excel

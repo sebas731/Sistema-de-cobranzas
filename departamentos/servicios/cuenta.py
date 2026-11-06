@@ -246,6 +246,33 @@ def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', perio
 
 # ---------------------------------------------- Consultas de deuda
 
+_RECALC_EXCEL = {'MANTENIMIENTO', 'AGUA', 'AREA_COMUN', 'COCHERA'}
+
+
+def total_mes_excel(departamento, periodo, cargos=None, m3=None):
+    """Total del mes del depto estilo Excel: suma los componentes recurrentes EN
+    CRUDO (prorrateo + agua sin redondear) y redondea UNA sola vez, en vez de
+    sumar cargos ya redondeados (evita el descuadre de 1 céntimo).
+
+    Guardrail: si el recálculo se aleja > 5 céntimos de la suma real de cargos
+    (meses cargados a mano, no generados por el sistema), devuelve la suma de
+    cargos. Solo cambia lo que se MUESTRA; no toca cargos, saldos ni el cuadre."""
+    if cargos is None:
+        cargos = [c for c in departamento.cargos.all() if c.periodo == periodo]
+    cargo_sum = sum((c.monto for c in cargos), CERO)
+    if not cargos:
+        return cargo_sum
+    pr = prorrateo_mes(periodo)
+    if m3 is None:
+        lect = LecturaMedidor.objects.filter(departamento=departamento, periodo=periodo).first()
+        m3 = lect.m3_consumidos if lect else CERO
+    crudo = (pr['mantenimiento_raw'] + pr['area_comun_raw']
+             + costo_agua(m3, redondeo=False) + (departamento.cochera_monto or CERO))
+    otros = sum((c.monto for c in cargos if c.concepto.codigo not in _RECALC_EXCEL), CERO)
+    excel = redondear(crudo + otros)
+    return excel if abs(excel - cargo_sum) <= Decimal('0.05') else cargo_sum
+
+
 def deuda_anterior(departamento, periodo):
     """Saldo acumulado de meses anteriores al `periodo` (deuda arrastrada)."""
     return sum((c.saldo for c in departamento.cargos.all() if c.periodo < periodo), CERO)

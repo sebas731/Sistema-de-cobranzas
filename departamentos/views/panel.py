@@ -8,8 +8,8 @@ from django.shortcuts import get_object_or_404, render
 from .. import filtros as F
 from ..models import Departamento, LecturaMedidor
 from ..servicios import (
-    COLUMNAS_COBRO, COLUMNAS_MES, a_decimal, cargos_mes_por_departamento, desglose_gastos_mes,
-    prorrateo_mes, registrar_pago,
+    COLUMNAS_COBRO, COLUMNAS_MES, a_decimal, cargos_mes_por_departamento, costo_agua,
+    desglose_gastos_mes, prorrateo_mes, redondear, registrar_pago,
 )
 from .comun import periodo_de_request, redirigir_al_periodo
 
@@ -66,10 +66,20 @@ def panel(request):
     def _f(x):
         return float(x) if x is not None else None
 
+    # Total estilo Excel: recalcula mantenimiento+área+agua+cochera EN CRUDO y
+    # redondea 1 vez (como Excel: suma → redondea), en vez de sumar cargos ya
+    # redondeados. Solo ajusta el total mostrado; no toca cargos ni saldos.
+    pr = prorrateo_mes(periodo)
+    recur_raw = pr['mantenimiento_raw'] + pr['area_comun_raw']
+
     filas_json = []
     for item in filas:
         lec = lecturas.get(item['departamento'].pk)
         agua, area, cochera, mant = item['AGUA'], item['AREA_COMUN'], item['COCHERA'], item['MANTENIMIENTO']
+        m3 = lec.m3_consumidos if lec else CERO
+        excel_recur = redondear(recur_raw + costo_agua(m3, redondeo=False) + cochera)
+        delta = excel_recur - (mant + agua + area + cochera)
+        total_fila = item['total'] + delta if abs(delta) <= Decimal('0.05') else item['total']
         filas_json.append({
             'pk': item['departamento'].pk,
             'numero': item['departamento'].numero_domicilio,
@@ -88,7 +98,7 @@ def panel(request):
             'mora': float(item['MORA']),
             'multa': float(item['MULTA']),
             'otros': float(item['extras'] - item['CUOTA'] - item['MULTA'] - item['MORA']),
-            'total': float(item['total']),
+            'total': float(total_fila),
             'pagado': float(item['pagado']),
             'saldo': float(item['saldo']),
             'cobrar': float(item['saldo']),
