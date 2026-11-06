@@ -21,7 +21,7 @@ Secciones de r en None no se muestran (no se inventan datos).
         <td class="rm-cab-datos">
           <table>
             <tr><td>Propietario</td><td class="rm-valor">{{ r.departamento.propietario }}</td></tr>
-            <tr><td>Edificio</td><td class="rm-valor"></td></tr>
+            <tr><td>Torre </td><td class="rm-valor"> Torre D</td></tr>
             <tr><td>Departamento</td><td class="rm-valor">{{ r.departamento.numero_domicilio }}</td></tr>
           </table>
         </td>
@@ -66,11 +66,11 @@ Secciones de r en None no se muestran (no se inventan datos).
           <table class="rm-sedapal rm-grilla">
             {% if r.tarifa %}
             <tr><td class="rm-cab-bloque">SEDAPAL Suministro</td><td colspan="1" class="rm-cab-bloque">{{ r.tarifa.suministro }}</td></tr>
-            <tr><td colspan="2" class="rm-cab-bloque">Estructura tarifaria {{ r.tarifa.nombre }}</td></tr>
+            <tr><td colspan="2" class="rm-cab-bloque">Estructura tarifaria</td></tr>
             <tr><th rowspan="2">RANGO</th><th>AGUA m3</th></tr>
             <tr><th>S/.</th></tr>
             {% for t in r.tramos %}
-            <tr class="rm-tramo"><td>{{ t.rango }}</td><td class="rm-num">{{ t.precio|stringformat:".2f" }}</td></tr>
+            <tr class="rm-tramo"><td>{{ t.rango }}</td><td class="rm-num ">{{ t.precio|stringformat:".2f" }}</td></tr>
             {% endfor %}
             {% endif %}
 
