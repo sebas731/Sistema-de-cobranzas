@@ -20,7 +20,7 @@ from ..models import (
     ConfiguracionCondominio, Departamento, LecturaMedidor, PeriodoFacturacion, Recibo,
     TarifaAgua,
 )
-from ..servicios import borrar_generacion_mes, datos_boleta, generar_cargos_mes
+from ..servicios import borrar_generacion_mes, datos_boleta, desglose_gastos_mes, generar_cargos_mes
 from ..servicios.comun import ordenar_tramos
 from .comun import periodo_de_request
 
@@ -114,7 +114,13 @@ def _contexto_cargos(departamento, periodo):
     lectura = LecturaMedidor.objects.filter(departamento=departamento, periodo=periodo).first()
     tramos = _tarifa_vigente()
     agua_comun = next((i['monto'] for i in b['items'] if i['codigo'] == 'AREA_COMUN'), Decimal('0.00'))
+    # Desglose de los gastos del mes aplicados (lo que compone el mantenimiento):
+    # cada gasto con su aporte por departamento, en 2 decimales.
+    dg = desglose_gastos_mes(periodo)
+    desglose = [{'nombre': g['descripcion'], 'monto': g['por_depto']}
+                for g in dg['general'] + dg['agua_comun'] + dg['adicionales']]
     return {
+        'desglose': desglose,
         'departamento': departamento, 'periodo': periodo,
         'lecturas': lectura and {
             'anterior_fecha': lectura.fecha_anterior, 'anterior': lectura.lectura_anterior,

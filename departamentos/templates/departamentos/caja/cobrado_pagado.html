@@ -1,0 +1,43 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% block title %}Cobrado vs pagado{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Cobrado vs pagado por rubro</h1>
+    <p class="page-header__subtitle">{{ periodo|date:"F Y"|capfirst }} · lo que se cobra a los vecinos frente a lo que se paga</p>
+  </div>
+  <form method="get" class="d-flex gap-2 align-items-end">
+    <div>{{ periodo_form.mes }}</div>
+    <div>{{ periodo_form.anio }}</div>
+    <button class="btn btn-success">Ver mes</button>
+  </form>
+</div>
+
+<div class="table-card">
+  <table class="table ds-table">
+    <thead>
+      <tr><th>Rubro</th><th class="num">Cobrado</th><th class="num">Pagado</th><th class="num">Diferencia</th></tr>
+    </thead>
+    <tbody>
+      {% for f in datos.filas %}
+      <tr{% if f.alerta %} style="background:#fdecea;"{% endif %}>
+        <td>{{ f.rubro }}{% if f.alerta %} <span class="badge-soft badge-soft--danger">&gt;10%</span>{% endif %}</td>
+        <td class="num">{{ f.cobrado|floatformat:2 }}</td>
+        <td class="num">{{ f.pagado|floatformat:2 }}</td>
+        <td class="num {% if f.diferencia < 0 %}saldo-deuda{% endif %}">{{ f.diferencia|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="text-muted">Sin datos para este mes.</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><td>Total</td>
+        <td class="num fw-semibold">{{ datos.cobrado_total|floatformat:2 }}</td>
+        <td class="num fw-semibold">{{ datos.pagado_total|floatformat:2 }}</td>
+        <td class="num"></td></tr>
+    </tfoot>
+  </table>
+</div>
+<p class="text-muted small mt-2">Cobrado = gastos fijos + gastos del mes + agua facturada (consumo + área común), por rubro. Pagado = egresos de caja del rubro. En rojo, diferencias mayores al 10%.</p>
+{% endblock %}

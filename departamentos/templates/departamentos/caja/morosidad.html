@@ -1,0 +1,46 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% block title %}Cobranza y morosidad{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Cobranza y morosidad</h1>
+    <p class="page-header__subtitle">Recibo de {{ periodo|date:"F Y"|capfirst }} · emitido = cuenta por cobrar (no es ingreso)</p>
+  </div>
+  <form method="get" class="d-flex gap-2 align-items-end">
+    <div>{{ periodo_form.mes }}</div>
+    <div>{{ periodo_form.anio }}</div>
+    <button class="btn btn-success">Ver mes</button>
+  </form>
+</div>
+
+<div class="kpis">
+  <div class="kpi-box"><div class="kpi-box__label">Emitido</div>
+    <div class="kpi-box__value">S/ {{ datos.emitido|floatformat:2 }}</div></div>
+  <div class="kpi-box kpi-box--success"><div class="kpi-box__label">Cobrado</div>
+    <div class="kpi-box__value">S/ {{ datos.cobrado|floatformat:2 }}</div></div>
+  <div class="kpi-box kpi-box--danger"><div class="kpi-box__label">Pendiente</div>
+    <div class="kpi-box__value">S/ {{ datos.pendiente|floatformat:2 }}</div></div>
+  <div class="kpi-box"><div class="kpi-box__label">% cobrado</div>
+    <div class="kpi-box__value">{{ datos.pct|floatformat:1 }}%</div></div>
+</div>
+
+<div class="table-card">
+  <table class="table ds-table">
+    <thead><tr><th>Depto</th><th>Propietario</th><th class="num">Saldo del mes</th><th class="num">Deuda anterior</th><th class="num">Total adeudado</th></tr></thead>
+    <tbody>
+      {% for d in deudores %}
+      <tr>
+        <td class="fw-semibold">{{ d.departamento.numero_domicilio }}</td>
+        <td>{{ d.departamento.propietario }}</td>
+        <td class="num">{{ d.mes|floatformat:2 }}</td>
+        <td class="num">{{ d.anterior|floatformat:2 }}</td>
+        <td class="num saldo-deuda">{{ d.total|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-muted">Sin deudores. 🎉</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

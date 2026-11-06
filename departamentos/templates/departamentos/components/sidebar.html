@@ -13,6 +13,10 @@ en un desplegable. Estado activo por url_name.{% endcomment %}
       <svg><use href="#i-grid"/></svg> Balance general</a>
     <a href="{% url 'estado_caja' %}" class="nav-item-ds {% if cur == 'estado_caja' %}active{% endif %}">
       <svg><use href="#i-cash"/></svg> Estado de caja</a>
+    <a href="{% url 'cobrado_vs_pagado' %}" class="nav-item-ds {% if cur == 'cobrado_vs_pagado' %}active{% endif %}">
+      <svg><use href="#i-grid"/></svg> Cobrado vs pagado</a>
+    <a href="{% url 'morosidad' %}" class="nav-item-ds {% if cur == 'morosidad' %}active{% endif %}">
+      <svg><use href="#i-wallet"/></svg> Cobranza y morosidad</a>
     <a href="{% url 'panel' %}" class="nav-item-ds {% if cur == 'panel' %}active{% endif %}">
       <svg><use href="#i-calendar"/></svg> Panel del mes</a>
 

@@ -8,14 +8,22 @@ from django.shortcuts import get_object_or_404, render
 
 from ..forms import MESES_ES
 from ..models import Departamento, MovimientoCaja
-from ..servicios import asignar_por_identificar, estado_caja
+from ..servicios import asignar_por_identificar, cobrado_vs_pagado, estado_caja, morosidad
+from ..servicios.cuenta import deudores as servicio_deudores
 from .comun import periodo_de_request, redirigir_al_periodo
+
+
+def _a_decimal(txt):
+    try:
+        return Decimal(str(txt).replace(',', '').strip())
+    except (ValueError, ArithmeticError):
+        return None
 
 
 @login_required
 def estado_caja_vista(request):
     """Estado de caja del mes: saldo inicial, ingresos, egresos por rubro y saldo
-    final. Permite asignar un depósito por identificar a un departamento."""
+    final. Permite asignar un depósito por identificar y registrar movimientos."""
     form, periodo = periodo_de_request(request)
 
     if request.method == 'POST' and request.POST.get('accion') == 'asignar':
@@ -25,6 +33,22 @@ def estado_caja_vista(request):
         dep = get_object_or_404(Departamento, pk=request.POST.get('departamento'))
         asignar_por_identificar(mov, dep, usuario=request.user)
         messages.success(request, f'Depósito de S/ {mov.monto:.2f} asignado al depto {dep.numero_domicilio}.')
+        return redirigir_al_periodo(request, periodo)
+
+    if request.method == 'POST' and request.POST.get('accion') == 'registrar':
+        monto = _a_decimal(request.POST.get('monto'))
+        tipo = request.POST.get('tipo')
+        fecha = request.POST.get('fecha')
+        desc = (request.POST.get('descripcion') or '').strip()
+        if monto and monto > 0 and tipo in MovimientoCaja.Tipo.values and fecha and desc:
+            MovimientoCaja.objects.create(
+                fecha=fecha, tipo=tipo, rubro=request.POST.get('rubro', ''),
+                descripcion=desc[:200], monto=monto,
+                comprobante=(request.POST.get('comprobante') or '').strip()[:100],
+                creado_por=request.user)
+            messages.success(request, f'Movimiento registrado: {desc} S/ {monto:.2f}.')
+        else:
+            messages.error(request, 'Revisa los datos del movimiento (fecha, tipo, monto > 0, descripción).')
         return redirigir_al_periodo(request, periodo)
 
     datos = estado_caja(periodo.year, periodo.month)
@@ -42,7 +66,28 @@ def estado_caja_vista(request):
         'periodo_form': form, 'periodo': periodo, 'datos': datos,
         'saldo_banco': saldo_banco, 'diferencia': diferencia,
         'departamentos': Departamento.objects.filter(activo=True).order_by('numero_domicilio'),
+        'tipos': MovimientoCaja.Tipo.choices, 'rubros': MovimientoCaja.Rubro.choices,
+        'hoy': periodo,
     })
+
+
+@login_required
+def cobrado_vs_pagado_vista(request):
+    """Comparación por rubro: lo cobrado a los vecinos vs lo pagado de la caja."""
+    form, periodo = periodo_de_request(request)
+    return render(request, 'departamentos/caja/cobrado_pagado.html', {
+        'periodo_form': form, 'periodo': periodo,
+        'datos': cobrado_vs_pagado(periodo.year, periodo.month)})
+
+
+@login_required
+def morosidad_vista(request):
+    """Cobranza y morosidad del recibo del mes + lista de deudores."""
+    form, periodo = periodo_de_request(request)
+    return render(request, 'departamentos/caja/morosidad.html', {
+        'periodo_form': form, 'periodo': periodo,
+        'datos': morosidad(periodo.year, periodo.month),
+        'deudores': servicio_deudores(periodo)})
 
 
 def _exportar_xlsx(datos, periodo):

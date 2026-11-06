@@ -15,7 +15,9 @@ from .agua import (
     registrar_lectura, siguiente_lectura, ultima_lectura, validar_lectura,
 )
 from .boleta import EDIFICIO, datos_boleta
-from .caja import asignar_por_identificar, estado_caja, saldo_inicial
+from .caja import (
+    asignar_por_identificar, cobrado_vs_pagado, estado_caja, morosidad, saldo_inicial,
+)
 from .comun import (
     CENTIMOS, REDONDEAR_CENTIMOS, REDONDEAR_DECIMAS, TRUNCAR_CENTIMOS, TRUNCAR_DECIMAS,
     a_decimal, aplicar_redondeo, fecha_vencimiento, redondear, sumar_meses,

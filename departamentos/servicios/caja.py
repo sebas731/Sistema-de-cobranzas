@@ -113,6 +113,85 @@ def estado_caja(anio, mes):
     }
 
 
+# Mapeo descripción -> rubro, para comparar lo COBRADO (gastos fijos/del mes) con
+# lo PAGADO (egresos de caja) sin tener que migrar GastoFijo/GastoEdificio.
+_RUBRO_KW = [
+    ('material', MovimientoCaja.Rubro.LIMPIEZA_MATERIAL),
+    ('limpieza', MovimientoCaja.Rubro.LIMPIEZA_PERSONAL),
+    ('vigilancia', MovimientoCaja.Rubro.VIGILANCIA),
+    ('ascensor', MovimientoCaja.Rubro.ASCENSORES),
+    ('administ', MovimientoCaja.Rubro.ADMINISTRATIVOS),
+    ('internet', MovimientoCaja.Rubro.INTERNET),
+    ('acopio', MovimientoCaja.Rubro.ACOPIO),
+    ('pluz', MovimientoCaja.Rubro.LUZ), ('luz', MovimientoCaja.Rubro.LUZ),
+    ('energ', MovimientoCaja.Rubro.LUZ), ('electric', MovimientoCaja.Rubro.LUZ),
+    ('agua', MovimientoCaja.Rubro.AGUA), ('sedapal', MovimientoCaja.Rubro.AGUA),
+    ('banc', MovimientoCaja.Rubro.BANCARIOS), ('itf', MovimientoCaja.Rubro.BANCARIOS),
+    ('devoluc', MovimientoCaja.Rubro.DEVOLUCIONES),
+    ('repar', MovimientoCaja.Rubro.MANTENIMIENTO), ('manten', MovimientoCaja.Rubro.MANTENIMIENTO),
+]
+
+
+def _rubro_de(descripcion):
+    d = (descripcion or '').lower()
+    for kw, rubro in _RUBRO_KW:
+        if kw in d:
+            return rubro
+    return MovimientoCaja.Rubro.OTROS
+
+
+def cobrado_vs_pagado(anio, mes):
+    """Por rubro: lo COBRADO a los vecinos (gastos fijos + del mes + agua facturada)
+    frente a lo PAGADO (egresos de caja). Marca en rojo las diferencias > 10%."""
+    from ..models import Cargo, Concepto, GastoEdificio, GastoFijo
+    inicio = date(anio, mes, 1)
+    sig = sumar_meses(inicio, 1)
+    labels = dict(MovimientoCaja.Rubro.choices)
+
+    cobrado = defaultdict(lambda: CERO)
+    for g in GastoFijo.objects.filter(activo=True):
+        cobrado[_rubro_de(g.descripcion)] += g.monto
+    for g in GastoEdificio.objects.filter(periodo=inicio):
+        cobrado[_rubro_de(g.descripcion)] += g.monto
+    # Agua facturada del mes = cargos AGUA + ÁREA COMÚN (ambos van a SEDAPAL).
+    agua = Cargo.objects.filter(periodo=inicio,
+                                concepto__codigo__in=[Concepto.AGUA, 'AREA_COMUN']
+                                ).aggregate(s=Sum('monto'))['s'] or CERO
+    cobrado[MovimientoCaja.Rubro.AGUA] += agua
+
+    pagado = defaultdict(lambda: CERO)
+    for m in _vigentes().filter(tipo=Ti.EGRESO, fecha__gte=inicio, fecha__lt=sig):
+        pagado[m.rubro or MovimientoCaja.Rubro.OTROS] += m.monto
+
+    filas = []
+    for rubro in set(cobrado) | set(pagado):
+        c, p = cobrado[rubro], pagado[rubro]
+        dif = c - p
+        base = max(abs(c), abs(p)) or CERO
+        alerta = base > 0 and abs(dif) / base > Decimal('0.10')
+        filas.append({'rubro': labels.get(rubro, rubro), 'cobrado': c, 'pagado': p,
+                      'diferencia': dif, 'alerta': alerta})
+    filas.sort(key=lambda x: -(abs(x['diferencia'])))
+    return {'filas': filas,
+            'cobrado_total': sum((f['cobrado'] for f in filas), CERO),
+            'pagado_total': sum((f['pagado'] for f in filas), CERO)}
+
+
+def morosidad(anio, mes):
+    """Del recibo de un mes: emitido (cargos del periodo), cobrado (imputaciones a
+    esos cargos), pendiente y % cobrado. Un recibo emitido es cuenta por cobrar,
+    NO ingreso."""
+    from ..models import Cargo, Imputacion
+    periodo = date(anio, mes, 1)
+    cargos = Cargo.objects.filter(periodo=periodo)
+    emitido = cargos.aggregate(s=Sum('monto'))['s'] or CERO
+    cobrado = Imputacion.objects.filter(cargo__periodo=periodo).aggregate(s=Sum('monto'))['s'] or CERO
+    pendiente = emitido - cobrado
+    pct = (cobrado / emitido * 100) if emitido else CERO
+    return {'periodo': periodo, 'emitido': emitido, 'cobrado': cobrado,
+            'pendiente': pendiente, 'pct': pct}
+
+
 @transaction.atomic
 def asignar_por_identificar(movimiento, departamento, usuario=None):
     """Asigna un depósito POR_IDENTIFICAR a un departamento: crea el Pago (misma
