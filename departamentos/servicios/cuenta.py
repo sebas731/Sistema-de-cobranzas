@@ -189,9 +189,15 @@ def cargos_pendientes(departamento, concepto=None, periodo=None):
             and c.saldo > 0]
 
 
+# Rebaba máxima de redondeo que se absorbe al cobrar: si tras imputar un pago un
+# cargo queda con un saldo menor o igual a esto, se da por pagado (el vecino pagó
+# el total redondeado del recibo, ej. 80.2 por un cargo de 80.24).
+TOLERANCIA_REDONDEO = Decimal('0.10')
+
+
 @transaction.atomic
 def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', periodo=None,
-                   con_mora_anterior=False, columnas=None):
+                   con_mora_anterior=False, columnas=None, ajustar_redondeo=True):
     """Registra un pago y lo imputa a los cargos del depto (más antiguos primero).
 
     Si `concepto` está definido (ej. Mantenimiento), solo cancela cargos de ese
@@ -199,6 +205,11 @@ def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', perio
     `con_mora_anterior`, antes salda la mora pendiente de meses anteriores (así
     cobra el panel). `columnas` (columnas del panel, ej. ['agua', 'mora']) limita
     el pago a esos conceptos. Lo que sobra queda como saldo a favor del pago.
+
+    Con `ajustar_redondeo` (por defecto), si un cargo que este pago alcanza a
+    cubrir casi por completo queda con una rebaba <= TOLERANCIA_REDONDEO, el cargo
+    se iguala a lo imputado (saldo -> 0): el vecino paga el total redondeado del
+    recibo y el mes queda pagado, sin céntimos colgando.
     """
     monto = redondear(monto)
     pago = Pago.objects.create(departamento=departamento, monto=monto, metodo=metodo,
@@ -220,9 +231,15 @@ def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', perio
     for cargo in cargos:
         if restante <= 0:
             break
-        aplicar = min(restante, cargo.saldo)
+        saldo_antes = cargo.saldo
+        aplicar = min(restante, saldo_antes)
         Imputacion.objects.create(pago=pago, cargo=cargo, monto=aplicar)
         restante -= aplicar
+        # Rebaba de redondeo en el cargo que el pago tocó: se iguala a lo pagado.
+        rebaba = saldo_antes - aplicar
+        if ajustar_redondeo and CERO < rebaba <= TOLERANCIA_REDONDEO:
+            cargo.monto = cargo.monto - rebaba
+            cargo.save(update_fields=['monto'])
 
     return pago
 
