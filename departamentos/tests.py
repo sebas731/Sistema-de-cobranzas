@@ -754,3 +754,78 @@ class DeudaAcumuladaTests(TestCase):
         self.assertEqual(r.context['antiguedad']['actual'], hoy.isoformat())
         self.assertEqual(r.context['antiguedad']['inicio'], s.sumar_meses(hoy, -2).isoformat())
         self.assertContains(r, 'antiguedadData')
+
+
+class CajaTests(TestCase):
+    """Estado de caja: saldo que rueda mes a mes + invariantes (un egreso no
+    cambia la deuda; asignar un depósito no cambia el total de ingresos; recargar
+    el CSV no duplica)."""
+
+    def setUp(self):
+        s.sembrar_conceptos()
+        from departamentos.models import MovimientoCaja
+        self.MC = MovimientoCaja
+        self.dep = Departamento.objects.create(numero_domicilio='101', nombres='A', apellidos='B', activo=True)
+
+    def _mant(self, periodo, monto):
+        return s.crear_cargo(self.dep, Concepto.objects.get(codigo='MANTENIMIENTO'), periodo, D(monto))
+
+    # --- saldo que rueda (números del §9: julio) ---
+    def test_saldo_rueda_entre_meses(self):
+        self.MC.objects.create(fecha=date(2026, 7, 30), tipo='SALDO_INICIAL',
+                               descripcion='Entrega caja', monto=D('2762.71'))
+        Pago.objects.create(departamento=self.dep, monto=D('76.50'), fecha_pago=date(2026, 7, 15))
+        jul = s.estado_caja(2026, 7)
+        self.assertEqual(jul['saldo_inicial'], D('2762.71'))
+        self.assertEqual(jul['ingresos_total'], D('76.50'))
+        self.assertEqual(jul['saldo_final'], D('2839.21'))
+        # El saldo inicial de agosto = saldo final de julio.
+        self.assertEqual(s.saldo_inicial(2026, 8), D('2839.21'))
+        # Un egreso de agosto baja el saldo.
+        self.MC.objects.create(fecha=date(2026, 8, 5), tipo='EGRESO', rubro='VIGILANCIA',
+                               descripcion='Vigilancia', monto=D('100.00'))
+        ago = s.estado_caja(2026, 8)
+        self.assertEqual(ago['egresos_total'], D('100.00'))
+        self.assertEqual(ago['saldo_final'], D('2739.21'))
+
+    # --- invariante 1: un EGRESO no cambia la deuda de ningún depto ---
+    def test_egreso_no_cambia_deuda(self):
+        cargo = self._mant(date(2026, 9, 1), '120.00')
+        deuda_antes = cargo.saldo
+        n_pagos, n_imp = Pago.objects.count(), cargo.imputaciones.count()
+        self.MC.objects.create(fecha=date(2026, 9, 10), tipo='EGRESO', rubro='LUZ',
+                               descripcion='Luz', monto=D('500.00'))
+        cargo.refresh_from_db()
+        self.assertEqual(cargo.saldo, deuda_antes)          # deuda intacta
+        self.assertEqual(Pago.objects.count(), n_pagos)     # no se creó ningún pago
+        self.assertEqual(cargo.imputaciones.count(), n_imp)
+
+    # --- invariante 2: asignar un POR_IDENTIFICAR no cambia el total de ingresos ---
+    def test_asignar_no_cambia_ingresos_del_mes(self):
+        self._mant(date(2026, 10, 1), '100.00')
+        mov = self.MC.objects.create(fecha=date(2026, 10, 5), tipo='POR_IDENTIFICAR',
+                                     descripcion='Depósito sin dueño', monto=D('100.00'))
+        ing_antes = s.estado_caja(2026, 10)['ingresos_total']
+        pago = s.asignar_por_identificar(mov, self.dep)
+        mov.refresh_from_db()
+        self.assertEqual(mov.estado, 'ANULADO')                      # el movimiento se anuló
+        self.assertEqual(pago.fecha_pago, date(2026, 10, 5))         # ingreso en la fecha del depósito
+        ing_despues = s.estado_caja(2026, 10)['ingresos_total']
+        self.assertEqual(ing_despues, ing_antes)                     # total de ingresos NO cambia
+
+    # --- invariante 3: recargar el CSV no duplica ---
+    def test_recarga_csv_no_duplica(self):
+        import tempfile
+        from django.core.management import call_command
+        csv_txt = ('fecha,tipo,rubro,descripcion,monto,nota,comprobante\n'
+                   '2026-08-05,EGRESO,VIGILANCIA,Vigilancia agosto,3153.00,,OP1\n'
+                   '2026-07-30,SALDO_INICIAL,,Entrega caja,2762.71,,\n')
+        with tempfile.NamedTemporaryFile('w', suffix='.csv', delete=False, encoding='utf-8') as fh:
+            fh.write(csv_txt)
+            ruta = fh.name
+        call_command('cargar_movimientos_caja', ruta, '--aplicar')
+        n1 = self.MC.objects.count()
+        call_command('cargar_movimientos_caja', ruta, '--aplicar')   # otra vez
+        n2 = self.MC.objects.count()
+        self.assertEqual(n1, 2)
+        self.assertEqual(n2, 2)                                       # no duplicó

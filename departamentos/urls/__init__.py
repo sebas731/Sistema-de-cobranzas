@@ -1,7 +1,7 @@
 """Rutas de la app, una lista por módulo de vistas (mismo nombre de archivo).
 Los `name=` no cambian: las plantillas siguen usando {% url 'panel' %}, etc."""
 from . import (
-    agua, balance, carga_deudas, cobranza, departamentos, deudores, gastos, importar, inicio,
+    agua, balance, caja, carga_deudas, cobranza, departamentos, deudores, gastos, importar, inicio,
     panel, proveedores, recibos,
 )
 
@@ -9,6 +9,7 @@ urlpatterns = [
     *inicio.urlpatterns,
     *panel.urlpatterns,
     *balance.urlpatterns,
+    *caja.urlpatterns,
     *deudores.urlpatterns,
     *cobranza.urlpatterns,
     *departamentos.urlpatterns,

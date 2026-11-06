@@ -65,7 +65,6 @@ Secciones de r en None no se muestran (no se inventan datos).
           {% if r.tarifa or r.facturacion or r.edificio %}
           <table class="rm-sedapal rm-grilla">
             {% if r.tarifa %}
-            <tr><td class="rm-cab-bloque">SEDAPAL Suministro</td><td colspan="1" class="rm-cab-bloque">{{ r.tarifa.suministro }}</td></tr>
             <tr><td colspan="2" class="rm-cab-bloque">Estructura tarifaria</td></tr>
             <tr><th rowspan="2">RANGO</th><th>AGUA m3</th></tr>
             <tr><th>S/.</th></tr>

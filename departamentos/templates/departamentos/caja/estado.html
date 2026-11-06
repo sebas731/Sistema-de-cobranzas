@@ -1,0 +1,135 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% block title %}Estado de caja{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Estado de caja</h1>
+    <p class="page-header__subtitle">{{ periodo|date:"F Y"|capfirst }} · caja real del edificio</p>
+  </div>
+  <form method="get" class="d-flex gap-2 align-items-end">
+    <div>{{ periodo_form.mes }}</div>
+    <div>{{ periodo_form.anio }}</div>
+    <button class="btn btn-success">Ver mes</button>
+  </form>
+</div>
+
+<div class="no-print d-flex gap-2 mb-3">
+  <a href="?mes={{ periodo.month }}&anio={{ periodo.year }}&formato=xlsx" class="btn btn-sm btn-outline-secondary">⬇ Excel</a>
+  <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">🖨 PDF</button>
+</div>
+
+{# ---- Saldo inicial destacado ---- #}
+<div class="kpis">
+  <div class="kpi-box"><div class="kpi-box__label">Saldo inicial</div>
+    <div class="kpi-box__value">S/ {{ datos.saldo_inicial|floatformat:2 }}</div></div>
+  <div class="kpi-box kpi-box--success"><div class="kpi-box__label">Ingresos del mes</div>
+    <div class="kpi-box__value">S/ {{ datos.ingresos_total|floatformat:2 }}</div></div>
+  <div class="kpi-box kpi-box--danger"><div class="kpi-box__label">Egresos del mes</div>
+    <div class="kpi-box__value">S/ {{ datos.egresos_total|floatformat:2 }}</div></div>
+  <div class="kpi-box"><div class="kpi-box__label">Saldo final</div>
+    <div class="kpi-box__value">S/ {{ datos.saldo_final|floatformat:2 }}</div></div>
+</div>
+
+<div class="row g-3">
+  {# ---- Ingresos ---- #}
+  <div class="col-12 col-lg-6">
+    <div class="table-card">
+      <table class="table ds-table">
+        <thead><tr><th>Ingresos (por concepto)</th><th class="num">Monto</th></tr></thead>
+        <tbody>
+          {% for f in datos.ingresos %}
+          <tr><td>{{ f.concepto }}</td><td class="num">{{ f.monto|floatformat:2 }}</td></tr>
+          {% empty %}
+          <tr><td colspan="2" class="text-muted">Sin ingresos registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot><tr><td>Total ingresos</td><td class="num fw-semibold">{{ datos.ingresos_total|floatformat:2 }}</td></tr></tfoot>
+      </table>
+    </div>
+
+    {# ---- Depósitos por identificar (amarillo) ---- #}
+    {% if datos.por_identificar %}
+    <div class="table-card mt-3" style="border:1px solid #f1c40f;">
+      <table class="table ds-table">
+        <thead><tr><th colspan="3" style="background:#fff8e1;">⚠ Depósitos por identificar</th></tr>
+          <tr><th>Fecha</th><th class="num">Monto</th><th>Asignar a depto</th></tr></thead>
+        <tbody>
+          {% for m in datos.por_identificar %}
+          <tr style="background:#fffbea;">
+            <td>{{ m.fecha|date:"d/m/Y" }}<br><small class="text-muted">{{ m.descripcion }}</small></td>
+            <td class="num">{{ m.monto|floatformat:2 }}</td>
+            <td>
+              <form method="post" class="d-flex gap-1 no-print">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="asignar">
+                <input type="hidden" name="movimiento" value="{{ m.pk }}">
+                <select name="departamento" class="form-select form-select-sm" required>
+                  <option value="">Depto…</option>
+                  {% for d in departamentos %}<option value="{{ d.pk }}">{{ d.numero_domicilio }}</option>{% endfor %}
+                </select>
+                <button class="btn btn-sm btn-success">Asignar</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ---- Egresos por rubro ---- #}
+  <div class="col-12 col-lg-6">
+    <div class="table-card">
+      <table class="table ds-table">
+        <thead><tr><th>Egresos (por rubro)</th><th class="num">Pagado</th></tr></thead>
+        <tbody>
+          {% for f in datos.egresos %}
+          <tr>
+            <td>
+              <details><summary style="cursor:pointer;">{{ f.rubro }}</summary>
+                {% for mv in f.movs %}
+                <div class="small text-muted ms-3">{{ mv.fecha|date:"d/m" }} · {{ mv.descripcion }}
+                  {% if mv.comprobante %}<span class="badge-soft">{{ mv.comprobante }}</span>{% endif %}
+                  — S/ {{ mv.monto|floatformat:2 }}</div>
+                {% endfor %}
+              </details>
+            </td>
+            <td class="num">{{ f.monto|floatformat:2 }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="2" class="text-muted">Sin egresos registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot><tr><td>Total egresos</td><td class="num fw-semibold">{{ datos.egresos_total|floatformat:2 }}</td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ---- Conciliación con el banco ---- #}
+<div class="table-card mt-3">
+  <table class="table ds-table">
+    <tbody>
+      <tr><td>Saldo final (sistema)</td><td class="num fw-semibold">S/ {{ datos.saldo_final|floatformat:2 }}</td></tr>
+      <tr>
+        <td>Saldo según banco
+          <form method="get" class="d-inline-block no-print ms-2">
+            <input type="hidden" name="mes" value="{{ periodo.month }}">
+            <input type="hidden" name="anio" value="{{ periodo.year }}">
+            <input type="number" step="0.01" name="banco" value="{{ saldo_banco|default_if_none:'' }}"
+                   class="form-control form-control-sm d-inline-block" style="width:140px;" placeholder="0.00">
+            <button class="btn btn-sm btn-outline-secondary">Comparar</button>
+          </form>
+        </td>
+        <td class="num">{% if saldo_banco %}S/ {{ saldo_banco }}{% else %}—{% endif %}</td>
+      </tr>
+      {% if diferencia is not None %}
+      <tr><td>Diferencia</td>
+        <td class="num {% if diferencia != 0 %}saldo-deuda{% else %}saldo-cero{% endif %}">S/ {{ diferencia|floatformat:2 }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
