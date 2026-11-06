@@ -70,7 +70,7 @@ Secciones de r en None no se muestran (no se inventan datos).
             <tr><th rowspan="2">RANGO</th><th>AGUA m3</th></tr>
             <tr><th>S/.</th></tr>
             {% for t in r.tramos %}
-            <tr class="rm-tramo"><td>{{ t.rango }}</td><td class="rm-num ">{{ t.precio|stringformat:".2f" }}</td></tr>
+            <tr class="rm-tramo"><td>{{ t.rango }}</td><td class="rm-tramo">{{ t.precio|stringformat:".2f" }}</td></tr>
             {% endfor %}
             {% endif %}
 

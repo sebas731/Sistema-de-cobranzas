@@ -1,6 +1,7 @@
 """Modelos de la app, separados por dominio. Se re-exportan aquí para que
 `from departamentos.models import X` siga funcionando igual."""
 from .agua import LecturaMedidor, TarifaAgua, TarifaAguaTramo, TarifaAguaVersion
+from .caja import MovimientoCaja
 from .cuenta import Cargo, Concepto, Imputacion, Pago
 from .departamento import Departamento, Proveedor, solo_digitos
 from .gastos import GastoEdificio, GastoFijo

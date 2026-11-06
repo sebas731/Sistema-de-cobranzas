@@ -10,6 +10,7 @@ from .models import (
     Imputacion,
     LecturaMedidor,
     MedioPago,
+    MovimientoCaja,
     Pago,
     PeriodoFacturacion,
     PlanCuota,
@@ -37,6 +38,14 @@ class GastoFijoAdmin(admin.ModelAdmin):
     list_editable = ('monto', 'compartido', 'activo')
     list_filter = ('categoria', 'compartido', 'activo')
     search_fields = ('descripcion',)
+
+
+@admin.register(MovimientoCaja)
+class MovimientoCajaAdmin(admin.ModelAdmin):
+    list_display = ('fecha', 'tipo', 'rubro', 'descripcion', 'monto', 'estado', 'creado_por')
+    list_filter = ('tipo', 'rubro', 'estado', 'fecha')
+    search_fields = ('descripcion', 'nota', 'comprobante')
+    readonly_fields = ('creado_en',)
 
 
 @admin.register(Departamento)
