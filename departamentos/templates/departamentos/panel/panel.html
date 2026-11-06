@@ -16,6 +16,18 @@
   revo-grid .col-check { display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; }
   revo-grid .col-check input { cursor:pointer; accent-color:var(--primary); }
   revo-grid .col-cobro { background:var(--primary-soft, #dcfce7) !important; font-weight:600; }
+  /* Menú para ocultar/mostrar columnas */
+  .col-menu { position:relative; display:inline-block; margin:0 0 var(--sp-sm, 8px); }
+  .col-menu > summary { list-style:none; cursor:pointer; user-select:none; }
+  .col-menu > summary::-webkit-details-marker { display:none; }
+  .col-menu__panel { position:absolute; z-index:30; top:100%; left:0; margin-top:4px;
+    background:var(--surface, #fff); border:1px solid var(--border, #d0d0d0); border-radius:8px;
+    box-shadow:0 6px 24px rgba(0,0,0,.12); padding:10px; width:260px;
+    display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; }
+  .col-menu__panel .col-toggle { display:flex; align-items:center; gap:6px; font-size:.85rem; cursor:pointer; margin:0; }
+  .col-menu__panel .col-toggle input { cursor:pointer; accent-color:var(--primary); }
+  .col-menu__acts { grid-column:1 / -1; display:flex; gap:8px; border-top:1px solid var(--border,#eee); padding-top:8px; margin-top:2px; }
+  .col-menu__acts button { font-size:.8rem; }
 </style>
 {% endblock %}
 
@@ -45,6 +57,10 @@
 {% if filas_json %}
 {# Grilla: se activa cuando la vista envía `filas_json` (claves en el script de abajo). #}
 {# Las columnas a cobrar se eligen con la casilla de su encabezado; aquí se resume. #}
+<details class="col-menu" id="colMenuWrap">
+  <summary class="btn btn-sm btn-outline-secondary">Columnas ▾</summary>
+  <div class="col-menu__panel" id="colMenu"></div>
+</details>
 <p class="cobro-cols__hint" id="cobroHint"></p>
 <revo-grid
   id="gridPanel"
@@ -164,7 +180,7 @@ if (jsonElement) {
   // monto, área, total agua, cochera, mantenimiento, general, gastos adic.,
   // mora, multa, total. Los subtotales (total agua, general, total) son de solo
   // lectura; las columnas cobrables llevan casilla para cobrar solo esa.
-  const columnas = () => [
+  const columnasTodas = () => [
     { prop: 'numero', name: 'Depto', size: 70, readonly: true, filter: true, pin: 'colPinStart' },
     { prop: 'propietario', name: 'Propietario', size: 150, readonly: true, filter: true },
     { prop: 'lect_ant', name: 'Lect. ant.', size: 95, readonly: true },
@@ -188,6 +204,49 @@ if (jsonElement) {
       ? h('button', { class: 'btn btn-sm btn-success', onClick: () => cobrar(props.model) }, 'Cobrar')
       : h('span', { class: 'badge-soft badge-soft--success' }, seleccion.size ? 'Sin deuda' : 'Pagado') }
   ];
+
+  // --- Ocultar / mostrar columnas (se recuerda en el navegador) ---
+  const LS_OCULTAS = 'panelColumnasOcultas';
+  const FIJAS = new Set(['numero', 'pk']);   // Depto y Acción no se ocultan
+  const ocultas = new Set((() => {
+    try { return JSON.parse(localStorage.getItem(LS_OCULTAS)) || []; } catch (e) { return []; }
+  })());
+  const guardarOcultas = () => {
+    try { localStorage.setItem(LS_OCULTAS, JSON.stringify([...ocultas])); } catch (e) {}
+  };
+  // La grilla solo muestra las columnas no ocultas.
+  const columnas = () => columnasTodas().filter(c => !ocultas.has(c.prop));
+
+  function construirMenuColumnas() {
+    const cont = document.getElementById('colMenu');
+    if (!cont) return;
+    cont.innerHTML = '';
+    columnasTodas().filter(c => !FIJAS.has(c.prop)).forEach(c => {
+      const lab = document.createElement('label');
+      lab.className = 'col-toggle';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !ocultas.has(c.prop);
+      cb.addEventListener('change', () => {
+        cb.checked ? ocultas.delete(c.prop) : ocultas.add(c.prop);
+        guardarOcultas();
+        aplicarSeleccion();
+      });
+      lab.append(cb, ' ' + c.name);
+      cont.append(lab);
+    });
+    const acts = document.createElement('div');
+    acts.className = 'col-menu__acts';
+    const btnTodas = document.createElement('button');
+    btnTodas.className = 'btn btn-sm btn-outline-secondary';
+    btnTodas.textContent = 'Mostrar todas';
+    btnTodas.addEventListener('click', (e) => {
+      e.preventDefault(); ocultas.clear(); guardarOcultas();
+      construirMenuColumnas(); aplicarSeleccion();
+    });
+    acts.append(btnTodas);
+    cont.append(acts);
+  }
 
   // Al cambiar la selección: el monto a cobrar de cada fila pasa a ser lo que
   // debe de esas columnas, y se redibuja la grilla con las columnas resaltadas.
@@ -219,6 +278,7 @@ if (jsonElement) {
                  body:datos}).then( () => location.reload() )
   }
 
+  construirMenuColumnas();
   aplicarSeleccion();
 }
 
