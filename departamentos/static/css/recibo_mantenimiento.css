@@ -157,26 +157,53 @@
         width: 22%;
     }
 
-    .recibo-mantenimiento .rm-cab-datos table {
-        width: 100%;
-        table-layout: fixed;
-    }
 
     .recibo-mantenimiento .rm-cab-datos table td {
         font-size: 9px;
         padding: 2px 1px;
         white-space: nowrap;
     }
+    /* CORRECCIÓN DE CABECERA Y FECHAS */
+    .recibo-mantenimiento .rm-cabecera {
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .recibo-mantenimiento .rm-cab-cond {
+        width: 38%;
+    }
+
+    .recibo-mantenimiento .rm-cab-datos {
+        width: 40%;
+        padding-left: 4px;
+    }
+
+    .recibo-mantenimiento .rm-cab-titulo {
+        width: 22%;
+    }
+
+    /* Tabla interna de fechas */
+    .recibo-mantenimiento .rm-cab-datos table {
+        width: 100%;
+        table-layout: auto;
+    }
+
+    .recibo-mantenimiento .rm-cab-datos table td {
+        font-size: 10px;
+        padding: 3px 2px;
+        white-space: nowrap;
+    }
 
     .recibo-mantenimiento .rm-cab-datos table td:first-child {
-        width: 55%;
+        width: 1%;
+        white-space: nowrap;
     }
 
     .recibo-mantenimiento .rm-cab-datos table td.rm-valor {
-        width: 45%;
-        padding-left: 2px;
+        width: auto;
+        padding-left: 5px;
+        white-space: nowrap;
     }
-
     /* Cuerpo */
     .recibo-mantenimiento .rm-cuerpo {
         margin-top: 3px;
