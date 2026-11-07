@@ -58,7 +58,7 @@ Secciones de r en None no se muestran (no se inventan datos).
           <tr>
               <td style="text-transform: uppercase;">{{ l.etiqueta }}</td>
               <td>{{ l.total|stringformat:".2f" }}</td>
-              <td colspan="1"></td>
+
               <td class="rm-num">{{ l.monto|stringformat:".2f" }}</td>
           </tr>
           {% else %}
@@ -76,10 +76,13 @@ Secciones de r en None no se muestran (no se inventan datos).
             {% for g in r.servicios_condominio %}
             <tr><td style="text-transform: uppercase;">&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
+            {% if r.cochera %}
+            <tr><td style="text-transform: uppercase;">Cochera</td><td></td><td class="rm-num">{{ r.cochera|stringformat:".2f" }}</td></tr>
             {% endif %}
 
             {% if r.servicios_publicos %}
             <tr><td colspan="3" style="background-color: #f4f4f4;"><strong>SERVICIOS PUBLICOS DE LA TORRE</strong></td></tr>
+            {% endif %}
             {% for g in r.servicios_publicos %}
             <tr><td style="text-transform: uppercase;">&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}

@@ -119,12 +119,12 @@ def _contexto_cargos(departamento, periodo):
     multa = next((i['monto'] for i in b['items'] if 'MULTA' in i['nombre'].upper()), Decimal('0.00'))
     cuota_extraordinaria = next((i['monto'] for i in b['items'] if 'EXTRAORDINARIA' in i['nombre'].upper()), Decimal('0.00'))
     mora = next((i['monto'] for i in b['items'] if 'MORA' in i['nombre'].upper()), Decimal('0.00'))
-    
+    cochera = next((i['monto'] for i in b['items'] if 'COCHERA' in i['nombre'].upper()),Decimal('0.00'))
     # 2. Crear la variable combinada de mora + multa
     mora_mas_multa = mora + multa
 
     # 3. Filtrar las líneas generales para que no se dupliquen o se mezclen donde no deben
-    excluir_en_agua = ['MULTA', 'MORA', 'EXTRAORDINARIA','MANTENIMIENTO']
+    excluir_en_agua = ['MULTA', 'MORA', 'EXTRAORDINARIA','MANTENIMIENTO','COCHERA']
     lineas_filtradas = [
         {'etiqueta': i['nombre'], 'monto': i['monto'], 'total':i['monto']*89} 
         for i in b['items'] 
@@ -179,7 +179,7 @@ def _contexto_cargos(departamento, periodo):
         'mora': mora,
         'mora_mas_multa': mora_mas_multa,
         'sub_total': sub_total,
-        
+        'cochera': cochera,
         'departamento': departamento, 
         'periodo': periodo,
         'lecturas': lectura and {
