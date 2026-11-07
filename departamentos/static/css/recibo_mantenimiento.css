@@ -58,9 +58,9 @@
 /* ---------- Cuerpo en dos columnas ---------- */
 .recibo-mantenimiento .rm-cuerpo { margin-top: 6px; }
 .recibo-mantenimiento .rm-cuerpo > tbody > tr > td { vertical-align: top; padding: 0; }
-.recibo-mantenimiento .rm-col-izq { width: 58%; padding-right: 8px !important; }
-.recibo-mantenimiento .rm-col-der { width: 42%; }
-.recibo-mantenimiento .rm-sedapal { width: 100%; table-layout: fixed; }
+.recibo-mantenimiento .rm-col-izq { width: 68%; padding-right: 8px !important; }
+.recibo-mantenimiento .rm-col-der { width: 32%; }
+.recibo-mantenimiento .rm-sedapal { width: 95%; table-layout: fixed; margin-left: auto; margin-right: 0; }
 
 /* Izquierda: detalle de consumo (lista sin rejilla) */
 .recibo-mantenimiento .rm-consumo td { padding: 2px 5px; }
@@ -73,11 +73,11 @@
 }
 
 /* Derecha: tablas SEDAPAL */
-.recibo-mantenimiento .rm-sedapal td, .recibo-mantenimiento .rm-sedapal th { font-size: 11.5px; }
+.recibo-mantenimiento .rm-sedapal td, .recibo-mantenimiento .rm-sedapal th { font-size: 10.2px; }
 .recibo-mantenimiento .rm-sedapal th { font-weight: bold; text-align: center; background: var(--rm-verde); }
-.recibo-mantenimiento .rm-sedapal .rm-cab-bloque { text-align: center; font-weight: bold; text-transform: uppercase; background: var(--rm-verde); }
+.recibo-mantenimiento .rm-sedapal .rm-cab-bloque { text-align: center; font-weight: bold; text-transform: uppercase; background: var(--rm-verde); font-size: 10px; }
 .recibo-mantenimiento .rm-sedapal .rm-tramo td { text-align: center; }
-.recibo-mantenimiento .rm-sedapal .rm-tramo td.rm-num { text-align: center; padding-right: 12px; }
+.recibo-mantenimiento .rm-sedapal .rm-tramo td.rm-num { text-align: center; padding-right: 8px; }
 .recibo-mantenimiento .rm-sedapal .rm-sin-linea td { border-top: 0; border-bottom: 0; }
 .recibo-mantenimiento .rm-sedapal .rm-sin-linea td.rm-num, .recibo-mantenimiento .rm-sedapal .rm-fila-total td.rm-num { border-left: 0; }
 .recibo-mantenimiento .rm-sedapal .rm-sin-linea td.rm-etq, .recibo-mantenimiento .rm-sedapal .rm-fila-total td.rm-etq { border-right: 0; }
@@ -127,9 +127,9 @@
   .recibo-mantenimiento .rm-recibo {
     padding: 4px 6px 5px; border-width: 1px;
   }
-  .recibo-mantenimiento .rm-col-izq { width: 61%; }
-  .recibo-mantenimiento .rm-col-der { width: 39%; }
-  .recibo-mantenimiento .rm-sedapal { width: 100%; table-layout: fixed; }
+  .recibo-mantenimiento .rm-col-izq { width: 70%; }
+  .recibo-mantenimiento .rm-col-der { width: 30%; }
+  .recibo-mantenimiento .rm-sedapal { width: 92%; table-layout: fixed; }
   .recibo-mantenimiento .rm-consumo td,
   .recibo-mantenimiento .rm-sedapal td,
   .recibo-mantenimiento .rm-sedapal th,
