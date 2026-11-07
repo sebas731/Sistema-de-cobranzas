@@ -1,0 +1,5 @@
+{% load static %}{# Librerías para generar el PDF del recibo en el navegador (static/js/recibo_pdf.js). #}
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="{% static 'js/recibo_pdf.js' %}"></script>

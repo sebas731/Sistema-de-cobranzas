@@ -1,0 +1,84 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% load static %}
+{# Recibos de todos los departamentos activos de un mes. Cada depto tiene su botón #}
+{# "Descargar PDF" (un archivo por depto) y "Descargar todos" baja un .zip con un PDF por depto. #}
+{% block title %}Recibos {{ periodo|date:"m/Y" }}{% endblock %}
+
+{% block extra_head %}
+<link href="{% static 'css/recibo_mantenimiento.css' %}" rel="stylesheet">
+<style>
+  .recibo-depto__barra { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    max-width: 1456px; margin: 24px auto 8px; padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 6px; background: #fff; }
+  /* Al imprimir, cada recibo en su propia página. */
+  @media print { .recibo-depto + .recibo-depto .rm-hoja { break-before: page; page-break-before: always; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header no-print">
+  <div>
+    <a href="{% url 'generar_recibos' %}" class="btn btn-link px-0">&larr; Volver</a>
+    <h1 class="page-header__title">Recibos de {{ periodo|date:"F Y"|capfirst }} · {{ recibos|length }} dpto{{ recibos|length|pluralize }}</h1>
+  </div>
+  <div class="d-flex gap-2 align-items-end flex-wrap">
+    <form method="get" class="d-flex gap-1 align-items-end">
+      <div>
+        <label class="form-label small mb-0">Mes</label>
+        <select name="mes" class="form-select form-select-sm">
+          {% for i, nom in meses %}<option value="{{ i }}" {% if i == periodo.month %}selected{% endif %}>{{ nom }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label small mb-0">Año</label>
+        <input type="number" name="anio" value="{{ periodo.year }}" class="form-control form-control-sm" style="width:90px">
+      </div>
+      <button class="btn btn-sm btn-outline-secondary">Ver</button>
+    </form>
+    <input type="search" id="filtro-depto" class="form-control form-control-sm" placeholder="Buscar dpto o propietario" style="width:200px">
+    <button type="button" onclick="window.print()" class="btn btn-outline-secondary">Imprimir todos</button>
+    {% if recibos %}<button type="button" id="btn-zip" class="btn btn-success">Descargar todos (.zip)</button>{% endif %}
+  </div>
+</div>
+
+<div class="recibos-mes">
+{% for item in recibos %}{% with dep=item.r.departamento %}
+  <div class="recibo-depto" id="recibo-{{ dep.pk }}"
+       data-archivo="Recibo_{{ dep.numero_domicilio }}_{{ periodo|date:'Y-m' }}.pdf"
+       data-buscar="{{ dep.numero_domicilio|lower }} {{ dep.propietario|lower }}">
+    <div class="recibo-depto__barra no-print">
+      <span><strong>Dpto {{ dep.numero_domicilio }}</strong> · {{ dep.propietario }}</span>
+      <button type="button" class="btn btn-sm btn-success" data-pdf="#recibo-{{ dep.pk }}"
+              data-archivo="Recibo_{{ dep.numero_domicilio }}_{{ periodo|date:'Y-m' }}.pdf">Descargar PDF</button>
+    </div>
+    {% include 'departamentos/components/recibo_mantenimiento.html' with r=item.r aviso=item.aviso %}
+  </div>
+{% endwith %}{% empty %}
+  {% include 'departamentos/components/empty_state.html' with icon="inbox" title="No hay departamentos activos" text="" %}
+{% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'departamentos/components/recibo_pdf_js.html' %}
+<script>
+  // Buscar: oculta los deptos que no coinciden ("Descargar todos" baja solo los visibles).
+  document.getElementById('filtro-depto').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('.recibo-depto').forEach((d) => { d.hidden = !!q && !d.dataset.buscar.includes(q); });
+  });
+
+  const zipBtn = document.getElementById('btn-zip');
+  if (zipBtn) zipBtn.addEventListener('click', async () => {
+    const items = [...document.querySelectorAll('.recibo-depto:not([hidden])')]
+      .map((d) => ({ hoja: d.querySelector('.rm-hoja'), nombre: d.dataset.archivo }));
+    if (!items.length) return;
+    const txt = zipBtn.textContent;
+    zipBtn.disabled = true;
+    try {
+      await descargarRecibosZip(items, 'Recibos_{{ periodo|date:"Y-m" }}.zip',
+        (i, n) => { zipBtn.textContent = 'Generando ' + i + ' de ' + n + '…'; });
+    } catch (err) { console.error(err); alert('No se pudieron generar los PDF.'); }
+    finally { zipBtn.disabled = false; zipBtn.textContent = txt; }
+  });
+</script>
+{% endblock %}

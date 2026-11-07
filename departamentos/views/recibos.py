@@ -94,6 +94,7 @@ def _contexto_snapshot(recibo):
         },
         'lineas': [{'etiqueta': l.etiqueta, 'monto': l.monto} for l in lineas],
         'descuento': recibo.descuento_mes_anterior, 'saldo_favor': recibo.saldo_favor,
+        'total_gastos': None,   # el snapshot no guarda el desglose de gastos
         'total_mes': recibo.total_mes, 'deuda': recibo.deuda_anterior, 'total_pagar': recibo.total_pagar,
         'tarifa': tarifa, 'tramos': _estructura_tarifaria(tarifa) if tarifa else [],
         'facturacion': {
@@ -159,6 +160,9 @@ def _contexto_cargos(departamento, periodo):
     # completo con mora/multa/cuota extraordinaria, que van en líneas separadas
     # más abajo. Tomamos la fuente real del mes y quitamos solo esos rubros.
     sub_total = redondear(b['total_mes'] - mora - multa - cuota_extraordinaria)
+    # Barra "Total gastos": suma de las filas de los dos grupos de gastos del recibo.
+    total_gastos = redondear(sum((g['monto'] for g in servicios_condominio + servicios_publicos
+                                  + gastos_administrativos), Decimal('0')) + cochera)
 
     return {
         'agua_total': b['agua_total'],
@@ -172,6 +176,7 @@ def _contexto_cargos(departamento, periodo):
         'mora': mora,
         'mora_mas_multa': mora_mas_multa,
         'sub_total': sub_total,
+        'total_gastos': total_gastos,
         'cochera': cochera,
         'departamento': departamento, 
         'periodo': periodo,
@@ -210,6 +215,30 @@ def recibo_ver(request, pk):
         Recibo.objects.select_related('departamento', 'periodo_fac__tarifa_agua'), pk=pk)
     return _render(request, _contexto_snapshot(recibo),
                    reverse('departamento_detalle', args=[recibo.departamento.pk]))
+
+
+@login_required
+def recibos_mes(request):
+    """Recibos de TODOS los departamentos activos de un mes en una sola página,
+    uno por hoja, para imprimir / guardar en PDF de una vez."""
+    form, periodo = periodo_de_request(request)
+    config = ConfiguracionCondominio.vigente()
+    medios = list(config.medios_pago.filter(activo=True)) if config else []
+    snapshots = {r.departamento_id: r for r in Recibo.objects
+                 .select_related('departamento', 'periodo_fac__tarifa_agua')
+                 .filter(periodo_fac__periodo=periodo)}
+    recibos = []
+    for dep in Departamento.objects.filter(activo=True).order_by('numero_domicilio'):
+        rec = snapshots.get(dep.pk)
+        r = _contexto_snapshot(rec) if rec else _contexto_cargos(dep, periodo)
+        recibos.append({'r': r, 'aviso': _aviso(config, r)})
+    return render(request, 'departamentos/recibos/mes.html', {
+        'recibos': recibos, 'periodo': periodo, 'config': config,
+        'logo_url': _logo_url(config.logo if config else ''),
+        'banco': next((m for m in medios if m.tipo == 'BANCO'), None),
+        'billeteras': [m for m in medios if m.tipo in ('PLIN', 'YAPE')],
+        'meses': [(i, MESES_ES[i]) for i in range(1, 13)],
+    })
 
 
 @login_required

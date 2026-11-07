@@ -1,3 +1,13 @@
+/* ---------- Fuente Roboto Condensed local (static/fonts): sin internet y en PDF ---------- */
+@font-face { font-family: 'Roboto Condensed'; font-weight: 400; font-style: normal; src: url(../fonts/roboto-condensed-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Roboto Condensed'; font-weight: 400; font-style: italic; src: url(../fonts/roboto-condensed-latin-400-italic.woff2) format('woff2'); }
+@font-face { font-family: 'Roboto Condensed'; font-weight: 500; font-style: normal; src: url(../fonts/roboto-condensed-latin-500-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Roboto Condensed'; font-weight: 500; font-style: italic; src: url(../fonts/roboto-condensed-latin-500-italic.woff2) format('woff2'); }
+@font-face { font-family: 'Roboto Condensed'; font-weight: 700; font-style: normal; src: url(../fonts/roboto-condensed-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Roboto Condensed'; font-weight: 700; font-style: italic; src: url(../fonts/roboto-condensed-latin-700-italic.woff2) format('woff2'); }
+@font-face { font-family: 'Roboto Condensed'; font-weight: 800; font-style: normal; src: url(../fonts/roboto-condensed-latin-800-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Roboto Condensed'; font-weight: 800; font-style: italic; src: url(../fonts/roboto-condensed-latin-800-italic.woff2) format('woff2'); }
+
 /* ---------- Reset local: anula lo heredado del sistema ---------- */
 .recibo-mantenimiento,
 .recibo-mantenimiento * {
@@ -6,275 +16,225 @@
   background: transparent; box-shadow: none; border-radius: 0; text-shadow: none;
 }
 .recibo-mantenimiento {
-  --rm-tinta: #000; --rm-linea: #222; --rm-verde: #d6e9c0; --rm-azul: #bdd7ee; --rm-azul-osc: #1f5fbf;
-  display: block; color: var(--rm-tinta); overflow-x: auto; /* hoja A4 fija: en pantallas angostas se desplaza */
-  font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; line-height: 1.3;
+  /* Paleta de la skill Torre D: Los Girasoles */
+  --rm-verde: #1f6a2b;          /* caja del título, barras de sección, texto fuerte */
+  --rm-verde-medio: #2e8b35;
+  --rm-verde-vivo: #5fae3e;
+  --rm-verde-claro: #cfe9b4;
+  --rm-verde-suave: #e9f5dc;    /* fondos suaves */
+  --rm-borde: #6aa84f;
+  --rm-amarillo: #f7c623;       /* barras de total, pliegue del título */
+  --rm-azul: #1e4fa0;
+  --rm-rojo: #d0201b;
+  --rm-tinta: #1a1a1a;
+  display: block; color: var(--rm-tinta); overflow-x: auto;
+  font-family: 'Roboto Condensed', Arial, sans-serif; font-size: 12.5px; line-height: 1.3;
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-.recibo-mantenimiento table { border-collapse: collapse; width: 100%; table-layout: auto; }
+.recibo-mantenimiento table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: auto; }
 .recibo-mantenimiento td, .recibo-mantenimiento th { padding: 2px 4px; vertical-align: middle; text-align: left; font-weight: normal; }
 .recibo-mantenimiento b, .recibo-mantenimiento strong { font-weight: bold; }
 .recibo-mantenimiento img { display: inline-block; max-width: 100%; }
 
-/* ---------- Hoja A4 ---------- */
+/* ---------- Lienzo fijo 1456 × 1082 (no responsive) ---------- */
 .recibo-mantenimiento .rm-hoja {
-  width: auto; min-height: auto; margin: 0 auto 16px; padding: 10mm 9mm;
-  background: #fff; border: 1px solid #c8c8c8;
+  position: relative;            /* las zonas se miden desde su esquina */
+  width: 1456px; height: 1082px;
+  overflow: hidden;              /* nada se sale del recibo (ni las ondas) */
+  margin: 0 auto 16px; background: #fff;
 }
-.recibo-mantenimiento .rm-recibo { border: 1px solid var(--rm-linea); padding: 6px 8px 8px; }
+.recibo-mantenimiento .rm-zona { position: absolute; }
+.recibo-mantenimiento .rm-z-encabezado { left: 38px;  top: 24px;  width: 1382px; height: 140px; }
+.recibo-mantenimiento .rm-z-izq        { left: 38px;  top: 180px; width: 641px;  height: 685px; }  /* x 38–679   */
+.recibo-mantenimiento .rm-z-der        { left: 698px; top: 180px; width: 722px;  height: 685px; }  /* x 698–1420 */
+.recibo-mantenimiento .rm-z-franja     { left: 38px;  top: 880px; width: 1382px; height: 92px;  }
+.recibo-mantenimiento .rm-z-pie        { left: 38px;  top: 985px; width: 1382px; height: 56px;  }
+.recibo-mantenimiento .rm-z-ondas      { left: 0;     bottom: 0;  width: 1456px; height: 40px;  }
 
-/* Bordes y celdas */
-.recibo-mantenimiento .rm-borde { border: 1px solid var(--rm-linea); }
-.recibo-mantenimiento .rm-grilla td, .recibo-mantenimiento .rm-grilla th { border: 1px solid var(--rm-linea); }
-.recibo-mantenimiento .rm-verde { background: var(--rm-verde); }
-.recibo-mantenimiento .rm-num { text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.recibo-mantenimiento .rm-centro { text-align: center; }
-.recibo-mantenimiento .rm-neg { font-weight: bold; }
-.recibo-mantenimiento .rm-may { text-transform: uppercase; }
+/* ---------- Encabezado: logo · datos · caja del título ---------- */
+.recibo-mantenimiento .rm-z-encabezado { display: flex; align-items: center; }
 
-/* ---------- Cabecera ---------- */
-.recibo-mantenimiento .rm-cabecera td { vertical-align: bottom; }
-.recibo-mantenimiento .rm-cab-cond { width: 42%; text-align: center; }
-.recibo-mantenimiento .rm-cab-cond img { max-height: 58px; max-width: 100%; margin-bottom: 3px; }
-.recibo-mantenimiento .rm-cab-nombre { font-weight: bold; text-transform: uppercase; font-size: 13px; line-height: 1.3; }
-.recibo-mantenimiento .rm-cab-dir { font-weight: bold; text-transform: uppercase; font-size: 11px; }
-.recibo-mantenimiento .rm-cab-datos { width: 36%; padding-left: 10px; }
-.recibo-mantenimiento .rm-cab-datos table td { padding: 3px 2px; font-weight: bold; text-transform: uppercase; font-size: 11.5px; }
-.recibo-mantenimiento .rm-cab-datos .rm-valor { font-weight: normal; text-transform: uppercase; padding-left: 8px; }
-.recibo-mantenimiento .rm-cab-titulo { width: 22%; vertical-align: top; }
-.recibo-mantenimiento .rm-titulo {
-  border: 1px solid var(--rm-linea); background: var(--rm-verde); text-align: center;
-  font-weight: bold; text-transform: uppercase; font-size: 13.5px; line-height: 1.35; padding: 6px 4px;
+.recibo-mantenimiento .rm-enc-logo { flex: none; width: 400px; height: 108px; display: flex; align-items: center; }
+.recibo-mantenimiento .rm-enc-logo svg { display: block; width: 400px; height: 108px; }
+
+/* El separador verde es el borde izquierdo de este bloque */
+.recibo-mantenimiento .rm-enc-datos {
+  flex: 1; min-width: 0; align-self: stretch; margin: 12px 36px; padding-left: 28px;
+  border-left: 6px solid var(--rm-verde-vivo);
+  display: flex; flex-direction: column; justify-content: center;
 }
-.recibo-mantenimiento .rm-titulo small { font-size: 10px; }
-
-/* ---------- Cuerpo en dos columnas ---------- */
-.recibo-mantenimiento .rm-cuerpo { margin-top: 6px; }
-.recibo-mantenimiento .rm-cuerpo > tbody > tr > td { vertical-align: top; padding: 0; }
-.recibo-mantenimiento .rm-col-izq { width: 68%; padding-right: 8px !important; }
-.recibo-mantenimiento .rm-col-der { width: 32%; }
-.recibo-mantenimiento .rm-sedapal { width: 95%; table-layout: fixed; margin-left: auto; margin-right: 0; }
-
-/* Izquierda: detalle de consumo (lista sin rejilla) */
-.recibo-mantenimiento .rm-consumo td { padding: 2px 5px; }
-.recibo-mantenimiento .rm-consumo .rm-cab-verde td {
-  background: var(--rm-verde); border: 1px solid var(--rm-linea); font-weight: bold; text-transform: uppercase; font-size: 12.5px;
+.recibo-mantenimiento .rm-enc-fila {
+  display: flex; align-items: baseline; gap: 18px; padding: 5px 0;
+  border-bottom: 2px solid var(--rm-verde-claro); font-size: 20px; line-height: 1.2;
 }
-.recibo-mantenimiento .rm-consumo .rm-hueco td { height: 9px; }
-.recibo-mantenimiento .rm-consumo .rm-pagar td {
-  background: var(--rm-verde); border: 1px solid var(--rm-linea); font-weight: bold; font-size: 15px; padding: 3px 5px;
+.recibo-mantenimiento .rm-enc-fila span { flex: none; width: 150px; font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--rm-verde); }
+/* Un nombre largo se corta con "…" en vez de pasar a dos líneas */
+.recibo-mantenimiento .rm-enc-fila b { font-weight: 500; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recibo-mantenimiento .rm-enc-prop b { font-weight: 800; }
+
+.recibo-mantenimiento .rm-enc-titulo {
+  position: relative; flex: none; width: 420px; height: 118px; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; padding: 0 64px 0 30px;
+  background: var(--rm-verde); color: #fff; border-radius: 14px;
+}
+.recibo-mantenimiento .rm-enc-titulo span { font-size: 22px; font-weight: 700; line-height: 1.1; text-transform: uppercase; letter-spacing: .04em; color: var(--rm-verde-claro); }
+.recibo-mantenimiento .rm-enc-titulo strong { margin-top: 6px; font-size: 40px; font-weight: 800; line-height: 1.05; text-transform: uppercase; white-space: nowrap; }
+/* Pliegue: ::before recorta la esquina (blanco) y ::after dibuja la solapa amarilla doblada */
+.recibo-mantenimiento .rm-enc-titulo::before {
+  content: ""; position: absolute; top: 0; right: 0;
+  border-style: solid; border-width: 0 46px 46px 0; border-color: transparent #fff transparent transparent;
+}
+.recibo-mantenimiento .rm-enc-titulo::after {
+  content: ""; position: absolute; top: 0; right: 0; width: 46px; height: 46px;
+  background: linear-gradient(225deg, transparent 50%, var(--rm-amarillo) 50%);
+  border-bottom-left-radius: 8px; box-shadow: -2px 2px 4px rgba(0, 0, 0, .22);
 }
 
-/* Derecha: tablas SEDAPAL */
-.recibo-mantenimiento .rm-sedapal td, .recibo-mantenimiento .rm-sedapal th { font-size: 10.2px; }
-.recibo-mantenimiento .rm-sedapal th { font-weight: bold; text-align: center; background: var(--rm-verde); }
-.recibo-mantenimiento .rm-sedapal .rm-cab-bloque { text-align: center; font-weight: bold; text-transform: uppercase; background: var(--rm-verde); font-size: 10px; }
-.recibo-mantenimiento .rm-sedapal .rm-tramo td { text-align: center; }
-.recibo-mantenimiento .rm-sedapal .rm-tramo td.rm-num { text-align: center; padding-right: 8px; }
-.recibo-mantenimiento .rm-sedapal .rm-sin-linea td { border-top: 0; border-bottom: 0; }
-.recibo-mantenimiento .rm-sedapal .rm-sin-linea td.rm-num, .recibo-mantenimiento .rm-sedapal .rm-fila-total td.rm-num { border-left: 0; }
-.recibo-mantenimiento .rm-sedapal .rm-sin-linea td.rm-etq, .recibo-mantenimiento .rm-sedapal .rm-fila-total td.rm-etq { border-right: 0; }
-.recibo-mantenimiento .rm-sedapal .rm-etq { text-transform: uppercase; font-weight: bold; }
-/* ---------- Pago ---------- */
-.recibo-mantenimiento .rm-pago { margin-top: 8px; }
-.recibo-mantenimiento .rm-pago td { vertical-align: middle; }
-.recibo-mantenimiento .rm-ref {
-  display: inline-block; min-width: 55%; background: var(--rm-azul); font-weight: bold; font-size: 13px; padding: 3px 6px;
+/* ---------- Columna izquierda: gastos → totales → REF ---------- */
+/* --rm-k achica todas las letras de la columna si hay muchas filas (lo ajusta el script del template) */
+.recibo-mantenimiento .rm-z-izq { --rm-k: 1; display: flex; flex-direction: column; }
+.recibo-mantenimiento .rm-l { table-layout: fixed; font-size: calc(13.5px * var(--rm-k)); line-height: 1.15; }
+.recibo-mantenimiento .rm-l-c-torre { width: 108px; }
+.recibo-mantenimiento .rm-l-c-dpto { width: 108px; }
+/* Una sola línea por fila: si algo no entra se ve "…" (y verificar.py lo avisa) */
+.recibo-mantenimiento .rm-l td,
+.recibo-mantenimiento .rm-l th {
+  padding: 1px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-transform: uppercase; border-bottom: 1px solid var(--rm-verde-suave);
 }
-.recibo-mantenimiento .rm-banco {
-  display: inline-block; min-width: 35%; background: var(--rm-azul-osc); color: #fff; font-weight: bold;
-  font-size: 15px; padding: 3px 8px; margin-top: 3px;
+.recibo-mantenimiento .rm-l .rm-n { text-align: right; font-variant-numeric: tabular-nums; }
+.recibo-mantenimiento .rm-l tbody tr td:first-child { padding-left: 20px; }   /* filas dentro de un grupo */
+
+/* Barra verde de sección (lleva los títulos de columna) */
+.recibo-mantenimiento .rm-l-bar th {
+  background: var(--rm-verde); color: #fff; border: 0; padding: 3px 10px;
+  font-size: calc(13.5px * var(--rm-k)); font-weight: 700; letter-spacing: .04em;
 }
-.recibo-mantenimiento .rm-cuenta { border: 1px solid var(--rm-linea); }
-.recibo-mantenimiento .rm-cuenta td { padding: 3px 6px; font-size: 12.5px; }
-.recibo-mantenimiento .rm-billetera { text-align: right; white-space: nowrap; }
-.recibo-mantenimiento .rm-plin { color: var(--rm-azul-osc); font-weight: bold; font-style: italic; }
+.recibo-mantenimiento .rm-l-bar th:first-child { border-radius: 6px 0 0 6px; }
+.recibo-mantenimiento .rm-l-bar th:last-child { border-radius: 0 6px 6px 0; }
+.recibo-mantenimiento .rm-l-bar th:only-child { border-radius: 6px; }
 
-/* ---------- Aviso / contacto ---------- */
-.recibo-mantenimiento .rm-aviso { border: 1px solid var(--rm-linea); border-top: 0; }
-.recibo-mantenimiento .rm-aviso-titulo { text-align: center; font-size: 15px; text-transform: uppercase; padding: 2px; border-bottom: 1px solid var(--rm-linea); }
-.recibo-mantenimiento .rm-aviso-texto { font-size: 13.5px; padding: 3px 4px 5px; line-height: 1.35; }
-.recibo-mantenimiento .rm-contacto { border: 1px solid var(--rm-linea); border-top: 0; }
-.recibo-mantenimiento .rm-contacto td { font-size: 13px; padding: 8px 4px; }
+/* Subtítulo de grupo */
+.recibo-mantenimiento .rm-l-grupo td {
+  background: var(--rm-verde-suave); color: var(--rm-verde); padding: 2px 10px;
+  font-size: calc(13px * var(--rm-k)); font-weight: 700; border-bottom: 1px solid var(--rm-verde-claro);
+}
+.recibo-mantenimiento .rm-l-fuerte td { font-weight: 700; }
+.recibo-mantenimiento .rm-l-sep td { height: 4px; padding: 0; border: 0; }
 
-/* ---------- Pie ---------- */
-.recibo-mantenimiento .rm-pie { table-layout: fixed; width: 100%; margin-top: 6px; }
-.recibo-mantenimiento .rm-pie td { border: 1px solid var(--rm-linea); text-align: center; vertical-align: top; width: 33.33%; }
-.recibo-mantenimiento .rm-pie .rm-pie-cab td { font-weight: bold; text-transform: uppercase; font-size: 10.5px; padding: 3px 4px; }
-.recibo-mantenimiento .rm-pie .rm-pie-val td { font-size: 12.5px; font-weight: bold; padding: 8px 4px 10px; vertical-align: middle; }
-.recibo-mantenimiento .rm-pie .rm-pie-cab td.rm-horario { font-weight: normal; text-transform: none; font-size: 10px; line-height: 1.25; white-space: normal; }
-/* ---------- IMPRESIÓN PDF: UNA SOLA HOJA A4 ---------- */
+/* Barra amarilla: el monto va separado por una línea vertical */
+.recibo-mantenimiento .rm-l-total td {
+  background: var(--rm-amarillo); color: #1a1a1a; border: 0; padding: 3px 10px;
+  font-size: calc(15px * var(--rm-k)); font-weight: 800;
+}
+.recibo-mantenimiento .rm-l-total td:first-child { border-radius: 6px 0 0 6px; }
+.recibo-mantenimiento .rm-l-total td:last-child { border-radius: 0 6px 6px 0; border-left: 2px solid rgba(0, 0, 0, .35); }
+.recibo-mantenimiento .rm-l-pagar td { padding: 5px 10px; font-size: calc(20px * var(--rm-k)); }   /* su monto ocupa las 2 columnas de números */
+
+.recibo-mantenimiento .rm-l-ref {
+  align-self: flex-start; margin-top: 6px; padding: 3px 14px; border-radius: 6px;
+  background: var(--rm-verde-suave); border-left: 6px solid var(--rm-verde);
+  color: var(--rm-verde); font-size: calc(16px * var(--rm-k)); font-weight: 700; text-transform: uppercase;
+}
+.recibo-mantenimiento .rm-l-ref b { font-weight: 800; color: var(--rm-tinta); }
+
+/* ---------- Columna derecha: tarifas → SEDAPAL → tarjetas ---------- */
+.recibo-mantenimiento .rm-z-der { display: flex; flex-direction: column; gap: 14px; }
+
+/* Barra verde de título (igual que las de la izquierda) */
+.recibo-mantenimiento .rm-d-bar {
+  padding: 5px 12px; border-radius: 6px; background: var(--rm-verde); color: #fff;
+  font-size: 14px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+}
+.recibo-mantenimiento .rm-d-bar small { margin-left: 8px; font-size: 12.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--rm-verde-claro); }
+
+.recibo-mantenimiento .rm-d-tabla { table-layout: fixed; margin-top: 4px; font-size: 15px; line-height: 1.25; }
+.recibo-mantenimiento .rm-d-tabla td,
+.recibo-mantenimiento .rm-d-tabla th {
+  padding: 4px 12px; border-bottom: 1px solid var(--rm-verde-suave);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.recibo-mantenimiento .rm-d-tabla th { background: var(--rm-verde-suave); color: var(--rm-verde); font-size: 13px; font-weight: 700; text-transform: uppercase; }
+.recibo-mantenimiento .rm-d-tabla .rm-n { text-align: right; font-variant-numeric: tabular-nums; }
+.recibo-mantenimiento .rm-d-tabla tbody tr:nth-child(even) td { background: #f7fbf2; }
+/* Fila total: barra amarilla con el monto separado por línea vertical */
+.recibo-mantenimiento .rm-d-tabla .rm-d-total td { background: var(--rm-amarillo); border: 0; font-weight: 800; }
+.recibo-mantenimiento .rm-d-tabla .rm-d-total td:first-child { border-radius: 6px 0 0 6px; }
+.recibo-mantenimiento .rm-d-tabla .rm-d-total td:last-child { border-radius: 0 6px 6px 0; border-left: 2px solid rgba(0, 0, 0, .35); }
+
+/* Dos bloques lado a lado */
+.recibo-mantenimiento .rm-d-par { display: flex; gap: 14px; }
+.recibo-mantenimiento .rm-d-par > .rm-d-bloque { flex: 1; min-width: 0; }
+.recibo-mantenimiento .rm-d-par .rm-d-tabla { font-size: 14px; }
+
+/* Tarjetas: la primera empuja a ambas hacia abajo (margin-top: auto) */
+.recibo-mantenimiento .rm-d-card { border-radius: 12px; padding: 16px 20px; }
+.recibo-mantenimiento .rm-d-card h3 { font-size: 22px; font-weight: 800; line-height: 1.1; text-transform: uppercase; }
+.recibo-mantenimiento .rm-d-card p { margin-top: 6px; font-size: 16px; line-height: 1.3; }
+
+.recibo-mantenimiento .rm-d-juntos { margin-top: auto; background: var(--rm-verde-suave); border: 2px solid var(--rm-borde); }
+.recibo-mantenimiento .rm-d-juntos h3 { color: var(--rm-verde); }
+.recibo-mantenimiento .rm-d-juntos ul { list-style: none; margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; }
+.recibo-mantenimiento .rm-d-juntos li { position: relative; padding-left: 28px; font-size: 15.5px; font-weight: 500; line-height: 1.25; }
+.recibo-mantenimiento .rm-d-juntos li::before {
+  content: "✓"; position: absolute; left: 0; top: 0; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--rm-verde-vivo); color: #fff; font-size: 13px; font-weight: 800; line-height: 20px; text-align: center;
+}
+
+.recibo-mantenimiento .rm-d-puntual { background: var(--rm-verde); color: #fff; border-left: 10px solid var(--rm-amarillo); }
+.recibo-mantenimiento .rm-d-puntual h3 { color: var(--rm-amarillo); }
+
+/* ---------- Franja de pago: 4 celdas en una fila ---------- */
+.recibo-mantenimiento .rm-z-franja {
+  display: grid; grid-template-columns: 280px 270px 260px 1fr;
+  border: 2px solid var(--rm-borde); border-radius: 10px; overflow: hidden; background: var(--rm-verde-suave);
+}
+.recibo-mantenimiento .rm-f-celda {
+  display: flex; flex-direction: column; justify-content: center; min-width: 0;
+  padding: 0 16px; border-right: 2px solid var(--rm-borde);
+}
+.recibo-mantenimiento .rm-z-franja span,
+.recibo-mantenimiento .rm-z-pie span {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--rm-verde);
+}
+.recibo-mantenimiento .rm-f-celda b,
+.recibo-mantenimiento .rm-f-celda small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recibo-mantenimiento .rm-f-celda b { margin-top: 2px; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.recibo-mantenimiento .rm-f-celda small { margin-top: 2px; font-size: 13px; font-weight: 500; color: var(--rm-azul); }
+.recibo-mantenimiento .rm-f-titular b { font-size: 17px; text-transform: uppercase; }
+/* Aviso: celda amarilla */
+.recibo-mantenimiento .rm-f-aviso { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 0 18px; background: var(--rm-amarillo); }
+.recibo-mantenimiento .rm-f-aviso span { color: var(--rm-rojo); font-size: 13px; }
+.recibo-mantenimiento .rm-f-aviso p { margin-top: 3px; font-size: 14px; line-height: 1.3; }
+
+/* ---------- Pie: 3 celdas ---------- */
+.recibo-mantenimiento .rm-z-pie {
+  display: grid; grid-template-columns: 1fr 1.7fr 1fr;
+  border: 2px solid var(--rm-borde); border-radius: 10px; overflow: hidden;
+}
+.recibo-mantenimiento .rm-p-celda {
+  display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 0;
+  background: var(--rm-verde-suave);
+}
+.recibo-mantenimiento .rm-p-celda b { font-size: 20px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.recibo-mantenimiento .rm-p-vence b { color: var(--rm-rojo); }
+/* Celda central: horario a la izquierda, contacto a la derecha */
+.recibo-mantenimiento .rm-p-horario {
+  flex-direction: row; justify-content: space-between; align-items: center; gap: 18px; padding: 0 18px;
+  background: #fff; border-left: 2px solid var(--rm-borde); border-right: 2px solid var(--rm-borde);
+}
+.recibo-mantenimiento .rm-p-horario p { font-size: 12.5px; line-height: 1.25; }
+.recibo-mantenimiento .rm-p-contacto { flex: none; text-align: right; }
+.recibo-mantenimiento .rm-p-contacto b { font-size: 13px; font-weight: 800; color: var(--rm-verde); }
+
+/* ---------- Ondas ---------- */
+.recibo-mantenimiento .rm-z-ondas svg { display: block; width: 100%; height: 100%; }
+.recibo-mantenimiento .rm-onda-a { fill: var(--rm-amarillo); }
+.recibo-mantenimiento .rm-onda-v { fill: var(--rm-verde); }
+
+/* ---------- IMPRESIÓN / PDF: una página del tamaño exacto del lienzo ---------- */
 @media print {
-    @page {
-        size: A4 portrait;
-        margin: 3mm;
-    }
-
-    .recibo-mantenimiento {
-        width: 100%;
-        height: auto;
-        overflow: visible;
-        font-size: 10px;
-        line-height: 1.12;
-        page-break-inside: avoid;
-        break-inside: avoid;
-    }
-
-    .recibo-mantenimiento .rm-hoja {
-        width: 100%;
-        height: auto;
-        min-height: 0;
-        margin: 0;
-        padding: 0;
-        border: 0;
-        page-break-inside: avoid;
-        break-inside: avoid;
-    }
-
-    .recibo-mantenimiento .rm-recibo {
-        width: 100%;
-        padding: 3px 5px;
-        page-break-inside: avoid;
-        break-inside: avoid;
-    }
-
-    /* Cabecera: proteger fechas */
-    .recibo-mantenimiento .rm-cabecera {
-        width: 100%;
-        table-layout: fixed;
-    }
-
-    .recibo-mantenimiento .rm-cab-cond {
-        width: 38%;
-    }
-
-    .recibo-mantenimiento .rm-cab-datos {
-        width: 40%;
-        padding-left: 4px;
-    }
-
-    .recibo-mantenimiento .rm-cab-titulo {
-        width: 22%;
-    }
-
-
-    .recibo-mantenimiento .rm-cab-datos table td {
-        font-size: 9px;
-        padding: 2px 1px;
-        white-space: nowrap;
-    }
-    /* CORRECCIÓN DE CABECERA Y FECHAS */
-    .recibo-mantenimiento .rm-cabecera {
-        width: 100%;
-        table-layout: fixed;
-    }
-
-    .recibo-mantenimiento .rm-cab-cond {
-        width: 38%;
-    }
-
-    .recibo-mantenimiento .rm-cab-datos {
-        width: 40%;
-        padding-left: 4px;
-    }
-
-    .recibo-mantenimiento .rm-cab-titulo {
-        width: 22%;
-    }
-
-    /* Tabla interna de fechas */
-    .recibo-mantenimiento .rm-cab-datos table {
-        width: 100%;
-        table-layout: auto;
-    }
-
-    .recibo-mantenimiento .rm-cab-datos table td {
-        font-size: 10px;
-        padding: 3px 2px;
-        white-space: nowrap;
-    }
-
-    .recibo-mantenimiento .rm-cab-datos table td:first-child {
-        width: 1%;
-        white-space: nowrap;
-    }
-
-    .recibo-mantenimiento .rm-cab-datos table td.rm-valor {
-        width: auto;
-        padding-left: 5px;
-        white-space: nowrap;
-    }
-    /* Cuerpo */
-    .recibo-mantenimiento .rm-cuerpo {
-        margin-top: 3px;
-    }
-
-    .recibo-mantenimiento .rm-col-izq {
-        width: 70%;
-        padding-right: 5px !important;
-    }
-
-    .recibo-mantenimiento .rm-col-der {
-        width: 30%;
-    }
-
-    .recibo-mantenimiento .rm-sedapal {
-        width: 100%;
-        table-layout: fixed;
-    }
-
-    /* Tablas compactas */
-    .recibo-mantenimiento .rm-consumo td,
-    .recibo-mantenimiento .rm-sedapal td,
-    .recibo-mantenimiento .rm-sedapal th,
-    .recibo-mantenimiento .rm-cuenta td {
-        padding: 1px 2px;
-    }
-
-    /* Pago */
-    .recibo-mantenimiento .rm-pago {
-        margin-top: 4px;
-    }
-
-    /* Avisos */
-    .recibo-mantenimiento .rm-aviso-texto {
-        font-size: 10.5px;
-        padding: 2px 3px;
-    }
-
-    .recibo-mantenimiento .rm-contacto td {
-        font-size: 10px;
-        padding: 3px 2px;
-    }
-
-    /* Pie */
-    .recibo-mantenimiento .rm-pie {
-        margin-top: 3px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    .recibo-mantenimiento .rm-pie td {
-        padding: 2px;
-    }
-
-    .recibo-mantenimiento .rm-pie .rm-pie-cab td {
-        font-size: 9px;
-        padding: 1px 2px;
-    }
-
-    .recibo-mantenimiento .rm-pie .rm-pie-val td {
-        font-size: 10px;
-        padding: 4px 2px;
-    }
-
-    .recibo-mantenimiento .rm-pie .rm-pie-cab td.rm-horario {
-        font-size: 8.5px;
-        line-height: 1.05;
-    }
-
-    .recibo-mantenimiento table {
-        page-break-inside: avoid;
-        break-inside: avoid;
-   }
+  @page { size: 1456px 1082px; margin: 0; }
+  .recibo-mantenimiento { overflow: visible; }
+  .recibo-mantenimiento .rm-hoja { margin: 0; break-inside: avoid; page-break-inside: avoid; }
 }

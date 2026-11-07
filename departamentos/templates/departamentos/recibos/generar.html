@@ -31,6 +31,22 @@
       </div>
     </div>
 
+    {# ---------- Imprimir todos los recibos de un mes ---------- #}
+    <div class="card mt-4">
+      <div class="card-header"><strong>Imprimir recibos del mes</strong></div>
+      <div class="card-body p-4">
+        <p class="text-muted small">Abre los recibos de todos los departamentos del mes en una sola página,
+          uno por hoja, para imprimirlos o guardarlos en PDF de una vez.</p>
+        <form method="get" action="{% url 'recibos_mes' %}" novalidate>
+          <div class="row g-2 mb-3">
+            <div class="col"><label class="form-label">Mes</label>{{ form.mes }}</div>
+            <div class="col"><label class="form-label">Año</label>{{ form.anio }}</div>
+          </div>
+          <button type="submit" class="btn btn-outline-success w-100">Ver recibos del mes</button>
+        </form>
+      </div>
+    </div>
+
     {# ---------- Borrar una generación ---------- #}
     <div class="card mt-4" id="borrar">
       <div class="card-header"><strong>Borrar boletas generadas</strong></div>

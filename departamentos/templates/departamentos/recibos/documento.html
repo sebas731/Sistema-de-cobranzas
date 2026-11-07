@@ -28,10 +28,14 @@
       </div>
       <button class="btn btn-sm btn-outline-secondary">Ver</button>
     </form>
+    <a href="{% url 'recibos_mes' %}?mes={{ r.periodo.month }}&anio={{ r.periodo.year }}" class="btn btn-outline-secondary">Todos los dptos del mes</a>
     <button type="button" onclick="window.print()" class="btn btn-outline-secondary">Imprimir</button>
-    <button type="button" onclick="window.print()" class="btn btn-success">Descargar PDF</button>
+    <button type="button" class="btn btn-success" data-pdf="#recibo-doc"
+            data-archivo="Recibo_{{ r.departamento.numero_domicilio }}_{{ r.periodo|date:'Y-m' }}.pdf">Descargar PDF</button>
   </div>
 </div>
 
-{% include 'departamentos/components/recibo_mantenimiento.html' %}
+<div id="recibo-doc">{% include 'departamentos/components/recibo_mantenimiento.html' %}</div>
 {% endblock %}
+
+{% block extra_js %}{% include 'departamentos/components/recibo_pdf_js.html' %}{% endblock %}
