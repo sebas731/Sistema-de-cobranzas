@@ -1,229 +1,259 @@
 {% load l10n %}{% comment %}
 Recibo de mantenimiento (réplica del recibo físico). Uso:
   {% include 'departamentos/components/recibo_mantenimiento.html' %}
-Contexto: r (views/recibos.py: snapshot o cargos), config, logo_url, aviso, banco, billeteras.
+Contexto: r (views/recibos.py: snapshot o cargos), config, aviso, banco, billeteras.
 Estilos SOLO en static/css/recibo_mantenimiento.css, todos bajo .recibo-mantenimiento.
 Secciones de r en None no se muestran (no se inventan datos).
 Diseño: skill "Recibo Torre D". Lienzo fijo 1456×1082 con zonas en posición absoluta (.rm-z-*).
+Iconos: components/recibo_icono.html · Logo: components/logo_girasoles.svg
 {% endcomment %}
 
 {% localize off %}
 <div class="recibo-mantenimiento">
   <div class="rm-hoja">
 
-    {# ---------------- Encabezado ---------------- #}
+    {# ---------------- Encabezado: logo · datos · título ---------------- #}
     <section class="rm-zona rm-z-encabezado">
-      {# Logo 400×108 dibujado en SVG (components/logo_girasoles.svg) #}
       <div class="rm-enc-logo">
         {% include 'departamentos/components/logo_girasoles.svg' %}
       </div>
-      {# Datos del departamento, con separador verde a la izquierda #}
+
       <div class="rm-enc-datos">
-        <div class="rm-enc-fila rm-enc-prop"><span>Propietario</span><b data-k="propietario">{{ r.departamento.propietario }}</b></div>
-        <div class="rm-enc-fila"><span>Torre</span><b data-k="torre">Torre D</b></div>
-        <div class="rm-enc-fila"><span>Departamento</span><b data-k="departamento">{{ r.departamento.numero_domicilio }}</b></div>
+        <div class="rm-enc-fila"><span>Propietario:</span><b data-k="propietario">{{ r.departamento.propietario }}</b></div>
+        <div class="rm-enc-fila"><span>Departamento:</span><b data-k="departamento">{{ r.departamento.numero_domicilio }}</b></div>
       </div>
 
-      {# Caja verde del título con pliegue amarillo en la esquina #}
       <div class="rm-enc-titulo">
-        <span>Recibo de mantenimiento</span>
-        <strong data-k="mes">{{ r.periodo|date:"F"|upper }} {{ r.periodo|date:"Y" }}</strong>
+        {% include 'departamentos/components/recibo_icono.html' with i='documento' %}
+        <p>Recibo de<br>mantenimiento<br><span data-k="mes">{{ r.periodo|date:"F"|upper }} {{ r.periodo|date:"Y" }}</span></p>
       </div>
     </section>
 
-    {# ---------------- Columna izquierda: gastos y totales (x 38–679) ---------------- #}
+    {# ---------------- Columna izquierda: gastos → agua → totales → REF ---------------- #}
     <section class="rm-zona rm-z-izq">
-      <table class="rm-l">
-        <colgroup><col><col class="rm-l-c-torre"><col class="rm-l-c-dpto"></colgroup>
 
-        {# ----- Gastos del mes: grupo condominio + grupo torre ----- #}
-        {% if r.servicios_condominio or r.cochera or r.servicios_publicos or r.gastos_administrativos %}
-        <tr class="rm-l-bar"><th>Gastos del mes</th><th class="rm-n">Torre D</th><th class="rm-n">Dpto.</th></tr>
-        {% if r.servicios_condominio or r.cochera %}
-        <tr class="rm-l-grupo"><td colspan="3">Servicios generales del condominio</td></tr>
-        <tbody id="gastos-condominio">
-        {% for g in r.servicios_condominio %}
-        <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
-        {% endfor %}
-        {% if r.cochera %}<tr><td>Cochera</td><td class="rm-n"></td><td class="rm-n">{{ r.cochera|stringformat:".2f" }}</td></tr>{% endif %}
-        </tbody>
-        {% endif %}
-        {% if r.servicios_publicos or r.gastos_administrativos %}
-        <tr class="rm-l-grupo"><td colspan="3">Servicios públicos de la torre</td></tr>
-        <tbody id="gastos-torre">
-        {% for g in r.servicios_publicos %}
-        <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
-        {% endfor %}
-        {% for g in r.gastos_administrativos %}
-        <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
-        {% endfor %}
-        </tbody>
-        {% endif %}
-        {% endif %}
+      {# ----- Detalle de gastos del mes (2 grupos) ----- #}
+      {% if r.servicios_condominio or r.cochera or r.servicios_publicos or r.gastos_administrativos %}
+      <div class="rm-bloque">
+        <div class="rm-bloque-cab">{% include 'departamentos/components/recibo_icono.html' with i='calendario' %} Detalle de gastos del mes</div>
+        <table class="rm-l">
+          <colgroup><col><col class="rm-l-c-torre"><col class="rm-l-c-dpto"></colgroup>
+          {% if r.servicios_condominio or r.cochera %}
+          <tr class="rm-l-grupo"><td colspan="3">Servicios generales del condominio</td></tr>
+          <tbody id="gastos-condominio">
+          {% for g in r.servicios_condominio %}
+          <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
+          {% endfor %}
+          {% if r.cochera %}<tr><td>Cochera</td><td class="rm-n"></td><td class="rm-n">{{ r.cochera|stringformat:".2f" }}</td></tr>{% endif %}
+          </tbody>
+          {% endif %}
+          {% if r.servicios_publicos or r.gastos_administrativos %}
+          <tr class="rm-l-grupo"><td colspan="3">Servicios públicos de la torre</td></tr>
+          <tbody id="gastos-torre">
+          {% for g in r.servicios_publicos %}
+          <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
+          {% endfor %}
+          {% for g in r.gastos_administrativos %}
+          <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
+          {% endfor %}
+          </tbody>
+          {% endif %}
+        </table>
+      </div>
+      {% endif %}
 
-        {% if r.total_gastos is not None %}
-        <tr class="rm-l-total"><td colspan="2">Total gastos</td><td class="rm-n" data-k="total_gastos">{{ r.total_gastos|stringformat:".2f" }}</td></tr>
-        <tr class="rm-l-sep"><td colspan="3"></td></tr>
-        {% endif %}
+      {% if r.total_gastos is not None %}
+      <div class="rm-barra rm-barra-total">
+        {% include 'departamentos/components/recibo_icono.html' with i='monedas' %}
+        <span>Total gastos de mantenimiento<br>por departamento</span>
+        <b data-k="total_gastos">S/. {{ r.total_gastos|stringformat:".2f" }}</b>
+      </div>
+      {% endif %}
 
-        {# ----- Consumo de agua del departamento ----- #}
-        {% if r.lecturas %}
-        <tr class="rm-l-bar"><th colspan="3">Consumo de agua</th></tr>
-        <tr><td colspan="2">Lect. anterior{% if r.lecturas.anterior_fecha %} · {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}{% endif %}</td><td class="rm-n">{{ r.lecturas.anterior|floatformat:2 }}</td></tr>
-        <tr><td colspan="2">Lect. actual{% if r.lecturas.actual_fecha %} · {{ r.lecturas.actual_fecha|date:"d/m/Y" }}{% endif %}</td><td class="rm-n">{{ r.lecturas.actual|floatformat:2 }}</td></tr>
-        <tr class="rm-l-fuerte"><td>Total m³ consumidos</td><td class="rm-n">762.06</td><td class="rm-n">{{ r.lecturas.m3|floatformat:2 }}</td></tr>
-        {% endif %}
+      {# ----- Detalle de consumo de agua ----- #}
+      {% if r.lecturas %}
+      <div class="rm-bloque">
+        <div class="rm-bloque-cab">{% include 'departamentos/components/recibo_icono.html' with i='gota' %} Detalle de consumo de agua:</div>
+        <table class="rm-l rm-l-agua">
+          <colgroup><col><col class="rm-l-c-monto"></colgroup>
+          <tr><td>Lect. anterior{% if r.lecturas.anterior_fecha %} ({{ r.lecturas.anterior_fecha|date:"d/m/Y" }}){% endif %} :</td><td class="rm-n">{{ r.lecturas.anterior|floatformat:2 }}</td></tr>
+          <tr><td>Lect. actual{% if r.lecturas.actual_fecha %} ({{ r.lecturas.actual_fecha|date:"d/m/Y" }}){% endif %} :</td><td class="rm-n">{{ r.lecturas.actual|floatformat:2 }}</td></tr>
+          <tr><td>Total m³ consumidos :</td><td class="rm-n">{{ r.lecturas.m3|floatformat:2 }}</td></tr>
+        </table>
+      </div>
+      {% endif %}
 
-        {# ----- Facturación de agua (consumo, área común...) ----- #}
-        {% if r.lineas %}
-        <tr class="rm-l-bar"><th>Facturación de agua</th><th class="rm-n">Torre D</th><th class="rm-n">Dpto.</th></tr>
-        {% for l in r.lineas %}
-        <tr><td>{{ l.etiqueta }}</td><td class="rm-n">{% if l.etiqueta == "Área común" %}{{ l.total|stringformat:".2f" }}{% else %}3139.8{% endif %}</td><td class="rm-n">{{ l.monto|stringformat:".2f" }}</td></tr>
-        {% endfor %}
-        {% endif %}
-        {% if r.descuento is not None %}
-        <tr><td colspan="2">Dscto. mes anterior</td><td class="rm-n">{{ r.descuento|stringformat:".2f" }}</td></tr>
-        {% endif %}
-        {% if r.saldo_favor %}
-        <tr><td colspan="2">Saldo a favor</td><td class="rm-n">{{ r.saldo_favor|stringformat:".2f" }}</td></tr>
-        {% endif %}
+      {# ----- Detalle de facturación de agua ----- #}
+      {% if r.lineas %}
+      <div class="rm-bloque">
+        <div class="rm-bloque-cab">{% include 'departamentos/components/recibo_icono.html' with i='medidor' %} Detalle de facturación de agua:</div>
+        <table class="rm-l rm-l-fact">
+          <colgroup><col><col class="rm-l-c-fact"><col class="rm-l-c-fact"></colgroup>
+          <thead><tr><th>Concepto</th><th>Consumo total<br>Torre D (m³)</th><th>Importe del<br>departamento</th></tr></thead>
+          {% for l in r.lineas %}
+          <tr><td>{{ l.etiqueta }}</td><td class="rm-c">{% if l.etiqueta == "Área común" %}{{ l.total|stringformat:".2f" }}{% else %}3139.8{% endif %}</td><td class="rm-n">{{ l.monto|stringformat:".2f" }}</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      {% endif %}
 
-        <tr class="rm-l-sep"><td colspan="3"></td></tr>
-        <tr class="rm-l-total"><td colspan="2">Sub total {{ r.periodo|date:"F" }}</td><td class="rm-n" data-k="sub_total">{{ r.sub_total|stringformat:".2f" }}</td></tr>
+      {# ----- Sub total + extras ----- #}
+      <div class="rm-bloque">
+        <div class="rm-barra rm-barra-sub"><span>Sub total de {{ r.periodo|date:"F" }}</span><b data-k="sub_total">S/. {{ r.sub_total|stringformat:".2f" }}</b></div>
+        <table class="rm-l rm-l-extras">
+          <colgroup><col><col class="rm-l-c-monto"></colgroup>
+          {% if r.descuento is not None %}
+          <tr><td>Dscto. mes anterior</td><td class="rm-n">{{ r.descuento|stringformat:".2f" }}</td></tr>
+          {% endif %}
+          {% if r.saldo_favor %}
+          <tr><td>Saldo a favor</td><td class="rm-n">{{ r.saldo_favor|stringformat:".2f" }}</td></tr>
+          {% endif %}
+          <tr><td>Cuota extraordinaria</td><td class="rm-n">{{ r.cuota_extraordinaria|stringformat:".2f" }}</td></tr>
+          <tr><td class="rm-l-2lineas">Mantenimiento anterior + mora + inst. de cámara +<br>pieza de ascensores (en caso deba)</td><td class="rm-n">{{ r.deuda|stringformat:".2f" }}</td></tr>
+          <tr><td>Multa por inasistencia reunión 09/08</td><td class="rm-n">{% if r.multa %}{{ r.multa|stringformat:".2f" }}{% else %}0.00{% endif %}</td></tr>
+        </table>
+      </div>
 
-        {# ----- Extras ----- #}
-        <tr class="rm-l-sep"><td colspan="3"></td></tr>
-        <tr class="rm-l-bar"><th colspan="3">Extras</th></tr>
-        <tr><td colspan="2">Cuota extraordinaria</td><td class="rm-n">{{ r.cuota_extraordinaria|stringformat:".2f" }}</td></tr>
-        <tr><td colspan="2">Mant. anterior + mora + inst. de cámara + ascensores (en caso deba)</td><td class="rm-n">{{ r.deuda|stringformat:".2f" }}</td></tr>
-        <tr><td colspan="2">Multa por inasistencia reunión 09/08</td><td class="rm-n">{% if r.multa %}{{ r.multa|stringformat:".2f" }}{% else %}0.00{% endif %}</td></tr>
+      <div class="rm-barra rm-barra-pagar">
+        {% include 'departamentos/components/recibo_icono.html' with i='monedas' %}
+        <span>TOTAL A PAGAR</span>
+        <b data-k="total_pagar">S/. {{ r.total_pagar|stringformat:".2f" }}</b>
+      </div>
 
-        <tr class="rm-l-sep"><td colspan="3"></td></tr>
-        <tr class="rm-l-total rm-l-pagar"><td>TOTAL A PAGAR</td><td class="rm-n" colspan="2" data-k="total_pagar">S/. {{ r.total_pagar|stringformat:".2f" }}</td></tr>
-      </table>
-
-      <div class="rm-l-ref">REF: <b data-k="ref">{{ r.departamento.numero_domicilio }}</b></div>
+      <div class="rm-ref">REF: <b data-k="ref">{{ r.departamento.numero_domicilio }}</b></div>
     </section>
 
-    {# ---------------- Columna derecha: tarifas y tarjetas (x 698–1420) ---------------- #}
+    {# ---------------- Columna derecha: tarifas → tarjetas ---------------- #}
     <section class="rm-zona rm-z-der">
-      {# ----- Estructura tarifaria del agua ----- #}
+
+      {# ----- Estructura tarifaria ----- #}
       {% if r.tarifa %}
-      <div class="rm-d-bloque">
-        <div class="rm-d-bar">Estructura tarifaria <small>Agua potable</small></div>
-        <table class="rm-d-tabla">
-          <thead><tr><th>Rango (m³)</th><th class="rm-n">S/ por m³</th></tr></thead>
+      <div class="rm-bloque">
+        <div class="rm-bloque-cab rm-bloque-cab-c">{% include 'departamentos/components/recibo_icono.html' with i='gota' %} Estructura tarifaria</div>
+        <table class="rm-tarifa">
+          <thead>
+            <tr><th rowspan="2">RANGO</th><th>AGUA m3</th></tr>
+            <tr><th>S/.</th></tr>
+          </thead>
           <tbody id="tarifas">
           {% for t in r.tramos %}
-          <tr><td>{{ t.rango }}</td><td class="rm-n">{{ t.precio|stringformat:".2f" }}</td></tr>
+          <tr><td>{{ t.rango }}</td><td>{{ t.precio|stringformat:".2f" }}</td></tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
       {% endif %}
 
-      {# ----- SEDAPAL y consumo del edificio, lado a lado ----- #}
+      {# ----- SEDAPAL y consumo del edificio (solo si el periodo los tiene) ----- #}
       {% if r.facturacion or r.edificio %}
       <div class="rm-d-par">
         {% if r.facturacion %}
-        <div class="rm-d-bloque">
-          <div class="rm-d-bar">Detalle de facturación</div>
-          <table class="rm-d-tabla">
+        <div class="rm-bloque">
+          <div class="rm-bloque-cab">Detalle de facturación</div>
+          <table class="rm-l rm-l-agua">
             <tr><td>Volumen de agua potable</td><td class="rm-n">S/ {{ r.facturacion.potable|stringformat:".2f" }}</td></tr>
             <tr><td>Servicio de saneamiento</td><td class="rm-n">S/ {{ r.facturacion.saneamiento|stringformat:".2f" }}</td></tr>
             <tr><td>Cargo fijo</td><td class="rm-n">S/ {{ r.facturacion.cargo_fijo|stringformat:".2f" }}</td></tr>
             <tr><td>IGV</td><td class="rm-n">S/ {{ r.facturacion.igv|stringformat:".2f" }}</td></tr>
-            <tr class="rm-d-total"><td>Total</td><td class="rm-n">S/ {{ r.facturacion.total|stringformat:".2f" }}</td></tr>
+            <tr class="rm-l-fuerte"><td>Total</td><td class="rm-n">S/ {{ r.facturacion.total|stringformat:".2f" }}</td></tr>
           </table>
         </div>
         {% endif %}
         {% if r.edificio %}
-        <div class="rm-d-bloque">
-          <div class="rm-d-bar">Consumo del edificio</div>
-          <table class="rm-d-tabla">
+        <div class="rm-bloque">
+          <div class="rm-bloque-cab">Consumo del edificio</div>
+          <table class="rm-l rm-l-agua">
             <tr><td>A) SEDAPAL recibos</td><td class="rm-n">S/ {{ r.edificio.a }}</td></tr>
             <tr><td>B) Consumo dptos. habitados</td><td class="rm-n">S/ {{ r.edificio.b }}</td></tr>
             <tr><td>Diferencia (A − B)</td><td class="rm-n">S/ {{ r.edificio.diferencia }}</td></tr>
-            <tr class="rm-d-total"><td>Agua común</td><td class="rm-n">S/ {{ r.edificio.agua_comun|stringformat:".2f" }}</td></tr>
+            <tr class="rm-l-fuerte"><td>Agua común</td><td class="rm-n">S/ {{ r.edificio.agua_comun|stringformat:".2f" }}</td></tr>
           </table>
         </div>
         {% endif %}
       </div>
       {% endif %}
 
-      {# ----- Tarjetas (textos fijos: se editan aquí) ----- #}
-      <div class="rm-d-card rm-d-juntos">
-        <h3>Juntos por una mejor Torre D</h3>
-        <p>Con tu aporte de este mes seguimos cuidando nuestro edificio:</p>
-        <ul id="trabajos">
-          <li>Mantenimiento preventivo de ascensores</li>
-          <li>Limpieza y desinfección de áreas comunes</li>
-          <li>Vigilancia las 24 horas</li>
-          <li>Revisión de bombas y tanque de agua</li>
-        </ul>
+      {# ----- Tarjeta "Juntos por una mejor Torre D" (textos fijos: se editan aquí) ----- #}
+      <div class="rm-juntos">
+        <div class="rm-juntos-cab">
+          <div class="rm-juntos-ico">{% include 'departamentos/components/recibo_icono.html' with i='edificio' %}</div>
+          <h3>Juntos por una mejor <span>TORRE D</span></h3>
+        </div>
+        <blockquote>Tu aporte no solo mantiene nuestra torre,<br>también contribuye a conservar nuestro hogar,<br>nuestra seguridad y nuestra calidad de vida.</blockquote>
+        <hr>
+        <div class="rm-juntos-panel">
+          <div class="rm-juntos-mejora">
+            <h4>{% include 'departamentos/components/recibo_icono.html' with i='herramientas' %}¡Seguimos mejorando<br>nuestra Torre D!</h4>
+            <p>Gracias a sus aportes, continuamos realizando trabajos de mantenimiento y conservación de nuestras instalaciones. El compromiso de cada propietario es fundamental.</p>
+          </div>
+          <div class="rm-juntos-trabajos">
+            <div class="rm-juntos-pill">{% include 'departamentos/components/recibo_icono.html' with i='check-cuadro' %} Trabajos realizados en {{ r.periodo|date:"F" }}:</div>
+            <ul id="trabajos">
+              <li>{% include 'departamentos/components/recibo_icono.html' with i='check-circulo' %} Mantenimiento de pozo a tierra.</li>
+              <li>{% include 'departamentos/components/recibo_icono.html' with i='check-circulo' %} Limpieza y desinfección de cisterna de agua.</li>
+            </ul>
+          </div>
+        </div>
       </div>
-      <div class="rm-d-card rm-d-puntual">
-        <h3>Pagar puntualmente nos beneficia a todos</h3>
-        <p>Evitas la mora y ayudas a cubrir a tiempo los servicios del edificio.</p>
+
+      {# ----- Tarjeta "Pagar puntualmente" ----- #}
+      <div class="rm-puntual">
+        <div class="rm-cal"><span>{% if r.vencimiento %}{{ r.vencimiento|date:"j" }}{% else %}5{% endif %}</span></div>
+        <div>
+          <h4>Pagar puntualmente es un compromiso</h4>
+          <p>con nuestros vecinos y con el bienestar de toda nuestra comunidad.</p>
+        </div>
       </div>
     </section>
 
     {# ---------------- Franja de pago (y 880): BCP | CCI | Titular | Aviso ---------------- #}
     <section class="rm-zona rm-z-franja">
-      <div class="rm-f-celda">
-        <span>{% if banco %}{{ banco.entidad }}{% else %}Cuenta{% endif %}</span>
-        <b data-k="cuenta">{{ banco.numero }}</b>
-        {% if billeteras %}<small>{% for b in billeteras %}{{ b.get_tipo_display }} {{ b.numero }}{% if not forloop.last %} · {% endif %}{% endfor %}</small>{% endif %}
+      <div class="rm-f-cta">
+        <div class="rm-f-cab">{% include 'departamentos/components/recibo_icono.html' with i='banco' %} {% if banco %}{{ banco.entidad }}{% else %}Cuenta{% endif %}:</div>
+        <div class="rm-f-cuerpo">
+          <b data-k="cuenta">{{ banco.numero }}</b>
+          <small>{% for b in billeteras %}{{ b.get_tipo_display }} {{ b.numero }} · {% endfor %}(Recuerda enviar voucher)</small>
+        </div>
       </div>
-      <div class="rm-f-celda">
-        <span>CCI</span>
-        <b data-k="cci">{{ banco.cci }}</b>
+      <div class="rm-f-cta">
+        <div class="rm-f-cab">{% include 'departamentos/components/recibo_icono.html' with i='enlace' %} Cuenta Interbancaria (CCI):</div>
+        <div class="rm-f-cuerpo"><b data-k="cci">{{ banco.cci }}</b></div>
       </div>
-      <div class="rm-f-celda rm-f-titular">
-        <span>Titular</span>
-        <b data-k="titular">{{ banco.titular }}</b>
+      <div class="rm-f-titular">
+        {% include 'departamentos/components/recibo_icono.html' with i='usuario' %}
+        <p><span>Titular:</span><b data-k="titular">{{ banco.titular }}</b></p>
       </div>
       <div class="rm-f-aviso">
-        <span>Aviso importante</span>
+        <h4>{% include 'departamentos/components/recibo_icono.html' with i='aviso' %} Aviso importante</h4>
         <p data-k="aviso">{{ aviso }}{% if r.restriccion %} Evita la restricción del servicio el <b>{{ r.restriccion|date:"d" }} de {{ r.restriccion|date:"F"|capfirst }}</b>.{% endif %}</p>
       </div>
     </section>
 
     {# ---------------- Pie (y 985): Emisión | Horario de atención | Vencimiento ---------------- #}
     <section class="rm-zona rm-z-pie">
-      <div class="rm-p-celda">
-        <span>Fecha de emisión</span>
-        <b data-k="emision">{{ r.emision|date:"d/m/Y" }}</b>
-      </div>
-      <div class="rm-p-celda rm-p-horario">
-        <div>
-          <span>Horario de atención</span>
-          <p>{{ config.horario_atencion|linebreaksbr }}</p>
-        </div>
-        <div class="rm-p-contacto">
-          {% if config.whatsapp %}<p>WhatsApp <b>{{ config.whatsapp }}</b></p>{% endif %}
-          {% if config.email %}<p>{{ config.email }}</p>{% endif %}
-        </div>
-      </div>
-      <div class="rm-p-celda rm-p-vence">
-        <span>Vencimiento</span>
-        <b data-k="vencimiento">{{ r.vencimiento|date:"d/m/Y" }}</b>
-      </div>
+      <div class="rm-p-cab">{% include 'departamentos/components/recibo_icono.html' with i='calendario' %} Fecha de emisión:</div>
+      <div class="rm-p-cab">{% include 'departamentos/components/recibo_icono.html' with i='reloj' %} Horario de atención:</div>
+      <div class="rm-p-cab">{% include 'departamentos/components/recibo_icono.html' with i='calendario-check' %} Vencimiento:</div>
+      <div class="rm-p-val" data-k="emision">{{ r.emision|date:"j \d\e F Y" }}</div>
+      <div class="rm-p-val rm-p-horario">{{ config.horario_atencion|linebreaksbr }}</div>
+      <div class="rm-p-val" data-k="vencimiento">{{ r.vencimiento|date:"j \d\e F Y" }}</div>
     </section>
 
-    {# ---------------- Ondas verde/amarillo al pie de la hoja ---------------- #}
+    {# ---------------- Ondas verde/amarillo en las esquinas de abajo ---------------- #}
     <section class="rm-zona rm-z-ondas" aria-hidden="true">
-      <svg viewBox="0 0 1456 40" preserveAspectRatio="none">
-        <path class="rm-onda-a" d="M0 16 C 240 0, 480 34, 728 16 S 1216 0, 1456 14 V40 H0 Z"/>
-        <path class="rm-onda-v" d="M0 28 C 260 12, 500 44, 760 26 S 1240 12, 1456 26 V40 H0 Z"/>
+      <svg viewBox="0 0 1456 60" preserveAspectRatio="none">
+        <path class="rm-onda-a" d="M0 14 C 170 32 340 50 600 60 L0 60 Z"/>
+        <path class="rm-onda-v" d="M0 32 C 170 45 330 55 500 60 L0 60 Z"/>
+        <path class="rm-onda-a" d="M1456 14 C 1286 32 1116 50 856 60 L1456 60 Z"/>
+        <path class="rm-onda-v" d="M1456 32 C 1286 45 1126 55 956 60 L1456 60 Z"/>
       </svg>
     </section>
 
   </div>
 </div>
 <script>
-  /* Si la columna izquierda trae más filas de las que caben en sus 685 px, baja --rm-k
-     (todas sus letras) de a poco hasta que entre, con un mínimo del 75 %. */
+  /* Si la columna izquierda trae más filas de las que caben, baja --rm-k
+     (todas sus letras y espacios) de a poco hasta que entre, con un mínimo del 75 %. */
   (function () {
     function ajustar() {
       document.querySelectorAll('.recibo-mantenimiento .rm-z-izq').forEach(function (zona) {
