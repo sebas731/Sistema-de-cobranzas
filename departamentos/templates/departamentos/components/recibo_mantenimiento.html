@@ -83,7 +83,7 @@ Secciones de r en None no se muestran (no se inventan datos).
             <tr><td>MANTENIMIENTO ANTERIOR + MORA + INST. DE CAMARA + ASCENSORES (EN CASO DEBA)</td><td colspan="1"></td><td class="rm-num">{{ r.deuda|stringformat:".2f" }}</td></tr>
             {% if r.saldo_favor %}
             <tr><td>MULTA POR INASISTENCIA REUNION 09/08</td><td colspan="1"></td><td class="rm-num">{{ r.multa|stringformat:".2f" }}</td></tr>
-            {% elif %}
+            {% else %}
             <tr><td>MULTA POR INASISTENCIA REUNION 09/08</td><td colspan="1"></td><td class="rm-num"> 0 </td></tr>
             {% endif %}
             <tr class="rm-hueco"><td colspan="3"></td></tr>
