@@ -165,7 +165,10 @@ def _contexto_cargos(departamento, periodo):
     total_lineas = sum(item['monto'] for item in lineas_filtradas)
     
     # Subtotal incluyendo los nuevos cargos si deseas contemplarlos
-    sub_total = total_gastos_mes + total_lineas 
+    if cochera:
+        sub_total = total_gastos_mes + total_lineas +cochera
+    else:   
+        sub_total = total_gastos_mes + total_lineas
 
     return {
         'agua_total': b['agua_total'],
