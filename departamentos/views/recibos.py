@@ -155,11 +155,10 @@ def _contexto_cargos(departamento, periodo):
         else:
             otros_gastos.append(item)
 
-    # 4. El total vigente del mes ya viene calculado en datos_boleta() y es la
-    # fuente de verdad para la boleta. Recalcularlo desde los desglose del mes
-    # vuelve a sumar cargos que ya están incluidos en b['total_mes'], y provoca
-    # la diferencia de 0.01 / 0.02 que vemos en la vista.
-    sub_total = redondear(b['total_mes'])
+    # 4. El subtotal del recibo representa el mes base del recibo, no el total
+    # completo con mora/multa/cuota extraordinaria, que van en líneas separadas
+    # más abajo. Tomamos la fuente real del mes y quitamos solo esos rubros.
+    sub_total = redondear(b['total_mes'] - mora - multa - cuota_extraordinaria)
 
     return {
         'agua_total': b['agua_total'],
@@ -191,6 +190,7 @@ def _contexto_cargos(departamento, periodo):
         'vencimiento': b['vencimiento'] or (per and per.fecha_vencimiento),
         'restriccion': per and per.fecha_restriccion,
     }
+
 @login_required
 def recibo_boleta(request, pk):
     """Recibo del departamento para un mes: snapshot si se emitió, si no los cargos."""

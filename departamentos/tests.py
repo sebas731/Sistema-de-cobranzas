@@ -93,11 +93,13 @@ class ReciboSubtotalTests(TestCase):
         s.crear_cargo(self.dep, Concepto.objects.get(codigo='MANTENIMIENTO'), self.periodo, D('58.00'))
         s.crear_cargo(self.dep, Concepto.objects.get(codigo='COCHERA'), self.periodo, D('5.00'))
 
-    def test_subtotal_coincide_con_total_mes(self):
+    def test_subtotal_excluye_mora_y_multa(self):
         from departamentos.views.recibos import _contexto_cargos
 
         ctx = _contexto_cargos(self.dep, self.periodo)
-        self.assertEqual(ctx['sub_total'], s.datos_boleta(self.dep, self.periodo)['total_mes'])
+        boleta = s.datos_boleta(self.dep, self.periodo)
+        expected = boleta['total_mes'] - ctx['mora'] - ctx['multa'] - ctx['cuota_extraordinaria']
+        self.assertEqual(ctx['sub_total'], expected)
 
 
 class ReciboCompletoTests(TestCase):
