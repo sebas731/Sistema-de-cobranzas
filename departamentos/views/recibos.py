@@ -124,7 +124,7 @@ def _contexto_cargos(departamento, periodo):
     mora_mas_multa = mora + multa
 
     # 3. Filtrar las líneas generales para que no se dupliquen o se mezclen donde no deben
-    excluir_en_agua = ['MULTA', 'MORA', 'EXTRAORDINARIA'+'MANTENIMIENTO']
+    excluir_en_agua = ['MULTA', 'MORA', 'EXTRAORDINARIA','MANTENIMIENTO']
     lineas_filtradas = [
         {'etiqueta': i['nombre'], 'monto': i['monto']} 
         for i in b['items'] 
