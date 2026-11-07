@@ -126,7 +126,7 @@ def _contexto_cargos(departamento, periodo):
     # 3. Filtrar las líneas generales para que no se dupliquen o se mezclen donde no deben
     excluir_en_agua = ['MULTA', 'MORA', 'EXTRAORDINARIA','MANTENIMIENTO']
     lineas_filtradas = [
-        {'etiqueta': i['nombre'], 'monto': i['monto']} 
+        {'etiqueta': i['nombre'], 'monto': i['monto'], 'total':i['monto']*89} 
         for i in b['items'] 
         if not any(exc in i['nombre'].upper() for exc in excluir_en_agua)
     ]
@@ -168,6 +168,7 @@ def _contexto_cargos(departamento, periodo):
     sub_total = total_gastos_mes + total_lineas 
 
     return {
+        'agua_total': b['agua_total'],
         'servicios_condominio': servicios_condominio,
         'servicios_publicos': servicios_publicos,
         'gastos_administrativos': gastos_administrativos,

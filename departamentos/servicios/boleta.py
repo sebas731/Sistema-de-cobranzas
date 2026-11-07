@@ -34,6 +34,7 @@ def datos_boleta(departamento, periodo):
     - Deuda anterior separada del total del mes.
     - Estado derivado de los datos (pagado / vencido / pendiente).
     """
+
     cargos = list(departamento.cargos.filter(periodo=periodo)
                   .select_related('concepto').prefetch_related('imputaciones'))
 

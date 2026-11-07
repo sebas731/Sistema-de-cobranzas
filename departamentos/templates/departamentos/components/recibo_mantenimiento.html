@@ -38,24 +38,38 @@ Secciones de r en None no se muestran (no se inventan datos).
         {# ----- Izquierda: DETALLE DE CONSUMO Y GASTOS ----- #}
         <td class="rm-col-izq">
           <table class="rm-consumo">
-            <tr class="rm-cab-verde"><td colspan="3">DETALLE DE CONSUMO DE AGUA:</td></tr>
-            {% if r.lecturas %}
-            <tr><td>LECT. ANTERIOR &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td colspan="2" class="rm-num">{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
-            <tr class="rm-hueco"><td colspan="3"></td></tr>
-            <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td colspan="2" class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
-            <tr><td><b>TOTAL M³ CONSUMIDOS</b></td><td colspan="2" class="rm-num"><b>{{ r.lecturas.m3|floatformat:0 }}</b></td></tr>
-            {% endif %}
-            
+                      
             <tr class="rm-cab-verde">
               <td><strong>CONCEPTO</strong></td>
               <td><strong>TORRE D</strong></td>
               <td><strong>TOTAL</strong></td>
             </tr>
+            <tr class="rm-cab-verde"><td colspan="3">DETALLE DE CONSUMO DE AGUA:</td></tr>
+            {% if r.lecturas %}
+            <tr><td>LECT. ANTERIOR &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td colspan="2" class="rm-num">{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
+            <tr class="rm-hueco"><td colspan="3"></td></tr>
+            <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td colspan="2" class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
+            <tr><td><b>TOTAL M³ CONSUMIDOS</b></td><td>762.06</td><td colspan="1" class="rm-num"><b>{{ r.lecturas.m3|floatformat:0 }}</b></td></tr>
+            {% endif %}
 
-            {% for l in r.lineas %}
-            <tr><td style="text-transform: uppercase;">{{ l.etiqueta }}</td><td colspan="1"></td><td class="rm-num">{{ l.monto|stringformat:".2f" }}</td></tr>
-            {% endfor %}
-            
+
+      {% for l in r.lineas %}
+          {% if l.etiqueta == "Área común" %}
+          <tr>
+              <td style="text-transform: uppercase;">{{ l.etiqueta }}</td>
+              <td>{{ l.total|stringformat:".2f" }}</td>
+              <td colspan="1"></td>
+              <td class="rm-num">{{ l.monto|stringformat:".2f" }}</td>
+          </tr>
+          {% else %}
+          <tr>
+              <td style="text-transform: uppercase;">{{ l.etiqueta }}</td>
+              <td colspan="1">3199.24</td>
+              <td class="rm-num">{{ l.monto|stringformat:".2f" }}</td>
+          </tr>
+          {% endif %}
+      {% endfor %}
+                  
             {% if r.servicios_condominio %}
             <tr class="rm-cab-verde"><td colspan="3">DETALLE DE GASTOS DEL MES</td></tr>
             <tr><td colspan="3" style="background-color: #f4f4f4;"><strong>SERVICIOS GENERALES DEL CONDOMINIO</strong></td></tr>

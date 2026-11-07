@@ -76,7 +76,7 @@ def desglose_gastos_mes(periodo):
         return {'descripcion': g.descripcion, 'total': g.monto,
                 'por_depto': redondear(share), 'compartido': g.compartido,
                 'del_mes': del_mes, 'objetivos': objetivos}
-
+    
     general, agua_comun, adicionales = [], [], []
     destino = {Categoria.AGUA_COMUN: agua_comun, Categoria.ADICIONAL: adicionales}
     for g in GastoFijo.objects.filter(activo=True):
