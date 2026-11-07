@@ -106,10 +106,11 @@
 .recibo-mantenimiento .rm-contacto td { font-size: 13px; padding: 8px 4px; }
 
 /* ---------- Pie ---------- */
+.recibo-mantenimiento .rm-pie { table-layout: fixed; width: 100%; margin-top: 6px; }
 .recibo-mantenimiento .rm-pie td { border: 1px solid var(--rm-linea); text-align: center; vertical-align: top; width: 33.33%; }
-.recibo-mantenimiento .rm-pie .rm-pie-cab td { font-weight: bold; text-transform: uppercase; font-size: 11.5px; padding: 4px; }
-.recibo-mantenimiento .rm-pie .rm-pie-val td { font-size: 14px; font-weight: bold; padding: 12px 4px 16px; vertical-align: middle; }
-.recibo-mantenimiento .rm-pie .rm-pie-cab td.rm-horario { font-weight: normal; text-transform: none; font-size: 12px; line-height: 1.4; }
+.recibo-mantenimiento .rm-pie .rm-pie-cab td { font-weight: bold; text-transform: uppercase; font-size: 10.5px; padding: 3px 4px; }
+.recibo-mantenimiento .rm-pie .rm-pie-val td { font-size: 12.5px; font-weight: bold; padding: 8px 4px 10px; vertical-align: middle; }
+.recibo-mantenimiento .rm-pie .rm-pie-cab td.rm-horario { font-weight: normal; text-transform: none; font-size: 10px; line-height: 1.25; white-space: normal; }
 
 /* ---------- Impresión / PDF ----------
    El layout (sidebar, header, .no-print) lo oculta el @media print de app.css;
@@ -136,8 +137,25 @@
   .recibo-mantenimiento .rm-contacto td {
     padding-top: 1px; padding-bottom: 1px;
   }
+  .recibo-mantenimiento .rm-pie {
+    margin-top: 4px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .recibo-mantenimiento .rm-pie td {
+    padding-top: 2px; padding-bottom: 2px;
+  }
+  .recibo-mantenimiento .rm-pie .rm-pie-cab td {
+    font-size: 9.5px;
+    padding: 2px 3px;
+  }
   .recibo-mantenimiento .rm-pie .rm-pie-val td {
-    padding: 8px 4px 10px;
+    font-size: 11.5px;
+    padding: 7px 3px 8px;
+  }
+  .recibo-mantenimiento .rm-pie .rm-pie-cab td.rm-horario {
+    font-size: 9px;
+    line-height: 1.1;
   }
   .recibo-mantenimiento .rm-aviso-texto {
     font-size: 12px;
