@@ -58,8 +58,9 @@
 /* ---------- Cuerpo en dos columnas ---------- */
 .recibo-mantenimiento .rm-cuerpo { margin-top: 6px; }
 .recibo-mantenimiento .rm-cuerpo > tbody > tr > td { vertical-align: top; padding: 0; }
-.recibo-mantenimiento .rm-col-izq { width: 47%; padding-right: 8px !important; }
-.recibo-mantenimiento .rm-col-der { width: 53%; }
+.recibo-mantenimiento .rm-col-izq { width: 58%; padding-right: 8px !important; }
+.recibo-mantenimiento .rm-col-der { width: 42%; }
+.recibo-mantenimiento .rm-sedapal { width: 100%; table-layout: fixed; }
 
 /* Izquierda: detalle de consumo (lista sin rejilla) */
 .recibo-mantenimiento .rm-consumo td { padding: 2px 5px; }
@@ -120,11 +121,14 @@
     page-break-inside: avoid; break-inside: avoid;
   }
   .recibo-mantenimiento .rm-hoja {
-    width: auto; margin: 0; padding: 0; border: 0; min-height: auto;
+    width: 100%; margin: 0; padding: 0; border: 0; min-height: auto;
   }
   .recibo-mantenimiento .rm-recibo {
     padding: 4px 6px 5px; border-width: 1px;
   }
+  .recibo-mantenimiento .rm-col-izq { width: 61%; }
+  .recibo-mantenimiento .rm-col-der { width: 39%; }
+  .recibo-mantenimiento .rm-sedapal { width: 100%; table-layout: fixed; }
   .recibo-mantenimiento .rm-consumo td,
   .recibo-mantenimiento .rm-sedapal td,
   .recibo-mantenimiento .rm-sedapal th,
