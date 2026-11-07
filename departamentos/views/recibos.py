@@ -21,7 +21,7 @@ from ..models import (
     TarifaAgua,
 )
 from ..servicios import borrar_generacion_mes, datos_boleta, desglose_gastos_mes, generar_cargos_mes
-from ..servicios.comun import ordenar_tramos
+from ..servicios.comun import ordenar_tramos, redondear
 from .comun import periodo_de_request
 
 
@@ -155,20 +155,11 @@ def _contexto_cargos(departamento, periodo):
         else:
             otros_gastos.append(item)
 
-    # 4. Cálculo de subtotales actualizado
-    total_condominio = sum(item['monto'] for item in servicios_condominio)
-    total_publicos = sum(item['monto'] for item in servicios_publicos)
-    total_administrativos = sum(item['monto'] for item in gastos_administrativos)
-    total_otros = sum(item['monto'] for item in otros_gastos)
-    
-    total_gastos_mes = total_condominio + total_publicos + total_administrativos + total_otros
-    total_lineas = sum(item['monto'] for item in lineas_filtradas)
-    
-    # Subtotal incluyendo los nuevos cargos si deseas contemplarlos
-    if cochera:
-        sub_total = total_gastos_mes + total_lineas +cochera
-    else:   
-        sub_total = total_gastos_mes + total_lineas
+    # 4. El total vigente del mes ya viene calculado en datos_boleta() y es la
+    # fuente de verdad para la boleta. Recalcularlo desde los desglose del mes
+    # vuelve a sumar cargos que ya están incluidos en b['total_mes'], y provoca
+    # la diferencia de 0.01 / 0.02 que vemos en la vista.
+    sub_total = redondear(b['total_mes'])
 
     return {
         'agua_total': b['agua_total'],

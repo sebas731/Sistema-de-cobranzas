@@ -67,6 +67,39 @@ class AguaSedapalTests(TestCase):
         self.assertEqual(s.aplicar_redondeo(D('47.19'), s.TRUNCAR_CENTIMOS), D('47.19'))
 
 
+class ReciboSubtotalTests(TestCase):
+    """El subtotal del recibo debe seguir el total del mes como fuente de verdad."""
+
+    def setUp(self):
+        s.sembrar_conceptos()
+        self.periodo = date(2026, 5, 1)
+        self.dep = Departamento.objects.create(numero_domicilio='101-T', cochera_monto=D('5.00'))
+        self.per = PeriodoFacturacion.objects.create(
+            periodo=self.periodo, fecha_emision=date(2026, 5, 14),
+            fecha_vencimiento=date(2026, 5, 24), fecha_restriccion=date(2026, 6, 2),
+            tarifa_agua=_crear_tarifa_sedapal(), sedapal_total_a=D('24760.60'),
+            consumo_dptos_b=D('21166.70'), dptos_habitados=460)
+        LecturaMedidor.objects.create(
+            departamento=self.dep, periodo=self.periodo,
+            lectura_anterior=D('2514'), lectura_actual=D('2525'),
+            fecha_anterior=date(2026, 4, 9), fecha_actual=date(2026, 5, 8))
+        c_mant = Concepto.objects.get(codigo='MANTENIMIENTO')
+        c_luz = Concepto.objects.get(codigo='LUZ_COMUN')
+        for desc, monto in [('Vigilancia', '30.00'), ('Limpieza', '18.00'), ('Administración', '10.00')]:
+            GastoFijo.objects.create(descripcion=desc, monto=D(monto), concepto=c_mant, compartido=False)
+        GastoFijo.objects.create(descripcion='Luz común', monto=D('5.20'), concepto=c_luz, compartido=False)
+        s.crear_cargo(self.dep, Concepto.objects.get(codigo='AGUA'), self.periodo, D('47.10'))
+        s.crear_cargo(self.dep, Concepto.objects.get(codigo='AREA_COMUN'), self.periodo, D('7.80'))
+        s.crear_cargo(self.dep, Concepto.objects.get(codigo='MANTENIMIENTO'), self.periodo, D('58.00'))
+        s.crear_cargo(self.dep, Concepto.objects.get(codigo='COCHERA'), self.periodo, D('5.00'))
+
+    def test_subtotal_coincide_con_total_mes(self):
+        from departamentos.views.recibos import _contexto_cargos
+
+        ctx = _contexto_cargos(self.dep, self.periodo)
+        self.assertEqual(ctx['sub_total'], s.datos_boleta(self.dep, self.periodo)['total_mes'])
+
+
 class ReciboCompletoTests(TestCase):
     """Recibo completo = el caso de la foto debe dar S/ 153.10."""
 
