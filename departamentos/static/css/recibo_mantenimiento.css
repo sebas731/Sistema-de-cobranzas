@@ -114,10 +114,29 @@
    El layout (sidebar, header, .no-print) lo oculta el @media print de app.css;
    aquí solo la hoja: A4 sin márgenes del navegador (el margen lo da .rm-hoja). */
 @media print {
-  @page { size: A4 portrait; margin: 0; }
-  .recibo-mantenimiento { overflow: visible; width: 240; height: auto;}
-   .recibo-mantenimiento .rm-hoja {
-    width: auto; margin: 0 auto; border: 0; min-height: auto;
+  @page { size: A4 portrait; margin: 4mm; }
+  .recibo-mantenimiento {
+    overflow: visible; width: 100%; height: auto; font-size: 11px; line-height: 1.2;
+    page-break-inside: avoid; break-inside: avoid;
+  }
+  .recibo-mantenimiento .rm-hoja {
+    width: auto; margin: 0; padding: 0; border: 0; min-height: auto;
+  }
+  .recibo-mantenimiento .rm-recibo {
+    padding: 4px 6px 5px; border-width: 1px;
+  }
+  .recibo-mantenimiento .rm-consumo td,
+  .recibo-mantenimiento .rm-sedapal td,
+  .recibo-mantenimiento .rm-sedapal th,
+  .recibo-mantenimiento .rm-cuenta td,
+  .recibo-mantenimiento .rm-contacto td {
+    padding-top: 1px; padding-bottom: 1px;
+  }
+  .recibo-mantenimiento .rm-pie .rm-pie-val td {
+    padding: 8px 4px 10px;
+  }
+  .recibo-mantenimiento .rm-aviso-texto {
+    font-size: 12px;
   }
 }
 /**/
