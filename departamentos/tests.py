@@ -338,6 +338,27 @@ class CuotaExtraordinariaTests(TestCase):
         self.assertEqual(codigos, ['CUOTA'])
 
 
+class DosDecimalesTests(TestCase):
+    """Todo a 2 decimales (como el Excel): cada gasto por depto se redondea a
+    céntimos y luego se suma; nunca se redondea solo el total."""
+
+    def setUp(self):
+        s.sembrar_conceptos()
+        for n in ('1', '2', '3'):
+            Departamento.objects.create(numero_domicilio=f'90{n}-T')
+        for desc in ('Limpieza', 'Vigilancia'):
+            GastoFijo.objects.create(descripcion=desc, monto=D('10.00'), compartido=True)
+
+    def test_suma_de_aportes_redondeados(self):
+        # 10 / 3 = 3.333… → 3.33 por gasto; 3.33 + 3.33 = 6.66 (no 20 / 3 = 6.67)
+        periodo = date(2026, 11, 1)
+        self.assertEqual(s.prorrateo_mes(periodo)['mantenimiento'], D('6.66'))
+        s.generar_cargos_mes(periodo)
+        dep = Departamento.objects.get(numero_domicilio='901-T')
+        self.assertEqual(dep.cargos.get(periodo=periodo, concepto__codigo='MANTENIMIENTO').monto, D('6.66'))
+        self.assertEqual(s.datos_boleta(dep, periodo)['total_mes'], D('6.66'))
+
+
 class CostoAguaPlanaTests(TestCase):
     """Tarifa plana por rango (Excel del condominio): todos los m³ a la tarifa del
     rango en que cae el consumo. Valores reales de la planilla de julio."""

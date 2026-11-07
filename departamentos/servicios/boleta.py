@@ -1,13 +1,8 @@
 """Boleta de cobranza (documento único web = impresión = PDF)."""
 from django.utils import timezone
 
-from ..models import Concepto, LecturaMedidor
-from .agua import costo_agua
-from .comun import CERO, redondear
-from .cuenta import deuda_anterior
-from .gastos import prorrateo_mes
-
-_RECUR_EXCEL = {'MANTENIMIENTO', 'AGUA', 'AREA_COMUN', 'COCHERA'}
+from ..models import Concepto
+from .comun import CERO
 
 # Identidad del edificio para la boleta. EDITAR con los datos reales.
 # Los campos opcionales (cuenta_pago, contacto) se muestran SOLO si tienen
@@ -75,21 +70,9 @@ def datos_boleta(departamento, periodo):
     mant_items = [{'nombre': i['nombre'], 'monto': i['monto']} for i in items if i['codigo'] != Concepto.AGUA]
     mant_total = sum((i['monto'] for i in items if i['codigo'] != Concepto.AGUA), CERO)
     hay_agua = agua_total > 0
+    # Total = suma directa de los montos del mes, todos ya a 2 decimales.
     total_mes = mant_total + agua_total
     anterior = prev_otros
-
-    # Total estilo Excel: recalcula mantenimiento+área+agua+cochera EN CRUDO y
-    # redondea 1 vez (suma → redondea), en vez de sumar cargos ya redondeados.
-    # Guardrail: si diverge > 5 céntimos (meses cargados a mano), no ajusta.
-    pr = prorrateo_mes(periodo)
-    lect = LecturaMedidor.objects.filter(departamento=departamento, periodo=periodo).first()
-    m3 = lect.m3_consumidos if lect else CERO
-    sys_recur = sum((c.monto for c in cargos if c.concepto.codigo in _RECUR_EXCEL), CERO)
-    excel_recur = redondear(pr['mantenimiento_raw'] + pr['area_comun_raw']
-                            + costo_agua(m3, redondeo=False) + (departamento.cochera_monto or CERO))
-    delta = excel_recur - sys_recur
-    if abs(delta) <= redondear('0.05'):
-        total_mes += delta
 
     # Estado real (no inventado): pagado si no queda saldo del mes; vencido si
     # algún cargo del mes ya venció con saldo; si no, pendiente.

@@ -1,17 +1,15 @@
 """Prorrateo de gastos (fijos + del mes) entre los departamentos."""
-from django.db.models import Sum
-
 from ..models import Departamento, GastoEdificio, GastoFijo
 from .comun import CERO, redondear
 
 Categoria = GastoEdificio.Categoria
 
 
-def _por_depto(compartido_total, directo_total, n):
-    """Monto por depto: la parte compartida se divide entre n; la parte
-    'por departamento' se cobra completa a cada uno."""
-    compartido = compartido_total / n if n else CERO
-    return redondear(compartido + directo_total)
+def aporte_por_depto(monto, compartido, n):
+    """Lo que paga un depto de UN gasto, a 2 decimales: compartido → monto ÷ n;
+    'por departamento' → el monto completo. Todo el sistema suma estos montos ya
+    redondeados (como el Excel del condominio), nunca el total sin redondear."""
+    return redondear(monto / n) if compartido else redondear(monto)
 
 
 def prorrateo_mes(periodo):
@@ -22,7 +20,8 @@ def prorrateo_mes(periodo):
     cobros) solo existen como gasto del mes y se cobran aparte.
 
     Cada gasto puede ser compartido (se divide entre los deptos) o por
-    departamento (cada depto paga el monto completo).
+    departamento (cada depto paga el monto completo). El monto por depto de cada
+    categoría es la suma de los aportes de sus gastos, cada uno a 2 decimales.
     """
     n = Departamento.objects.filter(activo=True).count()
     if n == 0:
@@ -35,18 +34,13 @@ def prorrateo_mes(periodo):
     # en la generación, no en el prorrateo uniforme).
     mes = GastoEdificio.objects.filter(periodo=periodo, departamentos__isnull=True)
 
-    def suma(categoria, compartido):
-        return sum((qs.filter(categoria=categoria, compartido=compartido)
-                    .aggregate(s=Sum('monto'))['s'] or CERO) for qs in (fijos, mes))
-
     datos = {'n': n}
     for clave, total, cat in (('mantenimiento', 'total_general', Categoria.GENERAL),
                               ('area_comun', 'total_agua_comun', Categoria.AGUA_COMUN),
                               ('adicionales', 'total_adicional', Categoria.ADICIONAL)):
-        compartido, directo = suma(cat, True), suma(cat, False)
-        datos[clave] = _por_depto(compartido, directo, n)
-        datos[clave + '_raw'] = (compartido / n if n else CERO) + directo   # sin redondear
-        datos[total] = compartido + directo
+        gastos = [g for qs in (fijos, mes) for g in qs.filter(categoria=cat)]
+        datos[clave] = sum((aporte_por_depto(g.monto, g.compartido, n) for g in gastos), CERO)
+        datos[total] = sum((g.monto for g in gastos), CERO)
     return datos
 
 
@@ -57,7 +51,7 @@ def fijos_aparte_por_depto():
     n = Departamento.objects.filter(activo=True).count() or 1
     montos = {}
     for g in GastoFijo.objects.filter(activo=True, concepto__es_recurrente=False).select_related('concepto'):
-        aporte = (g.monto / n) if g.compartido else g.monto
+        aporte = aporte_por_depto(g.monto, g.compartido, n)
         montos[g.concepto.codigo] = montos.get(g.concepto.codigo, CERO) + aporte
     return montos
 
@@ -72,9 +66,8 @@ def desglose_gastos_mes(periodo):
 
     def item(g, del_mes, objetivos=0):
         divisor = objetivos if objetivos else n
-        share = (g.monto / divisor) if g.compartido else g.monto
         return {'descripcion': g.descripcion, 'total': g.monto,
-                'por_depto': redondear(share), 'compartido': g.compartido,
+                'por_depto': aporte_por_depto(g.monto, g.compartido, divisor), 'compartido': g.compartido,
                 'del_mes': del_mes, 'objetivos': objetivos}
     
     general, agua_comun, adicionales = [], [], []
