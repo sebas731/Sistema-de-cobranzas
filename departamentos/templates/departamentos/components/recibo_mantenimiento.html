@@ -40,12 +40,12 @@ Secciones de r en None no se muestran (no se inventan datos).
           <table class="rm-consumo">
             <tr class="rm-cab-verde"><td colspan="3">DETALLE DE CONSUMO DE AGUA: </td></tr>
             {% if r.lecturas %}
-            <tr><td>LECT. ANTERIOR &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td class="rm-num col-2" >{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
+            <tr><td>LECT. ANTERIOR &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td colspan="1"></td><td class="rm-num col-2" >{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
             <tr class="rm-hueco"><td colspan="2"></td></tr>
-            <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
+            <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td colspan="1"></td><td class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
             <tr><td>TOTAL M³ CONSUMIDOS</td><td class="rm-num">{{ r.lecturas.m3|floatformat:0 }}</td></tr>
             {% endif %}
-            <tr><td class="rm-cab-verde"><strong>CONCEPTO<strong/></td><td class="rm-cab-verde"><strong>TORRE D<strong/></td><td class="rm-cab-verde"><strong>TOTAL<strong/> </td></tr>
+            
             {% for l in r.lineas %}
             <tr><td style="text-transform: uppercase;">{{ l.etiqueta }}</td> <td colspan="1"></td><td class="rm-num">{{ l.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
