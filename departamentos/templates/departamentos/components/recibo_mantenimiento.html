@@ -21,13 +21,13 @@ Secciones de r en None no se muestran (no se inventan datos).
         </td>
         <td class="rm-cab-datos">
           <table>
-            <tr><td>Propietario</td><td class="rm-valor">{{ r.departamento.propietario }}</td></tr>
-            <tr><td>Torre </td><td class="rm-valor"> Torre D</td></tr>
+            <tr><td><b>Propietario</b></td><td class="rm-valor"><b>{{ r.departamento.propietario }}</b></td></tr>
+            <tr><td>Torre</td><td class="rm-valor">Torre D</td></tr>
             <tr><td>Departamento</td><td class="rm-valor">{{ r.departamento.numero_domicilio }}</td></tr>
           </table>
         </td>
         <td class="rm-cab-titulo">
-          <div class="rm-titulo">Recibo de<br>mantenimiento<br>{{ r.periodo|date:"F" }} - {{ r.periodo|date:"Y" }}</div>
+          <div class="rm-titulo">Recibo de<br>mantenimiento<br>{{ r.periodo|date:"F"|upper }} {{ r.periodo|date:"Y" }}</div>
         </td>
       </tr>
     </table>
@@ -35,59 +35,68 @@ Secciones de r en None no se muestran (no se inventan datos).
     {# ---------------- Dos columnas ---------------- #}
     <table class="rm-cuerpo">
       <tr>
-        {# ----- Izquierda: DETALLE DE CONSUMO ----- #}
+        {# ----- Izquierda: DETALLE DE CONSUMO Y GASTOS ----- #}
         <td class="rm-col-izq">
           <table class="rm-consumo">
-            <tr class="rm-cab-verde"><td colspan="3">DETALLE DE CONSUMO DE AGUA: </td></tr>
+            <tr class="rm-cab-verde"><td colspan="3">DETALLE DE CONSUMO DE AGUA:</td></tr>
             {% if r.lecturas %}
-            <tr><td>LECT. ANTERIOR &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td colspan="1"></td><td class="rm-num col-2" >{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
-            <tr class="rm-hueco"><td colspan="2"></td></tr>
-            <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td colspan="1"></td><td class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
-            <tr><td>TOTAL M³ CONSUMIDOS</td><td colspan="1"></td><td class="rm-num">{{ r.lecturas.m3|floatformat:0 }}</td></tr>
+            <tr><td>LECT. ANTERIOR &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td colspan="2" class="rm-num">{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
+            <tr class="rm-hueco"><td colspan="3"></td></tr>
+            <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td colspan="2" class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
+            <tr><td><b>TOTAL M³ CONSUMIDOS</b></td><td colspan="2" class="rm-num"><b>{{ r.lecturas.m3|floatformat:0 }}</b></td></tr>
             {% endif %}
             
+            <tr class="rm-cab-verde">
+              <td><strong>CONCEPTO</strong></td>
+              <td><strong>TORRE D</strong></td>
+              <td><strong>TOTAL</strong></td>
+            </tr>
+
             {% for l in r.lineas %}
-            <tr><td style="text-transform: uppercase;">{{ l.etiqueta }}</td> <td colspan="1"></td><td class="rm-num">{{ l.monto|stringformat:".2f" }}</td></tr>
+            <tr><td style="text-transform: uppercase;">{{ l.etiqueta }}</td><td colspan="1"></td><td class="rm-num">{{ l.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
             
             {% if r.servicios_condominio %}
-            <tr class="rm-cab-verde"><td colspan="3">Detalle de gastos del mes</td></tr>
-            <tr><td class="rm-cab-verde"><strong>CONCEPTO<strong/></td><td class="rm-cab-verde"><strong>TORRE D<strong/></td><td class="rm-cab-verde"><strong>TOTAL<strong/> </td></tr>
-            <tr><td colspan="3"><strong>SERVICIOS GENERALES DEL CONDOMINIO</strong></td></tr>
+            <tr class="rm-cab-verde"><td colspan="3">DETALLE DE GASTOS DEL MES</td></tr>
+            <tr><td colspan="3" style="background-color: #f4f4f4;"><strong>SERVICIOS GENERALES DEL CONDOMINIO</strong></td></tr>
             {% for g in r.servicios_condominio %}
-            <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
+            <tr><td style="text-transform: uppercase;">&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
             {% endif %}
 
             {% if r.servicios_publicos %}
-            <tr><td colspan="3"><strong>SERVICIOS PUBLICOS DE LA TORRE</strong></td></tr>
+            <tr><td colspan="3" style="background-color: #f4f4f4;"><strong>SERVICIOS PUBLICOS DE LA TORRE</strong></td></tr>
             {% for g in r.servicios_publicos %}
-            <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
+            <tr><td style="text-transform: uppercase;">&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
             {% endif %}
-
 
             {% if r.gastos_administrativos %}
             {% for g in r.gastos_administrativos %}
-            <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
+            <tr><td style="text-transform: uppercase;">&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
             {% endif %}
+
             {% if r.descuento is not None %}
-            <tr><td>Dscto. Mes anterior</td><td class="rm-num">{{ r.descuento|stringformat:".2f" }}</td></tr>
+            <tr><td>Dscto. Mes anterior</td><td colspan="2" class="rm-num">{{ r.descuento|stringformat:".2f" }}</td></tr>
             {% endif %}
+            
             {% if r.saldo_favor %}
-            <tr><td>Saldo a favor</td><td class="rm-num">{{ r.saldo_favor|stringformat:".2f" }}</td></tr>
+            <tr><td>Saldo a favor</td><td colspan="2" class="rm-num">{{ r.saldo_favor|stringformat:".2f" }}</td></tr>
             {% endif %}
-            <tr><td>SUB TOTAL Octubre {{ r.periodo|date:"F"|upper }}</td><td colspan="1"></td><td class="rm-num"><strong>{{ r.total_mes|stringformat:".2f" }}</strong></td></tr>
-            <tr><td> CUOTA EXTRAORDINARIA</td><td colspan="1"></td><td class="rm-num">{{ r.cuota_extraordinaria|stringformat:".2f" }}</td></tr>
+
+            <tr><td><b>SUB TOTAL {{ r.periodo|date:"F"|upper }}</b></td><td colspan="1"></td><td class="rm-num"><b>{{ r.sub_total|stringformat:".2f" }}</b></td></tr>
+            <tr><td>CUOTA EXTRAORDINARIA</td><td colspan="1"></td><td class="rm-num">{{ r.cuota_extraordinaria|stringformat:".2f" }}</td></tr>
             <tr><td>MANTENIMIENTO ANTERIOR + MORA + INST. DE CAMARA + ASCENSORES (EN CASO DEBA)</td><td colspan="1"></td><td class="rm-num">{{ r.deuda|stringformat:".2f" }}</td></tr>
-            {% if r.saldo_favor %}
+            
+            {% if r.multa %}
             <tr><td>MULTA POR INASISTENCIA REUNION 09/08</td><td colspan="1"></td><td class="rm-num">{{ r.multa|stringformat:".2f" }}</td></tr>
             {% else %}
-            <tr><td>MULTA POR INASISTENCIA REUNION 09/08</td><td colspan="1"></td><td class="rm-num"> 0 </td></tr>
+            <tr><td>MULTA POR INASISTENCIA REUNION 09/08</td><td colspan="1"></td><td class="rm-num">0.00</td></tr>
             {% endif %}
+
             <tr class="rm-hueco"><td colspan="3"></td></tr>
-            <tr class="rm-pagar"><td>TOTAL A PAGAR</td><td class="rm-num" colspan="2">S/. {{ r.total_pagar|stringformat:".2f" }}</td></tr>
+            <tr class="rm-pagar"><td><b>TOTAL A PAGAR</b></td><td class="rm-num" colspan="2"><b>S/. {{ r.total_pagar|stringformat:".2f" }}</b></td></tr>
           </table>
         </td>
 
@@ -128,43 +137,43 @@ Secciones de r en None no se muestran (no se inventan datos).
 
     {# ---------------- Pago ---------------- #}
     <table class="rm-pago">
-      <tr><td colspan="2"><span class="rm-ref">REF: {{ r.departamento.numero_domicilio }}</span></td></tr>
-      {% if banco %}<tr><td colspan="2"><span class="rm-banco">{{ banco.entidad }}</span></td></tr>{% endif %}
+      <tr><td colspan="2"><span class="rm-ref"><b>REF: {{ r.departamento.numero_domicilio }}</b></span></td></tr>
+      {% if banco %}<tr><td colspan="2"><span class="rm-banco"><b>{{ banco.entidad }}</b></span></td></tr>{% endif %}
     </table>
     <table class="rm-cuenta">
       <tr>
         <td>
-          {% if banco %}{{ banco.numero }}{% if banco.cci %} &nbsp; CCI {{ banco.cci }}{% endif %}
+          {% if banco %}<b>{{ banco.numero }}</b>{% if banco.cci %} &nbsp; <b>CCI {{ banco.cci }}</b>{% endif %}
           {% if banco.titular %}<br>{{ banco.titular }}{% endif %}{% endif %}
         </td>
         <td class="rm-billetera">
-          {% for b in billeteras %}<span class="rm-plin">{{ b.get_tipo_display|lower }}</span> {{ b.numero }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+          {% for b in billeteras %}<span class="rm-plin">{{ b.get_tipo_display|lower }}</span> <b>{{ b.numero }}</b>{% if not forloop.last %}<br>{% endif %}{% endfor %}
         </td>
       </tr>
     </table>
 
     {# ---------------- Aviso ---------------- #}
     <div class="rm-aviso">
-      <div class="rm-aviso-titulo">Aviso importante</div>
-      <div class="rm-aviso-texto">{{ aviso }}{% if r.restriccion %} Evita la restricción del servicio el {{ r.restriccion|date:"d" }} de {{ r.restriccion|date:"F"|capfirst }}.{% endif %}</div>
+      <div class="rm-aviso-titulo"><b>Aviso importante</b></div>
+      <div class="rm-aviso-texto">{{ aviso }}{% if r.restriccion %} Evita la restricción del servicio el <b>{{ r.restriccion|date:"d" }} de {{ r.restriccion|date:"F"|capfirst }}</b>.{% endif %}</div>
     </div>
     <table class="rm-contacto">
       <tr>
         <td>{% if config.email %}<b>Email:</b> {{ config.email }}{% endif %}</td>
-        <td class="rm-num">{% if config.whatsapp %}<b>WhatsApp</b> {{ config.whatsapp }}{% endif %}</td>
+        <td class="rm-num">{% if config.whatsapp %}<b>WhatsApp:</b> {{ config.whatsapp }}{% endif %}</td>
       </tr>
     </table>
 
     {# ---------------- Pie ---------------- #}
     <table class="rm-pie">
       <tr class="rm-pie-cab">
-        <td>Fecha de emisión</td>
+        <td><b>Fecha de emisión</b></td>
         <td rowspan="2" class="rm-horario"><b class="rm-may">Horario de atención:</b><br>{{ config.horario_atencion|linebreaksbr }}</td>
-        <td>Vencimiento</td>
+        <td><b>Vencimiento</b></td>
       </tr>
       <tr class="rm-pie-val">
-        <td>{{ r.emision|date:"d/m/Y" }}</td>
-        <td>{{ r.vencimiento|date:"d/m/Y" }}</td>
+        <td><b>{{ r.emision|date:"d/m/Y" }}</b></td>
+        <td><b>{{ r.vencimiento|date:"d/m/Y" }}</b></td>
       </tr>
     </table>
 

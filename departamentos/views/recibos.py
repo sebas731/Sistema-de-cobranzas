@@ -165,7 +165,7 @@ def _contexto_cargos(departamento, periodo):
     total_lineas = sum(item['monto'] for item in lineas_filtradas)
     
     # Subtotal incluyendo los nuevos cargos si deseas contemplarlos
-    sub_total = total_gastos_mes + total_lineas + multa + cuota_extraordinaria + mora
+    sub_total = total_gastos_mes + total_lineas 
 
     return {
         'servicios_condominio': servicios_condominio,
