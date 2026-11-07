@@ -142,7 +142,7 @@ def _contexto_cargos(departamento, periodo):
         item = {
             'nombre': g['descripcion'],
             'monto': g['por_depto'],
-            'monto_completo': g['por_depto'] * 89
+            'monto_completo': g['total'],
         }
         desc_upper = g['descripcion'].upper()
 
