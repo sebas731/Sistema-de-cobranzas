@@ -168,3 +168,59 @@
   white-space: nowrap; 
   font-variant-numeric: tabular-nums; 
 }
+
+/* ---------- Impresión / PDF ----------
+   El layout (sidebar, header, .no-print) lo oculta el @media print de app.css;
+   aquí solo la hoja: A4 sin márgenes del navegador (el margen lo da .rm-hoja). */
+@media print {
+  @page { size: A4 portrait; margin: 2mm; } /* Reducimos el margen de la página a 2mm */
+  
+  .recibo-mantenimiento {
+    overflow: visible; width: 100%; height: auto; font-size: 10.5px; line-height: 1.15; /* Ligeramente más compacto */
+    page-break-inside: avoid; break-inside: avoid;
+  }
+  .recibo-mantenimiento .rm-hoja {
+    width: 100%; margin: 0; padding: 0; border: 0; min-height: auto;
+  }
+  .recibo-mantenimiento .rm-recibo {
+    padding: 2px 4px 3px; border-width: 1px; /* Minimizamos el padding interior del recibo */
+  }
+  .recibo-mantenimiento .rm-cuerpo { margin-top: 3px; }
+  .recibo-mantenimiento .rm-col-izq { width: 70%; }
+  .recibo-mantenimiento .rm-col-der { width: 30%; }
+  .recibo-mantenimiento .rm-sedapal { width: 92%; table-layout: fixed; }
+  
+  .recibo-mantenimiento .rm-consumo td,
+  .recibo-mantenimiento .rm-sedapal td,
+  .recibo-mantenimiento .rm-sedapal th,
+  .recibo-mantenimiento .rm-cuenta td,
+  .recibo-mantenimiento .rm-contacto td {
+    padding-top: 0.5px; padding-bottom: 0.5px; /* Reducimos las celdas al mínimo seguro */
+  }
+  
+  /* Ajustes específicos para que el pie y los avisos entren holgados en una sola hoja */
+  .recibo-mantenimiento .rm-pago { margin-top: 4px; }
+  .recibo-mantenimiento .rm-aviso-texto { font-size: 11px; padding: 2px 3px; }
+  .recibo-mantenimiento .rm-contacto td { padding: 4px 2px; }
+  
+  .recibo-mantenimiento .rm-pie {
+    margin-top: 3px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .recibo-mantenimiento .rm-pie td {
+    padding-top: 1px; padding-bottom: 1px;
+  }
+  .recibo-mantenimiento .rm-pie .rm-pie-cab td {
+    font-size: 9px;
+    padding: 1px 2px;
+  }
+  .recibo-mantenimiento .rm-pie .rm-pie-val td {
+    font-size: 10.5px;
+    padding: 3px 2px 4px; /* Reducimos el espacio vertical interno del pie */
+  }
+  .recibo-mantenimiento .rm-pie .rm-pie-cab td.rm-horario {
+    font-size: 8.5px;
+    line-height: 1.05;
+  }
+}
