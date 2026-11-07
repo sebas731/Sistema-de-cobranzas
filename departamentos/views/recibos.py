@@ -108,36 +108,66 @@ def _contexto_snapshot(recibo):
 
 
 def _contexto_cargos(departamento, periodo):
-    """Recibo desde los cargos del mes (datos_boleta), sin recalcular nada."""
     b = datos_boleta(departamento, periodo)
     per = PeriodoFacturacion.objects.filter(periodo=periodo).select_related('tarifa_agua').first()
     lectura = LecturaMedidor.objects.filter(departamento=departamento, periodo=periodo).first()
     tramos = _tarifa_vigente()
     agua_comun = next((i['monto'] for i in b['items'] if i['codigo'] == 'AREA_COMUN'), Decimal('0.00'))
-    # Desglose de los gastos del mes aplicados (lo que compone el mantenimiento):
-    # cada gasto con su aporte por departamento, en 2 decimales.
+    
     dg = desglose_gastos_mes(periodo)
-    desglose = [{'nombre': g['descripcion'], 'monto': g['por_depto'],'monto_completo': g['por_depto'] * 89}
-                for g in dg['general'] + dg['agua_comun'] + dg['adicionales']]
+    items_brutos = dg['general'] + dg['adicionales']
+
+    # Palabras clave de gastos generales que NO deben ir en el detalle de agua superior
+    excluir_en_agua = ['MULTA', 'MORA', 'EXTRAORDINARIA']
+
+    lineas_filtradas = [
+        {'etiqueta': i['nombre'], 'monto': i['monto']} 
+        for i in b['items'] 
+        if not any(exc in i['nombre'].upper() for exc in excluir_en_agua)
+    ]
+
+    # ... clasificación del desglose (igual que antes) ...
+    palabras_publicos = ['ENERGIA ELECTRICA', 'ENERGÍA ELÉCTRICA', 'AGUA POTABLE - CASETA']
+    servicios_publicos, servicios_condominio, gastos_administrativos, otros_gastos = [], [], [], []
+
+    for g in items_brutos:
+        item = {
+            'nombre': g['descripcion'],
+            'monto': g['por_depto'],
+            'monto_completo': g['por_depto'] * 89
+        }
+        desc_upper = g['descripcion'].upper()
+        if any(p in desc_upper for p in palabras_publicos):
+            servicios_publicos.append(item)
+        elif 'ADMINISTRATIVOS' in desc_upper:
+            gastos_administrativos.append(item)
+        elif any(p in desc_upper for p in ['VIGILANCIA', 'LIMPIEZA', 'ASCENSORES', 'ACOPIO', 'COCHERA']):
+            servicios_condominio.append(item)
+        else:
+            otros_gastos.append(item)
+
     return {
-        'desglose': desglose,
-        'departamento': departamento, 'periodo': periodo,
+        'servicios_condominio': servicios_condominio,
+        'servicios_publicos': servicios_publicos,
+        'gastos_administrativos': gastos_administrativos,
+        'otros_gastos': otros_gastos,
+        'departamento': departamento, 
+        'periodo': periodo,
         'lecturas': lectura and {
             'anterior_fecha': lectura.fecha_anterior, 'anterior': lectura.lectura_anterior,
             'actual_fecha': lectura.fecha_actual, 'actual': lectura.lectura_actual,
             'm3': lectura.m3_consumidos,
         },
-        'lineas': [{'etiqueta': i['nombre'], 'monto': i['monto']} for i in b['items']],
+        'lineas': lineas_filtradas, # <--- Usamos las líneas limpias aquí
         'descuento': None, 'saldo_favor': None,
         'total_mes': b['total_mes'], 'deuda': b['anterior'], 'total_pagar': b['total_pagar'],
         'tarifa': tramos.first(), 'tramos': _estructura_tarifaria(tramos),
-        'facturacion': None,  # el desglose SEDAPAL solo existe en el snapshot
+        'facturacion': None,
         'edificio': _edificio(per, agua_comun),
         'emision': b['emision'] or (per and per.fecha_emision),
         'vencimiento': b['vencimiento'] or (per and per.fecha_vencimiento),
         'restriccion': per and per.fecha_restriccion,
     }
-
 
 @login_required
 def recibo_boleta(request, pk):

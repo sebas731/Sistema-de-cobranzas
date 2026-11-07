@@ -50,11 +50,25 @@ Secciones de r en None no se muestran (no se inventan datos).
             <tr><td>{{ l.etiqueta }}</td> <td class="rm-num">{{ l.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
             
-            {% if r.desglose %}
+            {% if r.servicios_condominio %}
             <tr class="rm-cab-verde"><td colspan="3">Detalle de gastos del mes</td></tr>
             <tr><td class="rm-cab-verde"><strong>CONCEPTO<strong/></td><td class="rm-cab-verde"><strong>TORRE D<strong/></td><td class="rm-cab-verde"><strong>TOTAL<strong/> </td></tr>
-            
-            {% for g in r.desglose %}
+            <tr><td colspan="3"><strong>SERVICIOS GENERALES DEL CONDOMINIO</strong></td></tr>
+            {% for g in r.servicios_condominio %}
+            <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
+            {% endfor %}
+            {% endif %}
+
+            {% if r.servicios_publicos %}
+            <tr><td colspan="3"><strong>SERVICIOS PUBLICOS DE LA TORRE</strong></td></tr>
+            {% for g in r.servicios_publicos %}
+            <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
+            {% endfor %}
+            {% endif %}
+
+
+            {% if r.gastos_administrativos %}
+            {% for g in r.gastos_administrativos %}
             <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
             {% endif %}
