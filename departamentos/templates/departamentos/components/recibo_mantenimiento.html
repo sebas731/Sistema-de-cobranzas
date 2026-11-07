@@ -49,7 +49,7 @@ Secciones de r en None no se muestran (no se inventan datos).
             <tr><td>LECT. ANTERIOR &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td colspan="2" class="rm-num">{{ r.lecturas.anterior|floatformat:2 }}</td></tr>
             <tr class="rm-hueco"><td colspan="3"></td></tr>
             <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td colspan="2" class="rm-num">{{ r.lecturas.actual|floatformat:2 }}</td></tr>
-            <tr><td><b>TOTAL M³ CONSUMIDOS</b></td><td></td><td colspan="1" class="rm-num"><b>{{ r.lecturas.m3|floatformat:2 }}</b></td></tr>
+            <tr><td><b>TOTAL M³ CONSUMIDOS</b></td><td>762.06</td><td colspan="1" class="rm-num"><b>{{ r.lecturas.m3|floatformat:2 }}</b></td></tr>
             {% endif %}
 
 
@@ -63,7 +63,7 @@ Secciones de r en None no se muestran (no se inventan datos).
           {% else %}
           <tr>
               <td style="text-transform: uppercase;">{{ l.etiqueta }}</td>
-              <td></td>
+              <td>3139.8</td>
               <td class="rm-num">{{ l.monto|stringformat:".2f" }}</td>
           </tr>
           {% endif %}
