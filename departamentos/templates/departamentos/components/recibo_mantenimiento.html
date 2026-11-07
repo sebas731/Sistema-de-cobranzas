@@ -45,9 +45,9 @@ Secciones de r en None no se muestran (no se inventan datos).
             <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
             <tr><td>TOTAL M³ CONSUMIDOS</td><td class="rm-num">{{ r.lecturas.m3|floatformat:0 }}</td></tr>
             {% endif %}
-            
+            <tr><td class="rm-cab-verde"><strong>CONCEPTO<strong/></td><td class="rm-cab-verde"><strong>TORRE D<strong/></td><td class="rm-cab-verde"><strong>TOTAL<strong/> </td></tr>
             {% for l in r.lineas %}
-            <tr><td>{{ l.etiqueta }}</td> <td class="rm-num">{{ l.monto|stringformat:".2f" }}</td></tr>
+            <tr><td style="text-transform: uppercase;">{{ l.etiqueta }}</td> <td colspan="1"></td><td class="rm-num">{{ l.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
             
             {% if r.servicios_condominio %}
@@ -78,8 +78,14 @@ Secciones de r en None no se muestran (no se inventan datos).
             {% if r.saldo_favor %}
             <tr><td>Saldo a favor</td><td class="rm-num">{{ r.saldo_favor|stringformat:".2f" }}</td></tr>
             {% endif %}
-            <tr><td>Total mes de {{ r.periodo|date:"F"|upper }}</td><td colspan="1"></td><td class="rm-num"><strong>{{ r.total_mes|stringformat:".2f" }}</strong></td></tr>
-            <tr><td>Deuda pendiente</td><td colspan="1"></td><td class="rm-num">{{ r.deuda|stringformat:".2f" }}</td></tr>
+            <tr><td>SUB TOTAL Octubre {{ r.periodo|date:"F"|upper }}</td><td colspan="1"></td><td class="rm-num"><strong>{{ r.total_mes|stringformat:".2f" }}</strong></td></tr>
+            <tr><td> CUOTA EXTRAORDINARIA</td><td colspan="1"></td><td class="rm-num">{{ r.cuota_extraordinaria|stringformat:".2f" }}</td></tr>
+            <tr><td>MANTENIMIENTO ANTERIOR + MORA + INST. DE CAMARA + ASCENSORES (EN CASO DEBA)</td><td colspan="1"></td><td class="rm-num">{{ r.deuda|stringformat:".2f" }}</td></tr>
+            {% if r.saldo_favor %}
+            <tr><td>MULTA POR INASISTENCIA REUNION 09/08</td><td colspan="1"></td><td class="rm-num">{{ r.multa|stringformat:".2f" }}</td></tr>
+            {% elif %}
+            <tr><td>MULTA POR INASISTENCIA REUNION 09/08</td><td colspan="1"></td><td class="rm-num"> 0 </td></tr>
+            {% endif %}
             <tr class="rm-hueco"><td colspan="3"></td></tr>
             <tr class="rm-pagar"><td>TOTAL A PAGAR</td><td class="rm-num" colspan="2">S/. {{ r.total_pagar|stringformat:".2f" }}</td></tr>
           </table>

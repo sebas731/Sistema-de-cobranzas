@@ -108,25 +108,33 @@ def _contexto_snapshot(recibo):
 
 
 def _contexto_cargos(departamento, periodo):
+    """Recibo desde los cargos del mes (datos_boleta), sin recalcular nada."""
     b = datos_boleta(departamento, periodo)
     per = PeriodoFacturacion.objects.filter(periodo=periodo).select_related('tarifa_agua').first()
     lectura = LecturaMedidor.objects.filter(departamento=departamento, periodo=periodo).first()
     tramos = _tarifa_vigente()
     agua_comun = next((i['monto'] for i in b['items'] if i['codigo'] == 'AREA_COMUN'), Decimal('0.00'))
     
-    dg = desglose_gastos_mes(periodo)
-    items_brutos = dg['general'] + dg['adicionales']
+    # 1. Extraer individualmente cada concepto si existe en b['items']
+    multa = next((i['monto'] for i in b['items'] if 'MULTA' in i['nombre'].upper()), Decimal('0.00'))
+    cuota_extraordinaria = next((i['monto'] for i in b['items'] if 'EXTRAORDINARIA' in i['nombre'].upper()), Decimal('0.00'))
+    mora = next((i['monto'] for i in b['items'] if 'MORA' in i['nombre'].upper()), Decimal('0.00'))
+    
+    # 2. Crear la variable combinada de mora + multa
+    mora_mas_multa = mora + multa
 
-    # Palabras clave de gastos generales que NO deben ir en el detalle de agua superior
-    excluir_en_agua = ['MULTA', 'MORA', 'EXTRAORDINARIA']
-
+    # 3. Filtrar las líneas generales para que no se dupliquen o se mezclen donde no deben
+    excluir_en_agua = ['MULTA', 'MORA', 'EXTRAORDINARIA'+'MANTENIMIENTO']
     lineas_filtradas = [
         {'etiqueta': i['nombre'], 'monto': i['monto']} 
         for i in b['items'] 
         if not any(exc in i['nombre'].upper() for exc in excluir_en_agua)
     ]
+    
+    dg = desglose_gastos_mes(periodo)
+    items_brutos = dg['general'] + dg['adicionales']
 
-    # ... clasificación del desglose (igual que antes) ...
+    # Clasificación del desglose de gastos del mes...
     palabras_publicos = ['ENERGIA ELECTRICA', 'ENERGÍA ELÉCTRICA', 'AGUA POTABLE - CASETA']
     servicios_publicos, servicios_condominio, gastos_administrativos, otros_gastos = [], [], [], []
 
@@ -137,6 +145,7 @@ def _contexto_cargos(departamento, periodo):
             'monto_completo': g['por_depto'] * 89
         }
         desc_upper = g['descripcion'].upper()
+
         if any(p in desc_upper for p in palabras_publicos):
             servicios_publicos.append(item)
         elif 'ADMINISTRATIVOS' in desc_upper:
@@ -146,11 +155,30 @@ def _contexto_cargos(departamento, periodo):
         else:
             otros_gastos.append(item)
 
+    # 4. Cálculo de subtotales actualizado
+    total_condominio = sum(item['monto'] for item in servicios_condominio)
+    total_publicos = sum(item['monto'] for item in servicios_publicos)
+    total_administrativos = sum(item['monto'] for item in gastos_administrativos)
+    total_otros = sum(item['monto'] for item in otros_gastos)
+    
+    total_gastos_mes = total_condominio + total_publicos + total_administrativos + total_otros
+    total_lineas = sum(item['monto'] for item in lineas_filtradas)
+    
+    # Subtotal incluyendo los nuevos cargos si deseas contemplarlos
+    sub_total = total_gastos_mes + total_lineas + multa + cuota_extraordinaria + mora
+
     return {
         'servicios_condominio': servicios_condominio,
         'servicios_publicos': servicios_publicos,
         'gastos_administrativos': gastos_administrativos,
         'otros_gastos': otros_gastos,
+        # Nuevas variables disponibles para el template:
+        'multa': multa,
+        'cuota_extraordinaria': cuota_extraordinaria,
+        'mora': mora,
+        'mora_mas_multa': mora_mas_multa,
+        'sub_total': sub_total,
+        
         'departamento': departamento, 
         'periodo': periodo,
         'lecturas': lectura and {
@@ -158,9 +186,9 @@ def _contexto_cargos(departamento, periodo):
             'actual_fecha': lectura.fecha_actual, 'actual': lectura.lectura_actual,
             'm3': lectura.m3_consumidos,
         },
-        'lineas': lineas_filtradas, # <--- Usamos las líneas limpias aquí
+        'lineas': lineas_filtradas,
         'descuento': None, 'saldo_favor': None,
-        'total_mes': b['total_mes'], 'deuda': b['anterior'], 'total_pagar': b['total_pagar'],
+        'total_mes': b['total_mes'], 'deuda': b['anterior']+mora, 'total_pagar': b['total_pagar'],
         'tarifa': tramos.first(), 'tramos': _estructura_tarifaria(tramos),
         'facturacion': None,
         'edificio': _edificio(per, agua_comun),
@@ -168,7 +196,6 @@ def _contexto_cargos(departamento, periodo):
         'vencimiento': b['vencimiento'] or (per and per.fecha_vencimiento),
         'restriccion': per and per.fecha_restriccion,
     }
-
 @login_required
 def recibo_boleta(request, pk):
     """Recibo del departamento para un mes: snapshot si se emitió, si no los cargos."""
