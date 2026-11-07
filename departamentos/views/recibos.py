@@ -117,7 +117,7 @@ def _contexto_cargos(departamento, periodo):
     # Desglose de los gastos del mes aplicados (lo que compone el mantenimiento):
     # cada gasto con su aporte por departamento, en 2 decimales.
     dg = desglose_gastos_mes(periodo)
-    desglose = [{'nombre': g['descripcion'], 'monto': g['por_depto']}
+    desglose = [{'nombre': g['descripcion'], 'monto': g['por_depto'],'monto_completo': g['por_depto'] * 89}
                 for g in dg['general'] + dg['agua_comun'] + dg['adicionales']]
     return {
         'desglose': desglose,

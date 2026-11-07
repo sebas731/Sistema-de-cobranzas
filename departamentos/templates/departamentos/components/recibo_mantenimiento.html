@@ -5,6 +5,7 @@ Contexto: r (views/recibos.py: snapshot o cargos), config, logo_url, aviso, banc
 Estilos SOLO en static/css/recibo_mantenimiento.css, todos bajo .recibo-mantenimiento.
 Secciones de r en None no se muestran (no se inventan datos).
 {% endcomment %}
+
 {% localize off %}
 <div class="recibo-mantenimiento">
   <div class="rm-hoja">
@@ -37,12 +38,12 @@ Secciones de r en None no se muestran (no se inventan datos).
         {# ----- Izquierda: DETALLE DE CONSUMO ----- #}
         <td class="rm-col-izq">
           <table class="rm-consumo">
-            <tr class="rm-cab-verde"><td colspan="3">Detalle de consumo</td></tr>
+            <tr class="rm-cab-verde"><td colspan="3">DETALLE DE CONSUMO DE AGUA: </td></tr>
             {% if r.lecturas %}
-            <tr><td>Lect. Anterior &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td class="rm-num col-2" >{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
+            <tr><td>LECT. ANTERIOR &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td class="rm-num col-2" >{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
             <tr class="rm-hueco"><td colspan="2"></td></tr>
-            <tr><td>Lect. Actual &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
-            <tr><td>Total m³ Consumidos</td><td class="rm-num">{{ r.lecturas.m3|floatformat:0 }}</td></tr>
+            <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
+            <tr><td>TOTAL M³ CONSUMIDOS</td><td class="rm-num">{{ r.lecturas.m3|floatformat:0 }}</td></tr>
             {% endif %}
             
             {% for l in r.lineas %}
@@ -52,8 +53,9 @@ Secciones de r en None no se muestran (no se inventan datos).
             {% if r.desglose %}
             <tr class="rm-cab-verde"><td colspan="3">Detalle de gastos del mes</td></tr>
             <tr><td class="rm-cab-verde"><strong>CONCEPTO<strong/></td><td class="rm-cab-verde"><strong>TORRE D<strong/></td><td class="rm-cab-verde"><strong>TOTAL<strong/> </td></tr>
+            
             {% for g in r.desglose %}
-            <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td>1<td/><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
+            <tr><td>&nbsp;&nbsp;{{ g.nombre }}</td><td>{{ g.monto_completo|floatformat:2 }}</td><td class="rm-num">{{ g.monto|stringformat:".2f" }}</td></tr>
             {% endfor %}
             {% endif %}
             {% if r.descuento is not None %}
@@ -62,10 +64,10 @@ Secciones de r en None no se muestran (no se inventan datos).
             {% if r.saldo_favor %}
             <tr><td>Saldo a favor</td><td class="rm-num">{{ r.saldo_favor|stringformat:".2f" }}</td></tr>
             {% endif %}
-            <tr><td>Total mes de {{ r.periodo|date:"F"|upper }}</td><td class="rm-num">{{ r.total_mes|stringformat:".2f" }}</td></tr>
-            <tr><td>Deuda pendiente</td><td class="rm-num">{{ r.deuda|stringformat:".2f" }}</td></tr>
-            <tr class="rm-hueco"><td colspan="2"></td></tr>
-            <tr class="rm-pagar"><td>TOTAL A PAGAR</td><td class="rm-num">S/. {{ r.total_pagar|stringformat:".2f" }}</td></tr>
+            <tr><td>Total mes de {{ r.periodo|date:"F"|upper }}</td><td colspan="1"></td><td class="rm-num"><strong>{{ r.total_mes|stringformat:".2f" }}</strong></td></tr>
+            <tr><td>Deuda pendiente</td><td colspan="1"></td><td class="rm-num">{{ r.deuda|stringformat:".2f" }}</td></tr>
+            <tr class="rm-hueco"><td colspan="3"></td></tr>
+            <tr class="rm-pagar"><td>TOTAL A PAGAR</td><td class="rm-num" colspan="2">S/. {{ r.total_pagar|stringformat:".2f" }}</td></tr>
           </table>
         </td>
 

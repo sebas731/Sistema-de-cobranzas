@@ -81,7 +81,9 @@ def desglose_gastos_mes(periodo):
     destino = {Categoria.AGUA_COMUN: agua_comun, Categoria.ADICIONAL: adicionales}
     for g in GastoFijo.objects.filter(activo=True):
         destino.get(g.categoria, general).append(item(g, False))
+    
     for g in GastoEdificio.objects.filter(periodo=periodo).prefetch_related('departamentos'):
+        print("#######  "+ g.descripcion +" #######")
         destino.get(g.categoria, general).append(item(g, True, g.departamentos.count()))
 
     return {'n': n, 'general': general, 'agua_comun': agua_comun, 'adicionales': adicionales}
