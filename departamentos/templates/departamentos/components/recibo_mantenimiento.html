@@ -43,7 +43,7 @@ Secciones de r en None no se muestran (no se inventan datos).
             <tr><td>LECT. ANTERIOR &nbsp;: {{ r.lecturas.anterior_fecha|date:"d/m/Y" }}</td><td colspan="1"></td><td class="rm-num col-2" >{{ r.lecturas.anterior|floatformat:0 }}</td></tr>
             <tr class="rm-hueco"><td colspan="2"></td></tr>
             <tr><td>LECT. ACTUAL &nbsp;&nbsp;&nbsp;: {{ r.lecturas.actual_fecha|date:"d/m/Y" }}</td><td colspan="1"></td><td class="rm-num">{{ r.lecturas.actual|floatformat:0 }}</td></tr>
-            <tr><td>TOTAL M³ CONSUMIDOS</td><td class="rm-num">{{ r.lecturas.m3|floatformat:0 }}</td></tr>
+            <tr><td>TOTAL M³ CONSUMIDOS</td><td colspan="1"></td><td class="rm-num">{{ r.lecturas.m3|floatformat:0 }}</td></tr>
             {% endif %}
             
             {% for l in r.lineas %}
