@@ -195,7 +195,7 @@ Iconos: components/recibo_icono.html · Logo: components/logo_girasoles.svg
 
       {# ----- Tarjeta "Pagar puntualmente" ----- #}
       <div class="rm-puntual">
-        <div class="rm-cal"><span>10 de noviembre 2026</span></div>
+        <div class="rm-cal"><span>10</span></div>
         <div>
           <h4>Pagar puntualmente es un compromiso</h4>
           <p>con nuestros vecinos y con el bienestar de toda nuestra comunidad.</p>
@@ -233,7 +233,7 @@ Iconos: components/recibo_icono.html · Logo: components/logo_girasoles.svg
       <div class="rm-p-cab">{% include 'departamentos/components/recibo_icono.html' with i='calendario-check' %} Vencimiento:</div>
       <div class="rm-p-val" data-k="emision">{{ r.emision|date:"j \d\e F Y" }}</div>
       <div class="rm-p-val rm-p-horario">{{ config.horario_atencion|linebreaksbr }}</div>
-      <div class="rm-p-val" data-k="vencimiento">{{ r.vencimiento|date:"j \d\e F Y" }}</div>
+      <div class="rm-p-val" data-k="vencimiento">10 de noviembre de 2026</div>
     </section>
 
     {# ---------------- Ondas verde/amarillo en las esquinas de abajo ---------------- #}
