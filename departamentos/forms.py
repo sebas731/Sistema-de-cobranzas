@@ -97,19 +97,20 @@ class ProveedorForm(forms.ModelForm):
 class GastoEdificioForm(forms.ModelForm):
     class Meta:
         model = GastoEdificio
-        fields = ['descripcion', 'monto', 'categoria', 'compartido']
+        fields = ['descripcion', 'monto', 'categoria', 'compartido', 'tipo_servicio']
         widgets = {
             'descripcion': forms.TextInput(attrs={**_control, 'placeholder': 'Reparación puerta'}),
             'monto': forms.NumberInput(attrs={**_control, 'step': '0.01'}),
             'categoria': forms.Select(attrs=_select),
             'compartido': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'tipo_servicio': forms.Select(attrs=_select),
         }
 
 
 class GastoFijoForm(forms.ModelForm):
     class Meta:
         model = GastoFijo
-        fields = ['descripcion', 'monto', 'categoria', 'concepto', 'compartido', 'activo']
+        fields = ['descripcion', 'monto', 'categoria', 'tipo_servicio', 'concepto', 'compartido', 'activo']
         labels = {'concepto': 'Se cobra como'}
         widgets = {
             'descripcion': forms.TextInput(attrs={**_control, 'placeholder': 'Vigilancia'}),
@@ -118,6 +119,7 @@ class GastoFijoForm(forms.ModelForm):
             'concepto': forms.Select(attrs=_select),
             'compartido': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'tipo_servicio': forms.Select(attrs=_select),
         }
 
     def __init__(self, *args, **kwargs):

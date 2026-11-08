@@ -34,9 +34,9 @@ class ProveedorAdmin(admin.ModelAdmin):
 
 @admin.register(GastoFijo)
 class GastoFijoAdmin(admin.ModelAdmin):
-    list_display = ('descripcion', 'monto', 'categoria', 'compartido', 'activo')
-    list_editable = ('monto', 'compartido', 'activo')
-    list_filter = ('categoria', 'compartido', 'activo')
+    list_display = ('descripcion', 'monto', 'categoria', 'tipo_servicio', 'compartido', 'activo')
+    list_editable = ('monto', 'tipo_servicio', 'compartido', 'activo')
+    list_filter = ('categoria', 'tipo_servicio', 'compartido', 'activo')
     search_fields = ('descripcion',)
 
 
@@ -59,9 +59,9 @@ class DepartamentoAdmin(admin.ModelAdmin):
 
 @admin.register(GastoEdificio)
 class GastoEdificioAdmin(admin.ModelAdmin):
-    list_display = ('periodo', 'descripcion', 'monto', 'categoria', 'compartido')
-    list_editable = ('monto', 'compartido')
-    list_filter = ('periodo', 'categoria', 'compartido')
+    list_display = ('periodo', 'descripcion', 'monto', 'categoria', 'tipo_servicio', 'compartido')
+    list_editable = ('monto', 'tipo_servicio', 'compartido')
+    list_filter = ('periodo', 'categoria', 'tipo_servicio', 'compartido')
     search_fields = ('descripcion',)
 
 

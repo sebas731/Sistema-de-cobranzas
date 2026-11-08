@@ -17,7 +17,7 @@ from django.urls import reverse
 
 from ..forms import MESES_ES, BorrarRecibosForm, GenerarRecibosForm
 from ..models import (
-    ConfiguracionCondominio, Departamento, LecturaMedidor, PeriodoFacturacion, Recibo,
+    CategoriaServicio, ConfiguracionCondominio, Departamento, LecturaMedidor, PeriodoFacturacion, Recibo,
     TarifaAgua,
 )
 from ..servicios import borrar_generacion_mes, datos_boleta, desglose_gastos_mes, generar_cargos_mes
@@ -132,44 +132,28 @@ def _contexto_cargos(departamento, periodo):
         if not any(exc in i['nombre'].upper() for exc in excluir_en_agua)
     ]
     
+    # Gastos del mes en sus dos grupos del recibo, según el tipo de servicio de
+    # cada gasto. Las cuotas que se cobran aparte van en "Extras", no aquí.
     dg = desglose_gastos_mes(periodo)
-    items_brutos = dg['general'] + dg['adicionales']
-
-    # Clasificación del desglose de gastos del mes...
-    palabras_publicos = ['ENERGIA ELECTRICA', 'ENERGÍA ELÉCTRICA', 'AGUA POTABLE - CASETA']
-    servicios_publicos, servicios_condominio, gastos_administrativos, otros_gastos = [], [], [], []
-
-    for g in items_brutos:
-        item = {
-            'nombre': g['descripcion'],
-            'monto': g['por_depto'],
-            'monto_completo': g['total'],
-        }
-        desc_upper = g['descripcion'].upper()
-
-        if any(p in desc_upper for p in palabras_publicos):
-            servicios_publicos.append(item)
-        elif 'ADMINISTRATIVOS' in desc_upper:
-            gastos_administrativos.append(item)
-        elif any(p in desc_upper for p in ['VIGILANCIA', 'LIMPIEZA', 'ASCENSORES', 'ACOPIO', 'COCHERA']):
-            servicios_condominio.append(item)
-        else:
-            otros_gastos.append(item)
+    servicios_torre, servicios_condominio = [], []
+    for g in dg['general'] + dg['adicionales']:
+        if g['aparte']:
+            continue
+        item = {'nombre': g['descripcion'], 'monto': g['por_depto'], 'monto_completo': g['total']}
+        (servicios_torre if g['tipo_servicio'] == CategoriaServicio.TORRE else servicios_condominio).append(item)
 
     # 4. El subtotal del recibo representa el mes base del recibo, no el total
     # completo con mora/multa/cuota extraordinaria, que van en líneas separadas
     # más abajo. Tomamos la fuente real del mes y quitamos solo esos rubros.
     sub_total = redondear(b['total_mes'] - mora - multa - cuota_extraordinaria)
     # Barra "Total gastos": suma de las filas de los dos grupos de gastos del recibo.
-    total_gastos = redondear(sum((g['monto'] for g in servicios_condominio + servicios_publicos
-                                  + gastos_administrativos), Decimal('0')) + cochera)
+    total_gastos = redondear(sum((g['monto'] for g in servicios_torre + servicios_condominio),
+                                 Decimal('0')) + cochera)
 
     return {
         'agua_total': b['agua_total'],
-        'servicios_condominio': servicios_condominio,
-        'servicios_publicos': servicios_publicos,
-        'gastos_administrativos': gastos_administrativos,
-        'otros_gastos': otros_gastos,
+        'servicios_torre': servicios_torre,
+        'servicios_condominio': servicios_condominio,   # la cochera va al final de este grupo
         # Nuevas variables disponibles para el template:
         'multa': multa,
         'cuota_extraordinaria': cuota_extraordinaria,

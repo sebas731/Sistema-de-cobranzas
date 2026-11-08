@@ -19,7 +19,7 @@ Iconos: components/recibo_icono.html · Logo: components/logo_girasoles.svg
       </div>
 
       <div class="rm-enc-datos">
-        <div class="rm-enc-fila"><span>Propietario:</span><b data-k="propietario">{{ r.departamento.propietario }}</b></div>
+        <div class="rm-enc-fila"><span>Propietario:</span><b data-k="propietario"></b></div>
         <div class="rm-enc-fila"><span>Departamento:</span><b data-k="departamento">{{ r.departamento.numero_domicilio }}</b></div>
       </div>
 
@@ -33,29 +33,26 @@ Iconos: components/recibo_icono.html · Logo: components/logo_girasoles.svg
     <section class="rm-zona rm-z-izq">
 
       {# ----- Detalle de gastos del mes (2 grupos) ----- #}
-      {% if r.servicios_condominio or r.cochera or r.servicios_publicos or r.gastos_administrativos %}
+      {% if r.servicios_torre or r.servicios_condominio or r.cochera %}
       <div class="rm-bloque">
         <div class="rm-bloque-cab">{% include 'departamentos/components/recibo_icono.html' with i='calendario' %} Detalle de gastos del mes</div>
         <table class="rm-l">
           <colgroup><col><col class="rm-l-c-torre"><col class="rm-l-c-dpto"></colgroup>
+          {% if r.servicios_torre %}
+          <tr class="rm-l-grupo"><td colspan="3">Servicios generales de la torre</td></tr>
+          <tbody id="gastos-torre">
+          {% for g in r.servicios_torre %}
+          <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
+          {% endfor %}
+          </tbody>
+          {% endif %}
           {% if r.servicios_condominio or r.cochera %}
-          <tr class="rm-l-grupo"><td colspan="3">Servicios generales del condominio</td></tr>
+          <tr class="rm-l-grupo"><td colspan="3">Servicios comunes del condominio</td></tr>
           <tbody id="gastos-condominio">
           {% for g in r.servicios_condominio %}
           <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
           {% endfor %}
           {% if r.cochera %}<tr><td>Cochera</td><td class="rm-n"></td><td class="rm-n">{{ r.cochera|stringformat:".2f" }}</td></tr>{% endif %}
-          </tbody>
-          {% endif %}
-          {% if r.servicios_publicos or r.gastos_administrativos %}
-          <tr class="rm-l-grupo"><td colspan="3">Servicios públicos de la torre</td></tr>
-          <tbody id="gastos-torre">
-          {% for g in r.servicios_publicos %}
-          <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
-          {% endfor %}
-          {% for g in r.gastos_administrativos %}
-          <tr><td>{{ g.nombre }}</td><td class="rm-n">{{ g.monto_completo|floatformat:2 }}</td><td class="rm-n">{{ g.monto|stringformat:".2f" }}</td></tr>
-          {% endfor %}
           </tbody>
           {% endif %}
         </table>
@@ -198,7 +195,7 @@ Iconos: components/recibo_icono.html · Logo: components/logo_girasoles.svg
 
       {# ----- Tarjeta "Pagar puntualmente" ----- #}
       <div class="rm-puntual">
-        <div class="rm-cal"><span>{% if r.vencimiento %}{{ r.vencimiento|date:"j" }}{% else %}5{% endif %}</span></div>
+        <div class="rm-cal"><span>{% if r.vencimiento %}{{ r.vencimiento|date:"j" }}{% else %}10{% endif %}</span></div>
         <div>
           <h4>Pagar puntualmente es un compromiso</h4>
           <p>con nuestros vecinos y con el bienestar de toda nuestra comunidad.</p>

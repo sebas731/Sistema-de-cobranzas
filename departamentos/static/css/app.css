@@ -1048,7 +1048,7 @@ revo-grid.bal-grid { border: 0; border-radius: 0; }
 .cargo-resumen__total { font-family: var(--font-display); font-size: 1.25rem; color: var(--color-plum-shadow); font-variant-numeric: tabular-nums; }
 
 /* ---------- Gastos del mes ---------- */
-.gm-table .col-desc { min-width: 220px; } .gm-table .col-monto { width: 120px; } .gm-table .col-cat { width: 150px; }
+.gm-table .col-desc { min-width: 220px; } .gm-table .col-monto { width: 120px; } .gm-table .col-cat { width: 150px; } .gm-table .col-tipo { width: 210px; }
 .gm-table .col-modo { width: 180px; } .gm-table .col-aplica { width: 160px; } .gm-table .col-x { width: 40px; }
 .gm-comp-lbl { color: var(--text-muted); white-space: nowrap; }
 .gm-deptos { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px; }

@@ -4,7 +4,7 @@ from .agua import LecturaMedidor, TarifaAgua, TarifaAguaTramo, TarifaAguaVersion
 from .caja import MovimientoCaja
 from .cuenta import Cargo, Concepto, Imputacion, Pago
 from .departamento import Departamento, Proveedor, solo_digitos
-from .gastos import GastoEdificio, GastoFijo
+from .gastos import CategoriaServicio, GastoEdificio, GastoFijo
 from .recibo import (
     ConfiguracionCondominio, MedioPago, PeriodoFacturacion, PlanCuota, Recibo,
     ReciboLinea, ReciboSubLinea,

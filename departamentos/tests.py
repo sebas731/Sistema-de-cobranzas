@@ -359,6 +359,32 @@ class DosDecimalesTests(TestCase):
         self.assertEqual(s.datos_boleta(dep, periodo)['total_mes'], D('6.66'))
 
 
+class TipoServicioReciboTests(TestCase):
+    """El recibo separa los gastos por su tipo de servicio (torre / condominio);
+    la cochera va en condominio y la cuota que se cobra aparte no entra en los grupos."""
+
+    def setUp(self):
+        from departamentos.models import CategoriaServicio
+        s.sembrar_conceptos()
+        self.dep = Departamento.objects.create(numero_domicilio='501-T', cochera_monto=D('10.00'))
+        GastoFijo.objects.create(descripcion='Limpieza', monto=D('20.00'),
+                                 tipo_servicio=CategoriaServicio.TORRE)
+        GastoFijo.objects.create(descripcion='Vigilancia', monto=D('30.00'),
+                                 tipo_servicio=CategoriaServicio.CONDOMINIO)
+        GastoFijo.objects.create(descripcion='Cuota extraordinaria', monto=D('45.00'),
+                                 concepto=Concepto.objects.get(codigo='CUOTA'))
+        self.periodo = date(2026, 11, 1)
+        s.generar_cargos_mes(self.periodo)
+
+    def test_grupos_del_recibo(self):
+        from departamentos.views.recibos import _contexto_cargos
+        r = _contexto_cargos(self.dep, self.periodo)
+        self.assertEqual([g['nombre'] for g in r['servicios_torre']], ['Limpieza'])
+        self.assertEqual([g['nombre'] for g in r['servicios_condominio']], ['Vigilancia'])
+        self.assertEqual(r['cochera'], D('10.00'))
+        self.assertEqual(r['total_gastos'], D('60.00'))   # 20 + 30 + cochera 10, sin la cuota
+
+
 class CostoAguaPlanaTests(TestCase):
     """Tarifa plana por rango (Excel del condominio): todos los m³ a la tarifa del
     rango en que cae el consumo. Valores reales de la planilla de julio."""

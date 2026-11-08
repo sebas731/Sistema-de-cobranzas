@@ -4,6 +4,12 @@ from django.db import models
 from .departamento import Departamento
 
 
+class CategoriaServicio(models.TextChoices):
+    """Grupo en que aparece el gasto en el recibo."""
+    TORRE = 'TORRE', 'Servicios generales de la torre'
+    CONDOMINIO = 'CONDOMINIO', 'Servicios comunes del condominio'
+
+
 class GastoEdificio(models.Model):
     """Gasto VARIABLE del mes (dinámico, se registra por periodo). Según su
     categoría se combina con los gastos fijos: Mantenimiento y Agua se suman a
@@ -19,6 +25,10 @@ class GastoEdificio(models.Model):
     monto = models.DecimalField(max_digits=12, decimal_places=2)
     categoria = models.CharField(max_length=12, choices=Categoria.choices,
                                 default=Categoria.GENERAL)
+    tipo_servicio = models.CharField(
+        'Tipo de servicio', max_length=12, choices=CategoriaServicio.choices,
+        default=CategoriaServicio.CONDOMINIO,
+        help_text='Grupo del recibo: servicios de la torre o comunes del condominio.')
     compartido = models.BooleanField(
         'Compartido (dividir entre todos)', default=True,
         help_text='Marcado: el monto se divide entre los deptos. '
@@ -60,6 +70,10 @@ class GastoFijo(models.Model):
         help_text='Desmarcado: cada depto paga el monto completo. '
                   'Marcado: el monto se divide entre los deptos.')
     activo = models.BooleanField(default=True)
+    tipo_servicio = models.CharField(
+        'Tipo de servicio', max_length=12, choices=CategoriaServicio.choices,
+        default=CategoriaServicio.CONDOMINIO,
+        help_text='Grupo del recibo: servicios de la torre o comunes del condominio.')
 
     class Meta:
         verbose_name = 'Gasto fijo'
@@ -69,3 +83,4 @@ class GastoFijo(models.Model):
     def __str__(self):
         modo = 'compartido' if self.compartido else 'por depto'
         return f'{self.descripcion}: S/ {self.monto} ({modo})'
+

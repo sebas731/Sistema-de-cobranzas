@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.urls import reverse_lazy
 
 from ..forms import GastoFijoForm
-from ..models import Departamento, GastoEdificio, GastoFijo
+from ..models import CategoriaServicio, Departamento, GastoEdificio, GastoFijo
 from ..servicios import a_decimal, prorrateo_mes
 from .comun import EditarView, json_invalido, leer_json, lista_con_alta, periodo_de_request
 
@@ -32,6 +32,7 @@ class GastoFijoUpdateView(EditarView):
 def _guardar_gastos(payload, periodo):
     """Reemplaza los gastos del periodo por las filas de la tabla. Atómico."""
     validas = {c[0] for c in GastoEdificio.Categoria.choices}
+    tipos = {c[0] for c in CategoriaServicio.choices}
     creados = 0
     with transaction.atomic():
         GastoEdificio.objects.filter(periodo=periodo).delete()
@@ -43,6 +44,8 @@ def _guardar_gastos(payload, periodo):
             g = GastoEdificio.objects.create(
                 periodo=periodo, descripcion=desc, monto=monto,
                 categoria=r.get('categoria') if r.get('categoria') in validas else 'GENERAL',
+                tipo_servicio=(r.get('tipo_servicio') if r.get('tipo_servicio') in tipos
+                               else CategoriaServicio.CONDOMINIO),
                 compartido=bool(r.get('compartido', True)))
             ids = r.get('deptos') or []
             if ids:
@@ -67,9 +70,11 @@ def gastos_mes(request):
     return render(request, 'departamentos/gastos/mes.html', {
         'periodo_form': form, 'periodo': periodo, 'datos': prorrateo_mes(periodo),
         'gastos_json': [{'id': g.id, 'descripcion': g.descripcion, 'monto': float(g.monto),
-                         'categoria': g.categoria, 'compartido': g.compartido,
+                         'categoria': g.categoria, 'tipo_servicio': g.tipo_servicio,
+                         'compartido': g.compartido,
                          'deptos': [d.id for d in g.departamentos.all()]} for g in gastos],
         'deptos_json': [{'id': d.id, 'numero': d.numero_domicilio, 'propietario': d.propietario}
                         for d in Departamento.objects.filter(activo=True)],
         'categorias': list(GastoEdificio.Categoria.choices),
+        'tipos_servicio': list(CategoriaServicio.choices),
     })

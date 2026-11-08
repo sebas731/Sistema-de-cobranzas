@@ -64,17 +64,20 @@ def desglose_gastos_mes(periodo):
     """
     n = Departamento.objects.filter(activo=True).count() or 1
 
-    def item(g, del_mes, objetivos=0):
+    def item(g, del_mes, objetivos=0, aparte=False):
         divisor = objetivos if objetivos else n
         return {'descripcion': g.descripcion, 'total': g.monto,
                 'por_depto': aporte_por_depto(g.monto, g.compartido, divisor), 'compartido': g.compartido,
-                'del_mes': del_mes, 'objetivos': objetivos}
-    
+                'del_mes': del_mes, 'objetivos': objetivos,
+                'tipo_servicio': g.tipo_servicio,   # grupo del recibo (torre / condominio)
+                'aparte': aparte}                   # se cobra como cargo propio (ej. cuota extraordinaria)
+
     general, agua_comun, adicionales = [], [], []
     destino = {Categoria.AGUA_COMUN: agua_comun, Categoria.ADICIONAL: adicionales}
-    for g in GastoFijo.objects.filter(activo=True):
+    for g in GastoFijo.objects.filter(activo=True).select_related('concepto'):
         print("#######  "+ g.descripcion +" #######")
-        destino.get(g.categoria, general).append(item(g, False))
+        aparte = bool(g.concepto and not g.concepto.es_recurrente)
+        destino.get(g.categoria, general).append(item(g, False, aparte=aparte))
     
     for g in GastoEdificio.objects.filter(periodo=periodo).prefetch_related('departamentos'):
         print("#######  "+ g.descripcion +" #######")
