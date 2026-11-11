@@ -38,6 +38,8 @@
       </label>
       <button class="btn btn-sm btn-success">Ver</button>
     </form>
+    <a href="?mes={{ ref.month }}&anio={{ ref.year }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if solo_mes %}&solo=1{% endif %}&formato=xlsx"
+       class="btn btn-sm btn-outline-success">⬇️ Exportar Excel</a>
     <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary">🖨️ Exportar PDF</button>
   </div>
 </div>

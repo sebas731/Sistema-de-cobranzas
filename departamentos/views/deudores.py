@@ -79,12 +79,58 @@ def deudas_actuales(request):
                  or q in (f['depto'].propietario or '').lower()]
     filas.sort(key=lambda f: _num_key(f['depto'].numero_domicilio))
     tot = {k: sum((f[k] for f in filas), CERO) for k in cols}
+    mes_labels = [MESES_ES[m.month] for m in meses]
+
+    if request.GET.get('formato') == 'xlsx':
+        return _exportar_deudas_xlsx(filas, tot, ref, mes_labels, solo_mes)
 
     return render(request, 'departamentos/deudores/deudas_actuales.html', {
         'periodo_form': form, 'ref': ref, 'filas': filas, 'tot': tot, 'n': len(filas),
         'q': request.GET.get('q', ''), 'solo_mes': solo_mes,
-        'mes_labels': [MESES_ES[m.month] for m in meses],
+        'mes_labels': mes_labels,
     })
+
+
+def _exportar_deudas_xlsx(filas, tot, ref, mes_labels, solo_mes):
+    """Deudas actuales a Excel con el mismo desglose de la tabla."""
+    from django.http import HttpResponse
+    import openpyxl
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    enc = ['Depto', 'Propietario', 'Puertas', 'Cámara', 'Ascensor', 'Anterior',
+           mes_labels[0], mes_labels[1], mes_labels[2], 'Cuota', 'Multa', 'Mora', 'TOTAL']
+    campos = ['puertas', 'camara', 'ascensores', 'ant', 'm0', 'm1', 'm2', 'cuota', 'multa', 'mora', 'total']
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Deudas'
+    titulo = f'Deudas de {MESES_ES[ref.month]} {ref.year}' if solo_mes else f'Deudas actuales (ref. {MESES_ES[ref.month]} {ref.year})'
+    ws.append([titulo])
+    ws.append(enc)
+    verde = PatternFill('solid', fgColor='2E7D32')
+    for cell in ws[2]:
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = verde
+        cell.alignment = Alignment(horizontal='center')
+    for f in filas:
+        ws.append([f['depto'].numero_domicilio, f['depto'].propietario or '']
+                  + [float(f[k]) for k in campos])
+    ws.append(['TOTAL', ''] + [float(tot[k]) for k in campos])
+    for cell in ws[ws.max_row]:
+        cell.font = Font(bold=True)
+    ws.freeze_panes = 'A3'
+    for i, ancho in enumerate((10, 26, 10, 10, 10, 11, 11, 11, 11, 10, 10, 10, 12), start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = ancho
+    for row in ws.iter_rows(min_row=3, min_col=3):
+        for cell in row:
+            cell.number_format = '0.00'
+
+    resp = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    nombre = f'deudas_{ref.year}_{ref.month:02d}{"_mes" if solo_mes else ""}.xlsx'
+    resp['Content-Disposition'] = f'attachment; filename="{nombre}"'
+    wb.save(resp)
+    return resp
 
 
 def _estado(impagos, hoy, pronto):
