@@ -24,7 +24,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-header__title">Deudas actuales</h1>
-    <p class="page-header__subtitle">{{ n }} deudor{{ n|pluralize:"es" }} · referencia {{ ref|date:"F Y"|capfirst }}</p>
+    <p class="page-header__subtitle">{{ n }} deudor{{ n|pluralize:"es" }} · {% if solo_mes %}<strong>solo deudas de {{ ref|date:"F Y"|capfirst }}</strong>{% else %}referencia {{ ref|date:"F Y"|capfirst }}{% endif %}</p>
   </div>
   <div class="d-flex gap-2 align-items-end no-print flex-wrap">
     <form method="get" class="d-flex gap-2 align-items-end flex-wrap">
@@ -32,6 +32,10 @@
              style="width:220px" placeholder="Buscar depto o propietario...">
       <div>{{ periodo_form.mes }}</div>
       <div>{{ periodo_form.anio }}</div>
+      <label class="d-flex align-items-center gap-1 small mb-0" title="Mostrar solo las deudas generadas en el mes elegido">
+        <input type="checkbox" name="solo" value="1" {% if solo_mes %}checked{% endif %}
+               onchange="this.form.submit()"> Solo este mes
+      </label>
       <button class="btn btn-sm btn-success">Ver</button>
     </form>
     <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary">🖨️ Exportar PDF</button>

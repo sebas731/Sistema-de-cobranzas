@@ -13,14 +13,13 @@
       <div class="table-responsive">
         <table class="table ds-table">
           <thead>
-            <tr><th>Descripción</th><th>Categoría</th><th>Tipo de servicio</th><th class="text-end">Monto</th><th>Modo</th><th>Activo</th><th></th></tr>
+            <tr><th>Descripción</th><th>Categoría</th><th class="text-end">Monto</th><th>Modo</th><th>Activo</th><th></th></tr>
           </thead>
           <tbody>
             {% for g in gastos %}
             <tr>
               <td>{{ g.descripcion }}</td>
               <td>{% if g.concepto and not g.concepto.es_recurrente %}<span class="badge bg-primary">{{ g.concepto.nombre }}</span>{% elif g.categoria == 'AGUA_COMUN' %}<span class="badge bg-info text-dark">Agua común</span>{% else %}<span class="badge bg-secondary">Mantenimiento</span>{% endif %}</td>
-              <td>{{ g.get_tipo_servicio_display }}</td>
               <td class="text-end">S/ {{ g.monto }}</td>
               <td>{% if g.compartido %}<span class="badge bg-success">Compartido (÷ deptos)</span>{% else %}<span class="badge bg-warning text-dark">Por departamento</span>{% endif %}</td>
               <td>{% if g.activo %}Sí{% else %}<span class="text-muted">No</span>{% endif %}</td>
@@ -37,7 +36,7 @@
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="7" class="text-center text-muted py-3">Aún no hay gastos fijos.</td></tr>
+            <tr><td colspan="6" class="text-center text-muted py-3">Aún no hay gastos fijos.</td></tr>
             {% endfor %}
           </tbody>
         </table>

@@ -40,6 +40,9 @@ def deudas_actuales(request):
     form, ref = periodo_de_request(request)
     meses = [sumar_meses(ref, -2), sumar_meses(ref, -1), ref]   # ej. jul, ago, set
     q = request.GET.get('q', '').strip().lower()
+    # "Solo este mes": cuenta únicamente los cargos del periodo de referencia
+    # (ej. elegir octubre → solo las deudas generadas en octubre).
+    solo_mes = request.GET.get('solo') == '1'
 
     deps = (Departamento.objects.filter(activo=True)
             .prefetch_related('cargos__concepto', 'cargos__imputaciones'))
@@ -52,6 +55,8 @@ def deudas_actuales(request):
         for c in dep.cargos.all():
             s = c.saldo
             if s <= 0:
+                continue
+            if solo_mes and c.periodo != ref:
                 continue
             r['total'] += s
             col = _APARTE.get(c.concepto.codigo)
@@ -77,7 +82,7 @@ def deudas_actuales(request):
 
     return render(request, 'departamentos/deudores/deudas_actuales.html', {
         'periodo_form': form, 'ref': ref, 'filas': filas, 'tot': tot, 'n': len(filas),
-        'q': request.GET.get('q', ''),
+        'q': request.GET.get('q', ''), 'solo_mes': solo_mes,
         'mes_labels': [MESES_ES[m.month] for m in meses],
     })
 
