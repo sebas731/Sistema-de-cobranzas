@@ -55,6 +55,16 @@ class ImportarExcelForm(MesAnioForm):
         widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xlsm'}))
 
 
+class ImportarDeudasForm(forms.Form):
+    """Importa deudas (cargos) desde un Excel con el formato de la plantilla."""
+    archivo = forms.FileField(
+        label='Archivo Excel (.xlsx)',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xlsm'}))
+    aplicar = forms.BooleanField(
+        label='Aplicar (si lo dejas sin marcar, solo simula y muestra qué pasaría)',
+        required=False)
+
+
 class DepartamentoForm(forms.ModelForm):
     class Meta:
         model = Departamento

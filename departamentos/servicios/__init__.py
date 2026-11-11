@@ -28,5 +28,5 @@ from .cuenta import (
     generar_cargos_mes, registrar_pago, sembrar_conceptos,
 )
 from .gastos import desglose_gastos_mes, prorrateo_mes
-from .importacion import importar_lecturas_excel
+from .importacion import importar_deudas_excel, importar_lecturas_excel
 from .recibo import calcular_recibo, conceptos_mensuales, emitir_recibo
