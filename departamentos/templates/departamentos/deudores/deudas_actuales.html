@@ -1,4 +1,5 @@
 {% extends 'departamentos/layouts/base.html' %}
+{% load moneda %}
 {% block title %}Deudas actuales{% endblock %}
 
 {% block extra_head %}
@@ -71,17 +72,17 @@
       <tr>
         <td class="l fw-semibold">{{ f.depto.numero_domicilio }}</td>
         <td class="l">{{ f.depto.propietario|default:"—" }}</td>
-        <td class="{% if not f.puertas %}z{% endif %}">{% if f.puertas %}{{ f.puertas|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="{% if not f.camara %}z{% endif %}">{% if f.camara %}{{ f.camara|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="{% if not f.ascensores %}z{% endif %}">{% if f.ascensores %}{{ f.ascensores|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="{% if not f.ant %}z{% endif %}">{% if f.ant %}{{ f.ant|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="{% if not f.m0 %}z{% endif %}">{% if f.m0 %}{{ f.m0|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="{% if not f.m1 %}z{% endif %}">{% if f.m1 %}{{ f.m1|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="{% if not f.m2 %}z{% endif %}">{% if f.m2 %}{{ f.m2|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="{% if not f.cuota %}z{% endif %}">{% if f.cuota %}{{ f.cuota|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="{% if not f.multa %}z{% endif %}">{% if f.multa %}{{ f.multa|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="{% if not f.mora %}z{% endif %}">{% if f.mora %}{{ f.mora|floatformat:2 }}{% else %}·{% endif %}</td>
-        <td class="fw-semibold">{{ f.total|floatformat:2 }}</td>
+        <td class="{% if not f.puertas %}z{% endif %}">{% if f.puertas %}{{ f.puertas|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.camara %}z{% endif %}">{% if f.camara %}{{ f.camara|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.ascensores %}z{% endif %}">{% if f.ascensores %}{{ f.ascensores|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.ant %}z{% endif %}">{% if f.ant %}{{ f.ant|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.m0 %}z{% endif %}">{% if f.m0 %}{{ f.m0|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.m1 %}z{% endif %}">{% if f.m1 %}{{ f.m1|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.m2 %}z{% endif %}">{% if f.m2 %}{{ f.m2|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.cuota %}z{% endif %}">{% if f.cuota %}{{ f.cuota|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.multa %}z{% endif %}">{% if f.multa %}{{ f.multa|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.mora %}z{% endif %}">{% if f.mora %}{{ f.mora|soles }}{% else %}·{% endif %}</td>
+        <td class="fw-semibold">{{ f.total|soles }}</td>
       </tr>
       {% empty %}
       <tr><td colspan="13" class="text-center text-muted py-4">Sin deudores para este filtro. 🎉</td></tr>
@@ -90,17 +91,17 @@
     <tfoot>
       <tr>
         <td class="l" colspan="2">TOTAL ({{ n }})</td>
-        <td>{{ tot.puertas|floatformat:2 }}</td>
-        <td>{{ tot.camara|floatformat:2 }}</td>
-        <td>{{ tot.ascensores|floatformat:2 }}</td>
-        <td>{{ tot.ant|floatformat:2 }}</td>
-        <td>{{ tot.m0|floatformat:2 }}</td>
-        <td>{{ tot.m1|floatformat:2 }}</td>
-        <td>{{ tot.m2|floatformat:2 }}</td>
-        <td>{{ tot.cuota|floatformat:2 }}</td>
-        <td>{{ tot.multa|floatformat:2 }}</td>
-        <td>{{ tot.mora|floatformat:2 }}</td>
-        <td>{{ tot.total|floatformat:2 }}</td>
+        <td>{{ tot.puertas|soles }}</td>
+        <td>{{ tot.camara|soles }}</td>
+        <td>{{ tot.ascensores|soles }}</td>
+        <td>{{ tot.ant|soles }}</td>
+        <td>{{ tot.m0|soles }}</td>
+        <td>{{ tot.m1|soles }}</td>
+        <td>{{ tot.m2|soles }}</td>
+        <td>{{ tot.cuota|soles }}</td>
+        <td>{{ tot.multa|soles }}</td>
+        <td>{{ tot.mora|soles }}</td>
+        <td>{{ tot.total|soles }}</td>
       </tr>
     </tfoot>
   </table>

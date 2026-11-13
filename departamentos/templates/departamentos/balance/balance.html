@@ -1,4 +1,5 @@
 {% extends 'departamentos/layouts/base.html' %}
+{% load moneda %}
 {% block title %}Balance general{% endblock %}
 
 {% block extra_head %}
@@ -41,17 +42,17 @@
 <div class="bal-kpis">
   <div class="bal-kpi bal-kpi--hero">
     <div class="bal-kpi__label">Saldo {% if modo == 'anual' %}del año{% else %}del mes{% endif %}</div>
-    <div class="bal-kpi__value tone-{{ saldo_tone }}">S/ {{ saldo|floatformat:2 }}</div>
+    <div class="bal-kpi__value tone-{{ saldo_tone }}">S/ {{ saldo|soles }}</div>
     {% include 'departamentos/components/trend.html' with v=var_saldo ref=comparado_con %}
   </div>
   <div class="bal-kpi">
     <div class="bal-kpi__label"><span class="bal-key bal-key--ing"></span>Ingresos</div>
-    <div class="bal-kpi__value">S/ {{ ing_total|floatformat:2 }}</div>
+    <div class="bal-kpi__value">S/ {{ ing_total|soles }}</div>
     {% include 'departamentos/components/trend.html' with v=var_ing ref=comparado_con %}
   </div>
   <div class="bal-kpi">
     <div class="bal-kpi__label"><span class="bal-key bal-key--egr"></span>Egresos</div>
-    <div class="bal-kpi__value">S/ {{ egr_total|floatformat:2 }}</div>
+    <div class="bal-kpi__value">S/ {{ egr_total|soles }}</div>
     {% include 'departamentos/components/trend.html' with v=var_egr ref=comparado_con %}
   </div>
 </div>
@@ -62,24 +63,24 @@
     <section class="bal-lado">
       <h2 class="bal-lado__title">Ingresos <span>de dónde vino el dinero</span></h2>
       <div class="bal-lado__body">
-        <div class="dona" data-dona="ing" data-total="S/ {{ ing_total|floatformat:2 }}"></div>
+        <div class="dona" data-dona="ing" data-total="S/ {{ ing_total|soles }}"></div>
         <ul class="dona-leyenda" data-leyenda="ing"></ul>
       </div>
     </section>
     <section class="bal-lado">
       <h2 class="bal-lado__title">Egresos <span>en qué se gastó</span></h2>
       <div class="bal-lado__body">
-        <div class="dona" data-dona="egr" data-total="S/ {{ egr_total|floatformat:2 }}"></div>
+        <div class="dona" data-dona="egr" data-total="S/ {{ egr_total|soles }}"></div>
         <ul class="dona-leyenda" data-leyenda="egr"></ul>
       </div>
     </section>
   </div>
   <div class="bal-formula">
-    <span><small>Ingresos</small>S/ {{ ing_total|floatformat:2 }}</span>
+    <span><small>Ingresos</small>S/ {{ ing_total|soles }}</span>
     <span class="bal-formula__op">−</span>
-    <span><small>Egresos</small>S/ {{ egr_total|floatformat:2 }}</span>
+    <span><small>Egresos</small>S/ {{ egr_total|soles }}</span>
     <span class="bal-formula__op">=</span>
-    <span class="bal-formula__res tone-{{ saldo_tone }}"><small>Saldo</small>S/ {{ saldo|floatformat:2 }}</span>
+    <span class="bal-formula__res tone-{{ saldo_tone }}"><small>Saldo</small>S/ {{ saldo|soles }}</span>
   </div>
 </div>
 
@@ -103,15 +104,15 @@
           {% for m in meses %}
           <tr onclick="balOpenM({{ m.mes }})">
             <td class="fw-semibold">{{ m.nombre }}</td>
-            <td class="num">{{ m.ingresos|floatformat:2 }}</td>
-            <td class="num">{{ m.egresos|floatformat:2 }}</td>
-            <td class="num tone-{{ m.tone }}">{{ m.saldo|floatformat:2 }}</td>
+            <td class="num">{{ m.ingresos|soles }}</td>
+            <td class="num">{{ m.egresos|soles }}</td>
+            <td class="num tone-{{ m.tone }}">{{ m.saldo|soles }}</td>
             <td class="num"><span class="link-more">Ver →</span></td>
           </tr>
           {% endfor %}
         </tbody>
-        <tfoot><tr><td>Total</td><td class="num">{{ ing_total|floatformat:2 }}</td><td class="num">{{ egr_total|floatformat:2 }}</td>
-          <td class="num tone-{{ saldo_tone }}">{{ saldo|floatformat:2 }}</td><td></td></tr></tfoot>
+        <tfoot><tr><td>Total</td><td class="num">{{ ing_total|soles }}</td><td class="num">{{ egr_total|soles }}</td>
+          <td class="num tone-{{ saldo_tone }}">{{ saldo|soles }}</td><td></td></tr></tfoot>
       </table>
     </div>
     {% else %}
@@ -168,14 +169,17 @@
     { prop: 'concepto', name: 'Concepto', size: 260, readonly: true },
     { prop: 'monto', name: 'Monto S/', size: 140, readonly: true },
   ];
+  const coma = (v) => (v === '' || v == null) ? '' :
+    Number(String(v).replace(/,/g, '')).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function montar(id, filas, total) {
     const grid = document.getElementById(id);
     grid.columns = columnas;
     grid.stretch = true;
     grid.readonly = true;
     grid.rowClass = 'clase';
-    grid.source = filas.length ? filas : [{ concepto: 'Sin movimientos en este periodo', monto: '', clase: 'vacia' }];
-    grid.pinnedBottomSource = [{ concepto: 'TOTAL', monto: total, clase: 'total' }];
+    const src = filas.map(f => ({ ...f, monto: coma(f.monto) }));
+    grid.source = src.length ? src : [{ concepto: 'Sin movimientos en este periodo', monto: '', clase: 'vacia' }];
+    grid.pinnedBottomSource = [{ concepto: 'TOTAL', monto: coma(total), clase: 'total' }];
     // Alto exacto: cabecera + filas + total (sin scroll interno).
     grid.style.setProperty('--grid-h', ((Math.max(filas.length, 1) + 2) * FILA + 2) + 'px');
   }

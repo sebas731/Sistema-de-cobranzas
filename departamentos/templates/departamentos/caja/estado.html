@@ -1,4 +1,5 @@
 {% extends 'departamentos/layouts/base.html' %}
+{% load moneda %}
 {% block title %}Estado de caja{% endblock %}
 
 {% block content %}
@@ -51,13 +52,13 @@
 {# ---- Saldo inicial destacado ---- #}
 <div class="kpis">
   <div class="kpi-box"><div class="kpi-box__label">Saldo inicial</div>
-    <div class="kpi-box__value">S/ {{ datos.saldo_inicial|floatformat:2 }}</div></div>
+    <div class="kpi-box__value">S/ {{ datos.saldo_inicial|soles }}</div></div>
   <div class="kpi-box kpi-box--success"><div class="kpi-box__label">Ingresos del mes</div>
-    <div class="kpi-box__value">S/ {{ datos.ingresos_total|floatformat:2 }}</div></div>
+    <div class="kpi-box__value">S/ {{ datos.ingresos_total|soles }}</div></div>
   <div class="kpi-box kpi-box--danger"><div class="kpi-box__label">Egresos del mes</div>
-    <div class="kpi-box__value">S/ {{ datos.egresos_total|floatformat:2 }}</div></div>
+    <div class="kpi-box__value">S/ {{ datos.egresos_total|soles }}</div></div>
   <div class="kpi-box"><div class="kpi-box__label">Saldo final</div>
-    <div class="kpi-box__value">S/ {{ datos.saldo_final|floatformat:2 }}</div></div>
+    <div class="kpi-box__value">S/ {{ datos.saldo_final|soles }}</div></div>
 </div>
 
 <div class="row g-3">
@@ -68,12 +69,12 @@
         <thead><tr><th>Ingresos (por concepto)</th><th class="num">Monto</th></tr></thead>
         <tbody>
           {% for f in datos.ingresos %}
-          <tr><td>{{ f.concepto }}</td><td class="num">{{ f.monto|floatformat:2 }}</td></tr>
+          <tr><td>{{ f.concepto }}</td><td class="num">{{ f.monto|soles }}</td></tr>
           {% empty %}
           <tr><td colspan="2" class="text-muted">Sin ingresos registrados.</td></tr>
           {% endfor %}
         </tbody>
-        <tfoot><tr><td>Total ingresos</td><td class="num fw-semibold">{{ datos.ingresos_total|floatformat:2 }}</td></tr></tfoot>
+        <tfoot><tr><td>Total ingresos</td><td class="num fw-semibold">{{ datos.ingresos_total|soles }}</td></tr></tfoot>
       </table>
     </div>
 
@@ -87,7 +88,7 @@
           {% for m in datos.por_identificar %}
           <tr style="background:#fffbea;">
             <td>{{ m.fecha|date:"d/m/Y" }}<br><small class="text-muted">{{ m.descripcion }}</small></td>
-            <td class="num">{{ m.monto|floatformat:2 }}</td>
+            <td class="num">{{ m.monto|soles }}</td>
             <td>
               <form method="post" class="d-flex gap-1 no-print">
                 {% csrf_token %}
@@ -121,17 +122,17 @@
                 {% for mv in f.movs %}
                 <div class="small text-muted ms-3">{{ mv.fecha|date:"d/m" }} · {{ mv.descripcion }}
                   {% if mv.comprobante %}<span class="badge-soft">{{ mv.comprobante }}</span>{% endif %}
-                  — S/ {{ mv.monto|floatformat:2 }}</div>
+                  — S/ {{ mv.monto|soles }}</div>
                 {% endfor %}
               </details>
             </td>
-            <td class="num">{{ f.monto|floatformat:2 }}</td>
+            <td class="num">{{ f.monto|soles }}</td>
           </tr>
           {% empty %}
           <tr><td colspan="2" class="text-muted">Sin egresos registrados.</td></tr>
           {% endfor %}
         </tbody>
-        <tfoot><tr><td>Total egresos</td><td class="num fw-semibold">{{ datos.egresos_total|floatformat:2 }}</td></tr></tfoot>
+        <tfoot><tr><td>Total egresos</td><td class="num fw-semibold">{{ datos.egresos_total|soles }}</td></tr></tfoot>
       </table>
     </div>
   </div>
@@ -141,7 +142,7 @@
 <div class="table-card mt-3">
   <table class="table ds-table">
     <tbody>
-      <tr><td>Saldo final (sistema)</td><td class="num fw-semibold">S/ {{ datos.saldo_final|floatformat:2 }}</td></tr>
+      <tr><td>Saldo final (sistema)</td><td class="num fw-semibold">S/ {{ datos.saldo_final|soles }}</td></tr>
       <tr>
         <td>Saldo según banco
           <form method="get" class="d-inline-block no-print ms-2">
@@ -156,7 +157,7 @@
       </tr>
       {% if diferencia is not None %}
       <tr><td>Diferencia</td>
-        <td class="num {% if diferencia != 0 %}saldo-deuda{% else %}saldo-cero{% endif %}">S/ {{ diferencia|floatformat:2 }}</td></tr>
+        <td class="num {% if diferencia != 0 %}saldo-deuda{% else %}saldo-cero{% endif %}">S/ {{ diferencia|soles }}</td></tr>
       {% endif %}
     </tbody>
   </table>

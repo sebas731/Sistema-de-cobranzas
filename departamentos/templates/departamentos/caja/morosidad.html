@@ -1,4 +1,5 @@
 {% extends 'departamentos/layouts/base.html' %}
+{% load moneda %}
 {% block title %}Cobranza y morosidad{% endblock %}
 
 {% block content %}
@@ -16,11 +17,11 @@
 
 <div class="kpis">
   <div class="kpi-box"><div class="kpi-box__label">Emitido</div>
-    <div class="kpi-box__value">S/ {{ datos.emitido|floatformat:2 }}</div></div>
+    <div class="kpi-box__value">S/ {{ datos.emitido|soles }}</div></div>
   <div class="kpi-box kpi-box--success"><div class="kpi-box__label">Cobrado</div>
-    <div class="kpi-box__value">S/ {{ datos.cobrado|floatformat:2 }}</div></div>
+    <div class="kpi-box__value">S/ {{ datos.cobrado|soles }}</div></div>
   <div class="kpi-box kpi-box--danger"><div class="kpi-box__label">Pendiente</div>
-    <div class="kpi-box__value">S/ {{ datos.pendiente|floatformat:2 }}</div></div>
+    <div class="kpi-box__value">S/ {{ datos.pendiente|soles }}</div></div>
   <div class="kpi-box"><div class="kpi-box__label">% cobrado</div>
     <div class="kpi-box__value">{{ datos.pct|floatformat:1 }}%</div></div>
 </div>
@@ -33,9 +34,9 @@
       <tr>
         <td class="fw-semibold">{{ d.departamento.numero_domicilio }}</td>
         <td>{{ d.departamento.propietario }}</td>
-        <td class="num">{{ d.mes|floatformat:2 }}</td>
-        <td class="num">{{ d.anterior|floatformat:2 }}</td>
-        <td class="num saldo-deuda">{{ d.total|floatformat:2 }}</td>
+        <td class="num">{{ d.mes|soles }}</td>
+        <td class="num">{{ d.anterior|soles }}</td>
+        <td class="num saldo-deuda">{{ d.total|soles }}</td>
       </tr>
       {% empty %}
       <tr><td colspan="5" class="text-muted">Sin deudores. 🎉</td></tr>

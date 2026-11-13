@@ -7,9 +7,28 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from ..forms import MESES_ES
-from ..models import Concepto, GastoEdificio, GastoFijo, Pago
+from ..models import Concepto, GastoEdificio, GastoFijo, MovimientoCaja, Pago
 
 CERO = Decimal('0.00')
+
+# Ingresos de caja que NO son pagos de vecinos (saldo inicial, otros ingresos,
+# depósitos por identificar). Se suman al balance para que cuadre con la caja real.
+_MOV_ING_LABEL = {
+    MovimientoCaja.Tipo.SALDO_INICIAL: 'Caja administración anterior',
+    MovimientoCaja.Tipo.INGRESO_OTRO: 'Otros ingresos',
+    MovimientoCaja.Tipo.POR_IDENTIFICAR: 'Depósitos por identificar',
+}
+
+
+def _mov_ingresos(anio, mes=None):
+    """[(etiqueta, monto)] de MovimientoCaja de ingreso (no egreso) del periodo."""
+    f = {'estado': MovimientoCaja.Estado.VIGENTE, 'fecha__year': anio}
+    if mes:
+        f['fecha__month'] = mes
+    agg = defaultdict(lambda: CERO)
+    for m in MovimientoCaja.objects.filter(**f).exclude(tipo=MovimientoCaja.Tipo.EGRESO):
+        agg[_MOV_ING_LABEL.get(m.tipo, 'Otros ingresos')] += m.monto
+    return list(agg.items())
 
 
 def _ordenar_filas(agg, n):
@@ -40,6 +59,12 @@ def _balance_ingresos(anio, mes):
             movs[nom].append({'fecha': p.fecha_pago.strftime('%d/%m/%Y'),
                               'ref': p.departamento.numero_domicilio,
                               'monto': f'{monto:.2f}', 'nota': p.metodo or ''})
+    # Ingresos de caja (saldo inicial, otros, por identificar).
+    for nom, monto in _mov_ingresos(anio, mes):
+        total += monto
+        agg[nom]['monto'] += monto
+        agg[nom]['pagos'].add(f'mov-{nom}')
+        movs[nom].append({'fecha': '', 'ref': 'Caja', 'monto': f'{monto:.2f}', 'nota': ''})
     return total, _ordenar_filas(agg, lambda v: len(v['pagos'])), movs
 
 
@@ -138,6 +163,9 @@ def _tabla_ingresos(anio, mes=None):
     out = [{'concepto': filas[k][0], 'monto': f'{filas[k][1]:.2f}'} for k in orden]
     if a_cuenta:
         out.append({'concepto': 'A cuenta', 'monto': f'{a_cuenta:.2f}'})
+    # Ingresos de caja (saldo inicial, otros ingresos, por identificar).
+    for nom, monto in _mov_ingresos(anio, mes):
+        out.append({'concepto': nom, 'monto': f'{monto:.2f}'})
     return out
 
 

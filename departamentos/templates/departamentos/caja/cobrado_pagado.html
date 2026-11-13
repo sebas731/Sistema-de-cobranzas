@@ -1,4 +1,5 @@
 {% extends 'departamentos/layouts/base.html' %}
+{% load moneda %}
 {% block title %}Cobrado vs pagado{% endblock %}
 
 {% block content %}
@@ -23,9 +24,9 @@
       {% for f in datos.filas %}
       <tr{% if f.alerta %} style="background:#fdecea;"{% endif %}>
         <td>{{ f.rubro }}{% if f.alerta %} <span class="badge-soft badge-soft--danger">&gt;10%</span>{% endif %}</td>
-        <td class="num">{{ f.cobrado|floatformat:2 }}</td>
-        <td class="num">{{ f.pagado|floatformat:2 }}</td>
-        <td class="num {% if f.diferencia < 0 %}saldo-deuda{% endif %}">{{ f.diferencia|floatformat:2 }}</td>
+        <td class="num">{{ f.cobrado|soles }}</td>
+        <td class="num">{{ f.pagado|soles }}</td>
+        <td class="num {% if f.diferencia < 0 %}saldo-deuda{% endif %}">{{ f.diferencia|soles }}</td>
       </tr>
       {% empty %}
       <tr><td colspan="4" class="text-muted">Sin datos para este mes.</td></tr>
@@ -33,8 +34,8 @@
     </tbody>
     <tfoot>
       <tr><td>Total</td>
-        <td class="num fw-semibold">{{ datos.cobrado_total|floatformat:2 }}</td>
-        <td class="num fw-semibold">{{ datos.pagado_total|floatformat:2 }}</td>
+        <td class="num fw-semibold">{{ datos.cobrado_total|soles }}</td>
+        <td class="num fw-semibold">{{ datos.pagado_total|soles }}</td>
         <td class="num"></td></tr>
     </tfoot>
   </table>
