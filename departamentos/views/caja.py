@@ -10,7 +10,9 @@ import calendar
 
 from ..forms import MESES_ES
 from ..models import ConfiguracionCondominio, Departamento, MovimientoCaja
-from ..servicios import asignar_por_identificar, cobrado_vs_pagado, estado_caja, morosidad
+from ..servicios import (
+    asignar_por_identificar, cobrado_vs_pagado, estado_caja, estado_caja_rango, morosidad,
+)
 from ..servicios.cuenta import deudores as servicio_deudores
 from .comun import periodo_de_request, redirigir_al_periodo
 
@@ -86,16 +88,26 @@ def cobrado_vs_pagado_vista(request):
 def estado_cuenta(request):
     """Estado de cuenta formal del fondo de administración y mantenimiento,
     estilo contable (Saldo inicial → Ingresos → Egresos → Saldo final).
-    Imprimible a PDF, por mes/año."""
+    Imprimible a PDF. Modo mes (default) o `?modo=anio` (todo el año, con la
+    fecha actual como límite si el año es el corriente)."""
+    from datetime import date
     form, periodo = periodo_de_request(request)
-    datos = estado_caja(periodo.year, periodo.month)
-    # Ingresos para el documento: conceptos + depósitos por identificar.
+    hoy = date.today()
+    anual = request.GET.get('modo') == 'anio'
+    if anual:
+        desde = date(periodo.year, 1, 1)
+        hasta = min(hoy, date(periodo.year, 12, 31))
+    else:
+        desde = date(periodo.year, periodo.month, 1)
+        ultimo = calendar.monthrange(periodo.year, periodo.month)[1]
+        hasta = min(hoy, date(periodo.year, periodo.month, ultimo))
+    datos = estado_caja_rango(desde, hasta)
     ingresos = list(datos['ingresos'])
     if datos['por_identificar_total']:
         ingresos.append({'concepto': 'Cuotas sin identificar', 'monto': datos['por_identificar_total']})
     return render(request, 'departamentos/caja/estado_cuenta.html', {
         'periodo_form': form, 'periodo': periodo, 'datos': datos, 'ingresos': ingresos,
-        'ultimo_dia': calendar.monthrange(periodo.year, periodo.month)[1],
+        'desde': desde, 'hasta': hasta, 'anual': anual,
         'config': ConfiguracionCondominio.vigente(),
     })
 

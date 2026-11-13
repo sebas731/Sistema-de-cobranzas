@@ -41,19 +41,24 @@ def saldo_inicial(anio, mes):
     return apertura + pagos_prev + ing_prev - egr_prev
 
 
-def _ingresos_por_concepto(anio, mes, inicio, sig):
-    """Pagos del mes agrupados por concepto (Mantenimiento por mes de la deuda,
-    meses anteriores, cuotas, etc.) + otros ingresos + por identificar."""
+def _ingresos_por_concepto(inicio, sig, ref=None):
+    """Pagos del rango agrupados por concepto (+ otros ingresos). `ref=(anio,mes)`
+    separa 'Mantenimiento del mes' vs 'meses anteriores'; ref=None etiqueta cada
+    mantenimiento por su mes (Mto. Julio…), útil para rangos largos."""
     pagos = (Pago.objects.filter(fecha_pago__gte=inicio, fecha_pago__lt=sig)
              .prefetch_related('imputaciones__cargo__concepto'))
     agg = defaultdict(lambda: CERO)
     a_cuenta = CERO
+    from ..forms import MESES_ES
     for p in pagos:
         imputado = CERO
         for i in p.imputaciones.all():
             c, per = i.cargo.concepto, i.cargo.periodo
             if c.codigo == Concepto.MANTENIMIENTO:
-                etq = 'Mantenimiento del mes' if (per.year, per.month) == (anio, mes) else 'Mantenimiento meses anteriores'
+                if ref is None:
+                    etq = f'Mto. {MESES_ES[per.month]}'
+                else:
+                    etq = 'Mantenimiento del mes' if (per.year, per.month) == ref else 'Mantenimiento meses anteriores'
             else:
                 etq = c.nombre
             agg[etq] += i.monto
@@ -102,7 +107,7 @@ def estado_caja(anio, mes):
     return {
         'anio': anio, 'mes': mes,
         'saldo_inicial': s_ini,
-        'ingresos': _ingresos_por_concepto(anio, mes, inicio, sig),
+        'ingresos': _ingresos_por_concepto(inicio, sig, ref=(anio, mes)),
         'ingresos_total': ingresos_total,
         'pagos_total': pagos_total,
         'por_identificar': por_ident,
@@ -110,6 +115,48 @@ def estado_caja(anio, mes):
         'egresos': egresos_filas,
         'egresos_total': egresos_total,
         'saldo_final': s_fin,
+    }
+
+
+def estado_caja_rango(desde, hasta):
+    """Estado de caja entre dos fechas (inclusive), p.ej. todo el año o desde el
+    inicio hasta hoy. La caja inicial (SALDO_INICIAL) se toma como apertura
+    (génesis), así SIEMPRE aparece aunque sea de mitad de periodo."""
+    from datetime import timedelta
+    sig = hasta + timedelta(days=1)
+    # Apertura = toda la caja inicial hasta 'hasta' + flujo neto antes de 'desde'.
+    s_ini = (_suma(_vigentes().filter(tipo=Ti.SALDO_INICIAL, fecha__lte=hasta))
+             + (Pago.objects.filter(fecha_pago__lt=desde).aggregate(s=Sum('monto'))['s'] or CERO)
+             + _suma(_vigentes().filter(tipo__in=[Ti.INGRESO_OTRO, Ti.POR_IDENTIFICAR], fecha__lt=desde))
+             - _suma(_vigentes().filter(tipo=Ti.EGRESO, fecha__lt=desde)))
+
+    rango = {'fecha__gte': desde, 'fecha__lt': sig}
+    pagos_total = Pago.objects.filter(fecha_pago__gte=desde, fecha_pago__lt=sig).aggregate(
+        s=Sum('monto'))['s'] or CERO
+    por_ident = list(_vigentes().filter(tipo=Ti.POR_IDENTIFICAR, **rango))
+    egresos_qs = _vigentes().filter(tipo=Ti.EGRESO, **rango)
+    otros_total = _suma(_vigentes().filter(tipo=Ti.INGRESO_OTRO, **rango))
+    por_ident_total = sum((m.monto for m in por_ident), CERO)
+    egresos_total = _suma(egresos_qs)
+    ingresos_total = pagos_total + otros_total + por_ident_total
+
+    por_rubro = defaultdict(lambda: {'monto': CERO, 'movs': []})
+    rubros_label = dict(MovimientoCaja.Rubro.choices)
+    for m in egresos_qs:
+        etq = rubros_label.get(m.rubro, 'Sin rubro')
+        por_rubro[etq]['monto'] += m.monto
+        por_rubro[etq]['movs'].append(m)
+    egresos_filas = [{'rubro': k, 'monto': v['monto'], 'movs': v['movs']}
+                     for k, v in sorted(por_rubro.items(), key=lambda x: -x[1]['monto'])]
+
+    return {
+        'desde': desde, 'hasta': hasta,
+        'saldo_inicial': s_ini,
+        'ingresos': _ingresos_por_concepto(desde, sig, ref=None),
+        'ingresos_total': ingresos_total, 'pagos_total': pagos_total,
+        'por_identificar': por_ident, 'por_identificar_total': por_ident_total,
+        'egresos': egresos_filas, 'egresos_total': egresos_total,
+        'saldo_final': s_ini + ingresos_total - egresos_total,
     }
 
 

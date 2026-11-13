@@ -40,7 +40,8 @@
   <form method="get" class="d-flex gap-2 align-items-end">
     <div>{{ periodo_form.mes }}</div>
     <div>{{ periodo_form.anio }}</div>
-    <button class="btn btn-sm btn-success">Ver mes</button>
+    <button class="btn btn-sm {% if not anual %}btn-success{% else %}btn-outline-secondary{% endif %}">Ver mes</button>
+    <button name="modo" value="anio" class="btn btn-sm {% if anual %}btn-success{% else %}btn-outline-secondary{% endif %}">Todo el año (hasta hoy)</button>
   </form>
   <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary">🖨️ Exportar PDF</button>
 </div>
@@ -50,10 +51,10 @@
   <h1>Balance Mensual {{ config.nombre|default:"Condominio" }}</h1>
   <h2>Estado de cuenta de fondo de administración y mantenimiento.</h2>
 
-  <div class="ec-periodo">Período del 01 al {{ ultimo_dia }} del mes de {{ periodo|date:"F" }} del año {{ periodo|date:"Y" }}.</div>
+  <div class="ec-periodo">Período del {{ desde|date:"d" }} de {{ desde|date:"F" }} al {{ hasta|date:"d" }} de {{ hasta|date:"F" }} del año {{ hasta|date:"Y" }}.</div>
 
   <div class="ec-row ec-row--band">
-    <span class="l">Saldo en CTA al 01 de {{ periodo|date:"F" }} de {{ periodo|date:"Y" }}.</span>
+    <span class="l">Saldo en CTA al {{ desde|date:"d" }} de {{ desde|date:"F" }} de {{ desde|date:"Y" }}.</span>
     <span class="m">{{ datos.saldo_inicial|soles }}</span>
   </div>
 
@@ -74,7 +75,7 @@
   <div class="ec-total"><span>Total de egresos.</span><span class="m">{{ datos.egresos_total|soles }}</span></div>
 
   <div class="ec-row ec-row--band" style="margin-top:18px;">
-    <span class="l">Saldo final en CTA al {{ ultimo_dia }} de {{ periodo|date:"F" }} de {{ periodo|date:"Y" }}.</span>
+    <span class="l">Saldo final en CTA al {{ hasta|date:"d" }} de {{ hasta|date:"F" }} de {{ hasta|date:"Y" }}.</span>
     <span class="m">{{ datos.saldo_final|soles }}</span>
   </div>
 

@@ -8,6 +8,7 @@ from django.shortcuts import render
 
 from ..forms import MESES_ES
 from ..models import Concepto, GastoEdificio, GastoFijo, MovimientoCaja, Pago
+from ..servicios import estado_caja_rango as _caja_rango
 from ..servicios import saldo_inicial as _caja_saldo_inicial
 
 CERO = Decimal('0.00')
@@ -196,7 +197,8 @@ def _contexto_anual(anio):
             'titulo': f'{MESES_ES[m]} {anio}', 'ingresos': f'{ing:.2f}',
             'egresos': f'{egr:.2f}', 'saldo': f'{saldo:.2f}',
             'ing_filas': _filas_texto(ingf), 'egr_filas': _filas_texto(egrf)}
-    saldo_ini = _caja_saldo_inicial(anio, 1)           # saldo de apertura del año
+    # Apertura del año con génesis (la caja inicial aparece aunque sea de mitad de año).
+    saldo_ini = _caja_rango(date(anio, 1, 1), date(anio, 12, 31))['saldo_inicial']
     saldo_anual = saldo_ini + tot_ing - tot_egr        # saldo final (cierre)
     prev_ing = sum((_balance_ingresos(anio - 1, m)[0] for m in range(1, 13)), CERO)
     prev_egr = sum((_balance_egresos(anio - 1, m)[0] for m in range(1, 13)), CERO)
