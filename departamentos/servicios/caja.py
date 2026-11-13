@@ -32,18 +32,40 @@ def _suma(qs):
 # para el estado de caja/cuenta, sin tocar cargos ni deudas.
 
 def _gastos_mes_qs(desde, hasta):
-    """GastoEdificio cuyo periodo (día 1 del mes) cae dentro del rango de meses
-    [mes de `desde`, mes de `hasta`]."""
+    """GastoEdificio de MANTENIMIENTO cuyo periodo (día 1 del mes) cae dentro del
+    rango de meses [mes de `desde`, mes de `hasta`]. Excluye los 'adicionales'
+    (cuotas extraordinarias, multas, etc.): esos son cobros a los vecinos, no un
+    egreso de servicios del condominio."""
     from ..models import GastoEdificio
     ini = date(desde.year, desde.month, 1)
     fin = date(hasta.year, hasta.month, 1)
-    return GastoEdificio.objects.filter(periodo__gte=ini, periodo__lte=fin)
+    return (GastoEdificio.objects.filter(periodo__gte=ini, periodo__lte=fin)
+            .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
 
 
 def _gastos_mes_antes(fecha):
-    """Total de gastos del mes de periodos ANTERIORES al mes de `fecha`."""
+    """Total de gastos de MANTENIMIENTO de periodos ANTERIORES al mes de `fecha`."""
     from ..models import GastoEdificio
-    return _suma(GastoEdificio.objects.filter(periodo__lt=date(fecha.year, fecha.month, 1)))
+    return _suma(GastoEdificio.objects.filter(periodo__lt=date(fecha.year, fecha.month, 1))
+                 .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
+
+
+def _egresos_por_mes(egresos_qs, gastos_qs):
+    """Egresos agrupados por MES, etiquetados 'Egreso Julio', 'Egreso Agosto'…
+    (para la vista de rango/año). El detalle de cada mes queda en 'movs'."""
+    from ..forms import MESES_ES
+    por_mes = defaultdict(lambda: {'monto': CERO, 'movs': []})
+    for g in gastos_qs:
+        k = (g.periodo.year, g.periodo.month)
+        por_mes[k]['monto'] += g.monto
+        por_mes[k]['movs'].append(
+            {'fecha': g.periodo, 'ref': g.descripcion, 'monto': f'{g.monto:.2f}', 'nota': ''})
+    for m in egresos_qs:
+        k = (m.fecha.year, m.fecha.month)
+        por_mes[k]['monto'] += m.monto
+        por_mes[k]['movs'].append(m)
+    return [{'rubro': f'Egreso {MESES_ES[mth]}', 'monto': v['monto'], 'movs': v['movs']}
+            for (yr, mth), v in sorted(por_mes.items())]
 
 
 def _egresos_filas(egresos_qs, gastos_qs):
@@ -176,7 +198,7 @@ def estado_caja_rango(desde, hasta):
     egresos_total = _suma(egresos_qs) + sum((g.monto for g in gastos_qs), CERO)
     ingresos_total = pagos_total + otros_total + por_ident_total
 
-    egresos_filas = _egresos_filas(egresos_qs, gastos_qs)
+    egresos_filas = _egresos_por_mes(egresos_qs, gastos_qs)
 
     return {
         'desde': desde, 'hasta': hasta,
