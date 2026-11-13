@@ -17,6 +17,8 @@ en un desplegable. Estado activo por url_name.{% endcomment %}
       <svg><use href="#i-grid"/></svg> Cobrado vs pagado</a>
     <a href="{% url 'morosidad' %}" class="nav-item-ds {% if cur == 'morosidad' %}active{% endif %}">
       <svg><use href="#i-wallet"/></svg> Cobranza y morosidad</a>
+    <a href="{% url 'estado_cuenta' %}" class="nav-item-ds {% if cur == 'estado_cuenta' %}active{% endif %}">
+      <svg><use href="#i-receipt"/></svg> Estado de cuenta (PDF)</a>
     <a href="{% url 'panel' %}" class="nav-item-ds {% if cur == 'panel' %}active{% endif %}">
       <svg><use href="#i-calendar"/></svg> Panel del mes</a>
 
