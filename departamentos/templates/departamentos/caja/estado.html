@@ -20,6 +20,7 @@
   <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">🖨 PDF</button>
   <a href="{% url 'cobrado_vs_pagado' %}?mes={{ periodo.month }}&anio={{ periodo.year }}" class="btn btn-sm btn-outline-secondary">Cobrado vs pagado</a>
   <a href="{% url 'morosidad' %}?mes={{ periodo.month }}&anio={{ periodo.year }}" class="btn btn-sm btn-outline-secondary">Morosidad</a>
+  <a href="{% url 'estado_cuenta' %}?mes={{ periodo.month }}&anio={{ periodo.year }}" class="btn btn-sm btn-success">📄 Estado de cuenta (PDF)</a>
   <button type="button" class="btn btn-sm btn-success ms-auto" onclick="document.getElementById('formReg').classList.toggle('d-none')">+ Registrar gasto / ingreso</button>
 </div>
 

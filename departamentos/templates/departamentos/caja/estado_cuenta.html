@@ -1,0 +1,86 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% load moneda %}
+{% block title %}Estado de cuenta{% endblock %}
+
+{% block extra_head %}
+<style>
+  .ec-barra { display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-bottom:14px; }
+  .ec-hoja {
+    max-width:820px; margin:0 auto; background:#fff; color:#111;
+    border:1px solid #d0d0d0; border-radius:6px; padding:34px 46px;
+    font-family:"Times New Roman", Georgia, serif; font-size:15px; line-height:1.45;
+  }
+  .ec-hoja h1 { font-size:17px; text-align:center; margin:0; font-weight:bold; }
+  .ec-hoja h2 { font-size:15px; text-align:center; font-weight:bold; margin:10px 0 2px; }
+  .ec-periodo { text-align:center; font-weight:bold; background:#eceff1; padding:5px; margin:14px 0 10px; }
+  .ec-row { display:flex; justify-content:space-between; gap:16px; padding:3px 2px; }
+  .ec-row--band { background:#f1f3f4; }
+  .ec-row .l { font-weight:bold; }
+  .ec-row .m { white-space:nowrap; font-weight:bold; }
+  .ec-row .m::before { content:"$ "; }
+  .ec-seccion { font-weight:bold; margin:16px 0 4px; }
+  .ec-item { display:flex; justify-content:space-between; gap:16px; padding:2px 2px 2px 18px; }
+  .ec-item .m { white-space:nowrap; }
+  .ec-item .m::before { content:"$ "; }
+  .ec-total { display:flex; justify-content:space-between; gap:16px; padding:4px 2px; margin-top:6px; font-weight:bold; }
+  .ec-total .m::before { content:"$ "; }
+  .ec-firmas { display:flex; justify-content:space-between; margin-top:56px; font-weight:bold; }
+  .ec-logo { max-height:46px; }
+  @media print {
+    .sidebar, .app-header, .appbar, header, .no-print { display:none !important; }
+    .page-container, .main, main, .content { margin:0 !important; padding:0 !important; max-width:none !important; }
+    .ec-hoja { border:0; border-radius:0; max-width:none; padding:0 6mm; }
+    @page { size:A4 portrait; margin:14mm; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ec-barra no-print">
+  <form method="get" class="d-flex gap-2 align-items-end">
+    <div>{{ periodo_form.mes }}</div>
+    <div>{{ periodo_form.anio }}</div>
+    <button class="btn btn-sm btn-success">Ver mes</button>
+  </form>
+  <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary">🖨️ Exportar PDF</button>
+</div>
+
+<div class="ec-hoja">
+  {% if config.logo %}<div style="text-align:center;"><img src="/static/{{ config.logo }}" class="ec-logo" alt=""></div>{% endif %}
+  <h1>Balance Mensual {{ config.nombre|default:"Condominio" }}</h1>
+  <h2>Estado de cuenta de fondo de administración y mantenimiento.</h2>
+
+  <div class="ec-periodo">Período del 01 al {{ ultimo_dia }} del mes de {{ periodo|date:"F" }} del año {{ periodo|date:"Y" }}.</div>
+
+  <div class="ec-row ec-row--band">
+    <span class="l">Saldo en CTA al 01 de {{ periodo|date:"F" }} de {{ periodo|date:"Y" }}.</span>
+    <span class="m">{{ datos.saldo_inicial|soles }}</span>
+  </div>
+
+  <div class="ec-seccion">INGRESOS.</div>
+  {% for f in ingresos %}
+  <div class="ec-item"><span>{{ f.concepto }}</span><span class="m">{{ f.monto|soles }}</span></div>
+  {% empty %}
+  <div class="ec-item"><span class="text-muted">Sin ingresos en el periodo.</span><span class="m">0.00</span></div>
+  {% endfor %}
+  <div class="ec-total"><span>Total de ingresos.</span><span class="m">{{ datos.ingresos_total|soles }}</span></div>
+
+  <div class="ec-seccion">EGRESOS.</div>
+  {% for f in datos.egresos %}
+  <div class="ec-item"><span>{{ f.rubro }}</span><span class="m">{{ f.monto|soles }}</span></div>
+  {% empty %}
+  <div class="ec-item"><span class="text-muted">Sin egresos en el periodo.</span><span class="m">0.00</span></div>
+  {% endfor %}
+  <div class="ec-total"><span>Total de egresos.</span><span class="m">{{ datos.egresos_total|soles }}</span></div>
+
+  <div class="ec-row ec-row--band" style="margin-top:18px;">
+    <span class="l">Saldo final en CTA al {{ ultimo_dia }} de {{ periodo|date:"F" }} de {{ periodo|date:"Y" }}.</span>
+    <span class="m">{{ datos.saldo_final|soles }}</span>
+  </div>
+
+  <div class="ec-firmas">
+    <span>Administración.</span>
+    <span>Presidenta de Comité de Vigilancia.</span>
+  </div>
+</div>
+{% endblock %}

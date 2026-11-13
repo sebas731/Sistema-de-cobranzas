@@ -41,9 +41,13 @@
 {# ---------- KPIs con flecha frente al periodo anterior ---------- #}
 <div class="bal-kpis">
   <div class="bal-kpi bal-kpi--hero">
-    <div class="bal-kpi__label">Saldo {% if modo == 'anual' %}del año{% else %}del mes{% endif %}</div>
-    <div class="bal-kpi__value tone-{{ saldo_tone }}">S/ {{ saldo|soles }}</div>
+    <div class="bal-kpi__label">Saldo final {% if modo == 'anual' %}del año{% else %}del mes{% endif %}</div>
+    <div class="bal-kpi__value tone-{{ saldo_tone }}">S/ {{ saldo_final|soles }}</div>
     {% include 'departamentos/components/trend.html' with v=var_saldo ref=comparado_con %}
+  </div>
+  <div class="bal-kpi">
+    <div class="bal-kpi__label">Saldo inicial (caja)</div>
+    <div class="bal-kpi__value">S/ {{ saldo_inicial|soles }}</div>
   </div>
   <div class="bal-kpi">
     <div class="bal-kpi__label"><span class="bal-key bal-key--ing"></span>Ingresos</div>
@@ -76,11 +80,13 @@
     </section>
   </div>
   <div class="bal-formula">
+    <span><small>Saldo inicial</small>S/ {{ saldo_inicial|soles }}</span>
+    <span class="bal-formula__op">+</span>
     <span><small>Ingresos</small>S/ {{ ing_total|soles }}</span>
     <span class="bal-formula__op">−</span>
     <span><small>Egresos</small>S/ {{ egr_total|soles }}</span>
     <span class="bal-formula__op">=</span>
-    <span class="bal-formula__res tone-{{ saldo_tone }}"><small>Saldo</small>S/ {{ saldo|soles }}</span>
+    <span class="bal-formula__res tone-{{ saldo_tone }}"><small>Saldo final</small>S/ {{ saldo_final|soles }}</span>
   </div>
 </div>
 

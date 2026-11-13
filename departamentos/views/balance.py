@@ -8,26 +8,28 @@ from django.shortcuts import render
 
 from ..forms import MESES_ES
 from ..models import Concepto, GastoEdificio, GastoFijo, MovimientoCaja, Pago
+from ..servicios import saldo_inicial as _caja_saldo_inicial
 
 CERO = Decimal('0.00')
 
-# Ingresos de caja que NO son pagos de vecinos (saldo inicial, otros ingresos,
-# depósitos por identificar). Se suman al balance para que cuadre con la caja real.
+# Ingresos de caja que NO son pagos de vecinos: otros ingresos y depósitos por
+# identificar. El SALDO_INICIAL NO va aquí: en contabilidad es saldo de apertura,
+# no un ingreso (se muestra aparte como "Saldo inicial").
 _MOV_ING_LABEL = {
-    MovimientoCaja.Tipo.SALDO_INICIAL: 'Caja administración anterior',
     MovimientoCaja.Tipo.INGRESO_OTRO: 'Otros ingresos',
     MovimientoCaja.Tipo.POR_IDENTIFICAR: 'Depósitos por identificar',
 }
 
 
 def _mov_ingresos(anio, mes=None):
-    """[(etiqueta, monto)] de MovimientoCaja de ingreso (no egreso) del periodo."""
+    """[(etiqueta, monto)] de MovimientoCaja que SÍ son ingresos (no egreso ni
+    saldo inicial) del periodo."""
     f = {'estado': MovimientoCaja.Estado.VIGENTE, 'fecha__year': anio}
     if mes:
         f['fecha__month'] = mes
     agg = defaultdict(lambda: CERO)
-    for m in MovimientoCaja.objects.filter(**f).exclude(tipo=MovimientoCaja.Tipo.EGRESO):
-        agg[_MOV_ING_LABEL.get(m.tipo, 'Otros ingresos')] += m.monto
+    for m in MovimientoCaja.objects.filter(tipo__in=_MOV_ING_LABEL, **f):
+        agg[_MOV_ING_LABEL[m.tipo]] += m.monto
     return list(agg.items())
 
 
@@ -194,12 +196,14 @@ def _contexto_anual(anio):
             'titulo': f'{MESES_ES[m]} {anio}', 'ingresos': f'{ing:.2f}',
             'egresos': f'{egr:.2f}', 'saldo': f'{saldo:.2f}',
             'ing_filas': _filas_texto(ingf), 'egr_filas': _filas_texto(egrf)}
-    saldo_anual = tot_ing - tot_egr
+    saldo_ini = _caja_saldo_inicial(anio, 1)           # saldo de apertura del año
+    saldo_anual = saldo_ini + tot_ing - tot_egr        # saldo final (cierre)
     prev_ing = sum((_balance_ingresos(anio - 1, m)[0] for m in range(1, 13)), CERO)
     prev_egr = sum((_balance_egresos(anio - 1, m)[0] for m in range(1, 13)), CERO)
     ing_filas = _ordenar_filas({k: {'monto': v} for k, v in dist_ing.items()}, lambda v: 0)
     egr_filas = _ordenar_filas({k: {'monto': v} for k, v in dist_egr.items()}, lambda v: 0)
     return dict(meses=meses, ing_total=tot_ing, egr_total=tot_egr, saldo=saldo_anual,
+                saldo_inicial=saldo_ini, saldo_final=saldo_anual,
                 saldo_tone=_tono(saldo_anual), ing_filas=ing_filas, egr_filas=egr_filas,
                 var_ing=_variacion(tot_ing, prev_ing), var_egr=_variacion(tot_egr, prev_egr, False),
                 var_saldo=_variacion(saldo_anual, prev_ing - prev_egr),
@@ -214,7 +218,8 @@ def _contexto_anual(anio):
 def _contexto_mensual(anio, mes):
     ing, ingf, ingm = _balance_ingresos(anio, mes)
     egr, egrf, egrm = _balance_egresos(anio, mes)
-    saldo = ing - egr
+    saldo_ini = _caja_saldo_inicial(anio, mes)     # saldo de apertura del mes
+    saldo = saldo_ini + ing - egr                  # saldo final (cierre)
     drawer = {}
     for f in ingf:
         drawer['ing::' + f['nombre']] = {'titulo': 'Ingresos · ' + f['nombre'], 'movs': ingm[f['nombre']]}
@@ -223,6 +228,7 @@ def _contexto_mensual(anio, mes):
     pa, pm = _mes_anterior(anio, mes)
     prev_ing, prev_egr = _balance_ingresos(pa, pm)[0], _balance_egresos(pa, pm)[0]
     return dict(ing_total=ing, egr_total=egr, saldo=saldo, saldo_tone=_tono(saldo),
+                saldo_inicial=saldo_ini, saldo_final=saldo,
                 ing_filas=ingf, egr_filas=egrf, drawer_json=drawer,
                 var_ing=_variacion(ing, prev_ing), var_egr=_variacion(egr, prev_egr, False),
                 var_saldo=_variacion(saldo, prev_ing - prev_egr),
