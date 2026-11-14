@@ -1,4 +1,5 @@
 """Recibo de mantenimiento (estilo boleta física) con snapshot de montos."""
+from datetime import date
 from decimal import Decimal
 
 from django.db import models
@@ -19,6 +20,14 @@ class ConfiguracionCondominio(models.Model):
     whatsapp = models.CharField(max_length=30, blank=True, validators=[solo_digitos])
     horario_atencion = models.TextField(blank=True)
     texto_aviso = models.TextField('Texto del aviso importante', blank=True)
+    inicio_administracion = models.DateField(
+        'Inicio de la administración', default=date(2026, 8, 1),
+        help_text='Desde esta fecha es cobranza corriente. Lo facturado ANTES '
+                  'se considera "deuda anterior" (heredada) en los reportes.')
+    firma_administracion = models.CharField(
+        'Firma — Administración', max_length=120, default='Fiorella Mendoza', blank=True)
+    firma_vigilancia = models.CharField(
+        'Firma — Presidenta Comité de Vigilancia', max_length=120, blank=True)
     activo = models.BooleanField(default=True)
 
     class Meta:

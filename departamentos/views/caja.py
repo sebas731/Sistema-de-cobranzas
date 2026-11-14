@@ -11,9 +11,10 @@ import calendar
 from ..forms import MESES_ES
 from ..models import ConfiguracionCondominio, Departamento, MovimientoCaja
 from ..servicios import (
-    CORTE_ADMIN, asignar_por_identificar, cobranza_mensual, cobrado_vs_pagado,
+    asignar_por_identificar, cobranza_mensual, cobrado_vs_pagado,
     deuda_anterior_resumen, estado_caja, estado_caja_rango, morosidad,
 )
+from ..servicios.caja import corte_admin
 from ..servicios.cuenta import deudores as servicio_deudores
 from .comun import periodo_de_request, redirigir_al_periodo
 
@@ -96,8 +97,8 @@ def estado_cuenta(request):
     hoy = date.today()
     anual = request.GET.get('modo') == 'anio'
     if anual:
-        # El "año" de la administración arranca en agosto 2026 (CORTE_ADMIN).
-        desde = max(date(periodo.year, 1, 1), CORTE_ADMIN)
+        # El "año" de la administración arranca en su fecha de inicio (config).
+        desde = max(date(periodo.year, 1, 1), corte_admin())
         hasta = min(hoy, date(periodo.year, 12, 31))
     else:
         desde = date(periodo.year, periodo.month, 1)
@@ -124,7 +125,7 @@ def detalle_cobranza(request):
     hoy = date.today()
     anual = request.GET.get('modo') == 'anio'
     if anual:
-        desde = max(date(periodo.year, 1, 1), CORTE_ADMIN)
+        desde = max(date(periodo.year, 1, 1), corte_admin())
         hasta = min(hoy, date(periodo.year, 12, 31))
     else:
         desde = date(periodo.year, periodo.month, 1)

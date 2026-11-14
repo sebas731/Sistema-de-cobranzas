@@ -25,6 +25,15 @@
   .dc-brow.dest { font-weight:bold; border-top:1px solid #c4c9cc; margin-top:4px; padding-top:6px; }
   .dc-firmas { display:flex; justify-content:space-between; margin-top:48px; font-weight:bold; }
   .dc-logo { max-height:46px; }
+  .dc-desglose { margin-top:22px; }
+  .dc-desglose > h3 { font-size:14px; font-weight:bold; border-bottom:2px solid #333; padding-bottom:3px; }
+  .dc-mes { margin-top:14px; page-break-inside:avoid; }
+  .dc-mes h4 { font-size:13px; font-weight:bold; background:#eceff1; padding:4px 8px; margin:0 0 6px; }
+  .dc-cols { display:flex; gap:20px; }
+  .dc-col { flex:1; }
+  .dc-col h5 { font-size:12px; font-weight:bold; margin:0 0 4px; color:#333; }
+  .dc-li { display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px dotted #d9dcde; font-size:12px; }
+  .dc-li.sum { font-weight:bold; border-bottom:none; border-top:1px solid #aaa; margin-top:2px; }
   @media print {
     .sidebar, .app-header, .appbar, header, .no-print { display:none !important; }
     .page-container, .main, main, .content { margin:0 !important; padding:0 !important; max-width:none !important; }
@@ -99,9 +108,38 @@
     <div class="dc-brow dest"><span>Pendiente por cobrar</span><span>S/ {{ deuda_anterior.pendiente|soles }}</span></div>
   </div>
 
+  <div class="dc-desglose">
+    <h3>Desglose por mes — lo pagado (gastos) y lo cobrado (recibos)</h3>
+    {% for f in filas %}
+    <div class="dc-mes">
+      <h4>{{ f.nombre }} {{ f.anio }}</h4>
+      <div class="dc-cols">
+        <div class="dc-col">
+          <h5>Gastos del mes (pagado)</h5>
+          {% for g in f.gastos_detalle %}
+          <div class="dc-li"><span>{{ g.concepto }}</span><span>S/ {{ g.monto|soles }}</span></div>
+          {% empty %}
+          <div class="dc-li"><span class="text-muted">Sin gastos cargados</span><span>—</span></div>
+          {% endfor %}
+          <div class="dc-li sum"><span>Total pagado</span><span>S/ {{ f.egreso|soles }}</span></div>
+        </div>
+        <div class="dc-col">
+          <h5>Cobros del mes (por concepto)</h5>
+          {% for c in f.cobros_detalle %}
+          <div class="dc-li"><span>{{ c.concepto }}</span><span>S/ {{ c.monto|soles }}</span></div>
+          {% empty %}
+          <div class="dc-li"><span class="text-muted">Sin cobros</span><span>—</span></div>
+          {% endfor %}
+          <div class="dc-li sum"><span>Total cobrado</span><span>S/ {{ f.cobrado|soles }}</span></div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
   <div class="dc-firmas">
-    <span>Fiorella Mendoza<br>Administración.</span>
-    <span>Presidenta de Comité de Vigilancia.</span>
+    <span>{{ config.firma_administracion|default:"Fiorella Mendoza" }}<br>Administración.</span>
+    <span>{% if config.firma_vigilancia %}{{ config.firma_vigilancia }}<br>{% endif %}Presidenta de Comité de Vigilancia.</span>
   </div>
 </div>
 {% endblock %}

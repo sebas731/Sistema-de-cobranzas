@@ -80,8 +80,8 @@
   </div>
 
   <div class="ec-firmas">
-    <span>Fiorella Mendoza<br>Administración.</span>
-    <span>Presidenta de Comité de Vigilancia.</span>
+    <span>{{ config.firma_administracion|default:"Fiorella Mendoza" }}<br>Administración.</span>
+    <span>{% if config.firma_vigilancia %}{{ config.firma_vigilancia }}<br>{% endif %}Presidenta de Comité de Vigilancia.</span>
   </div>
 </div>
 {% endblock %}
