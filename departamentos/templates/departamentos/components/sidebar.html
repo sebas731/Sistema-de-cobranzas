@@ -1,7 +1,7 @@
 {% comment %}Sidebar simplificado: lo frecuente arriba, configuración escondida
 en un desplegable. Estado activo por url_name.{% endcomment %}
 {% with cur=request.resolver_match.url_name %}
-{% with conf="balance balance_mes gastos_fijos gasto_fijo_editar tarifas tarifa_nueva tarifa_editar departamento_lista departamento_detalle departamento_editar departamento_nuevo proveedores proveedor_editar importar_excel importar_deudas estilos carga_deudas" %}
+{% with conf="configuracion balance balance_mes gastos_fijos gasto_fijo_editar tarifas tarifa_nueva tarifa_editar departamento_lista departamento_detalle departamento_editar departamento_nuevo proveedores proveedor_editar importar_excel importar_deudas estilos carga_deudas" %}
 <aside class="sidebar">
   <a href="{% url 'inicio' %}" class="sidebar__brand">
     <span class="logo">C</span> Cobranzas
@@ -48,6 +48,8 @@ en un desplegable. Estado activo por url_name.{% endcomment %}
 
     <details class="sidebar__more" {% if cur in conf %}open{% endif %}>
       <summary class="sidebar__group sidebar__more-sum">Configuración y reportes</summary>
+      <a href="{% url 'configuracion' %}" class="nav-item-ds {% if cur == 'configuracion' %}active{% endif %}">
+        <svg><use href="#i-sliders"/></svg> Configuración</a>
       <a href="{% url 'gastos_fijos' %}" class="nav-item-ds {% if cur == 'gastos_fijos' or cur == 'gasto_fijo_editar' %}active{% endif %}">
         <svg><use href="#i-sliders"/></svg> Gastos fijos</a>
       <a href="{% url 'tarifas' %}" class="nav-item-ds {% if cur == 'tarifas' or cur == 'tarifa_nueva' or cur == 'tarifa_editar' %}active{% endif %}">

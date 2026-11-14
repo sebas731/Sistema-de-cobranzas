@@ -5,7 +5,9 @@ from django import forms
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import Concepto, Departamento, GastoEdificio, GastoFijo, Proveedor, TarifaAgua
+from .models import (
+    Concepto, ConfiguracionCondominio, Departamento, GastoEdificio, GastoFijo, Proveedor, TarifaAgua,
+)
 from .servicios import cargos_pendientes
 
 MESES_ES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
@@ -275,3 +277,31 @@ class CargoForm(MesAnioForm):
                                widget=forms.NumberInput(attrs={**_control, 'step': '0.01'}))
     descripcion = forms.CharField(max_length=150, required=False,
                                   widget=forms.TextInput(attrs={**_control, 'placeholder': 'Detalle (opcional)'}))
+
+
+class ConfiguracionForm(forms.ModelForm):
+    """Configuración del condominio editable desde el propio sistema (sin admin)."""
+
+    class Meta:
+        model = ConfiguracionCondominio
+        fields = [
+            'nombre', 'direccion', 'logo', 'email', 'whatsapp', 'horario_atencion',
+            'texto_aviso', 'inicio_administracion', 'firma_administracion', 'firma_vigilancia',
+        ]
+        widgets = {
+            'nombre': forms.TextInput(attrs=_control),
+            'direccion': forms.TextInput(attrs=_control),
+            'logo': forms.TextInput(attrs={**_control, 'placeholder': 'img/logo.jpg o URL'}),
+            'email': forms.EmailInput(attrs=_control),
+            'whatsapp': forms.TextInput(attrs=_control),
+            'horario_atencion': forms.Textarea(attrs={**_control, 'rows': 2}),
+            'texto_aviso': forms.Textarea(attrs={**_control, 'rows': 2}),
+            'inicio_administracion': forms.DateInput(
+                attrs={**_control, 'type': 'date'}, format='%Y-%m-%d'),
+            'firma_administracion': forms.TextInput(attrs=_control),
+            'firma_vigilancia': forms.TextInput(attrs=_control),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['inicio_administracion'].input_formats = ['%Y-%m-%d']
