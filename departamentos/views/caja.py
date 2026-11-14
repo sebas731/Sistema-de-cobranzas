@@ -11,7 +11,8 @@ import calendar
 from ..forms import MESES_ES
 from ..models import ConfiguracionCondominio, Departamento, MovimientoCaja
 from ..servicios import (
-    asignar_por_identificar, cobrado_vs_pagado, estado_caja, estado_caja_rango, morosidad,
+    CORTE_ADMIN, asignar_por_identificar, cobranza_mensual, cobrado_vs_pagado,
+    deuda_anterior_resumen, estado_caja, estado_caja_rango, morosidad,
 )
 from ..servicios.cuenta import deudores as servicio_deudores
 from .comun import periodo_de_request, redirigir_al_periodo
@@ -95,7 +96,8 @@ def estado_cuenta(request):
     hoy = date.today()
     anual = request.GET.get('modo') == 'anio'
     if anual:
-        desde = date(periodo.year, 1, 1)
+        # El "año" de la administración arranca en agosto 2026 (CORTE_ADMIN).
+        desde = max(date(periodo.year, 1, 1), CORTE_ADMIN)
         hasta = min(hoy, date(periodo.year, 12, 31))
     else:
         desde = date(periodo.year, periodo.month, 1)
@@ -108,6 +110,39 @@ def estado_cuenta(request):
     return render(request, 'departamentos/caja/estado_cuenta.html', {
         'periodo_form': form, 'periodo': periodo, 'datos': datos, 'ingresos': ingresos,
         'desde': desde, 'hasta': hasta, 'anual': anual,
+        'config': ConfiguracionCondominio.vigente(),
+    })
+
+
+@login_required
+def detalle_cobranza(request):
+    """Detalle mensual de cobranza (PDF 2): una fila por mes con emitido, cobrado,
+    morosidad, % y egreso; más el bloque de deuda anterior (heredada). Imprimible.
+    Modo mes (default) o `?modo=anio` (desde el inicio de la administración)."""
+    from datetime import date
+    form, periodo = periodo_de_request(request)
+    hoy = date.today()
+    anual = request.GET.get('modo') == 'anio'
+    if anual:
+        desde = max(date(periodo.year, 1, 1), CORTE_ADMIN)
+        hasta = min(hoy, date(periodo.year, 12, 31))
+    else:
+        desde = date(periodo.year, periodo.month, 1)
+        ultimo = calendar.monthrange(periodo.year, periodo.month)[1]
+        hasta = min(hoy, date(periodo.year, periodo.month, ultimo))
+    filas = cobranza_mensual(desde, hasta)
+    totales = {
+        'emitido': sum((f['emitido'] for f in filas), Decimal('0.00')),
+        'cobrado': sum((f['cobrado'] for f in filas), Decimal('0.00')),
+        'morosidad': sum((f['morosidad'] for f in filas), Decimal('0.00')),
+        'egreso': sum((f['egreso'] for f in filas), Decimal('0.00')),
+        'saldo': sum((f['saldo'] for f in filas), Decimal('0.00')),
+    }
+    totales['pct'] = (totales['cobrado'] / totales['emitido'] * 100) if totales['emitido'] else Decimal('0.00')
+    return render(request, 'departamentos/caja/detalle_cobranza.html', {
+        'periodo_form': form, 'periodo': periodo, 'anual': anual,
+        'desde': desde, 'hasta': hasta, 'filas': filas, 'totales': totales,
+        'deuda_anterior': deuda_anterior_resumen(),
         'config': ConfiguracionCondominio.vigente(),
     })
 

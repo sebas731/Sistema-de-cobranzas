@@ -1,0 +1,107 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% load moneda %}
+{% block title %}Detalle de cobranza{% endblock %}
+
+{% block extra_head %}
+<style>
+  .dc-barra { display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-bottom:14px; }
+  .dc-hoja {
+    max-width:900px; margin:0 auto; background:#fff; color:#111;
+    border:1px solid #d0d0d0; border-radius:6px; padding:34px 40px;
+    font-family:"Times New Roman", Georgia, serif; font-size:14px; line-height:1.4;
+  }
+  .dc-hoja h1 { font-size:17px; text-align:center; margin:0; font-weight:bold; }
+  .dc-hoja h2 { font-size:14px; text-align:center; font-weight:bold; margin:8px 0 2px; }
+  .dc-periodo { text-align:center; font-weight:bold; background:#eceff1; padding:5px; margin:12px 0; }
+  .dc-tabla { width:100%; border-collapse:collapse; margin:10px 0; }
+  .dc-tabla th, .dc-tabla td { border:1px solid #c4c9cc; padding:5px 8px; text-align:right; }
+  .dc-tabla th { background:#f1f3f4; text-align:center; font-weight:bold; }
+  .dc-tabla td.mes { text-align:left; font-weight:bold; }
+  .dc-tabla tr.total td { background:#eceff1; font-weight:bold; }
+  .dc-neg { color:#b00020; }
+  .dc-bloque { margin-top:18px; border:1px solid #c4c9cc; border-radius:4px; padding:12px 16px; background:#fafafa; }
+  .dc-bloque h3 { font-size:14px; margin:0 0 8px; font-weight:bold; }
+  .dc-brow { display:flex; justify-content:space-between; padding:3px 0; }
+  .dc-brow.dest { font-weight:bold; border-top:1px solid #c4c9cc; margin-top:4px; padding-top:6px; }
+  .dc-firmas { display:flex; justify-content:space-between; margin-top:48px; font-weight:bold; }
+  .dc-logo { max-height:46px; }
+  @media print {
+    .sidebar, .app-header, .appbar, header, .no-print { display:none !important; }
+    .page-container, .main, main, .content { margin:0 !important; padding:0 !important; max-width:none !important; }
+    .dc-hoja { border:0; border-radius:0; max-width:none; padding:0 6mm; }
+    @page { size:A4 portrait; margin:12mm; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dc-barra no-print">
+  <form method="get" class="d-flex gap-2 align-items-end">
+    <div>{{ periodo_form.mes }}</div>
+    <div>{{ periodo_form.anio }}</div>
+    <button class="btn btn-sm {% if not anual %}btn-success{% else %}btn-outline-secondary{% endif %}">Ver mes</button>
+    <button name="modo" value="anio" class="btn btn-sm {% if anual %}btn-success{% else %}btn-outline-secondary{% endif %}">Todo (desde agosto)</button>
+  </form>
+  <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary">🖨️ Exportar PDF</button>
+</div>
+
+<div class="dc-hoja">
+  {% if config.logo %}<div style="text-align:center;"><img src="/static/{{ config.logo }}" class="dc-logo" alt=""></div>{% endif %}
+  <h1>Detalle de Cobranza — {{ config.nombre|default:"Condominio" }}</h1>
+  <h2>Cobrado y pagado por mes · Fondo de administración y mantenimiento.</h2>
+
+  <div class="dc-periodo">Período del {{ desde|date:"d" }} de {{ desde|date:"F" }} al {{ hasta|date:"d" }} de {{ hasta|date:"F" }} del {{ hasta|date:"Y" }}.</div>
+
+  <table class="dc-tabla">
+    <thead>
+      <tr>
+        <th>Mes</th>
+        <th>Emitido</th>
+        <th>Cobrado</th>
+        <th>Morosidad</th>
+        <th>% cobrado</th>
+        <th>Egreso (pagado)</th>
+        <th>Saldo del mes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in filas %}
+      <tr>
+        <td class="mes">{{ f.nombre }} {{ f.anio }}</td>
+        <td>S/ {{ f.emitido|soles }}</td>
+        <td>S/ {{ f.cobrado|soles }}</td>
+        <td>S/ {{ f.morosidad|soles }}</td>
+        <td>{{ f.pct|floatformat:0 }}%</td>
+        <td>S/ {{ f.egreso|soles }}</td>
+        <td class="{% if f.saldo < 0 %}dc-neg{% endif %}">S/ {{ f.saldo|soles }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" style="text-align:center;" class="text-muted">Sin meses en el período.</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="total">
+        <td class="mes">TOTAL</td>
+        <td>S/ {{ totales.emitido|soles }}</td>
+        <td>S/ {{ totales.cobrado|soles }}</td>
+        <td>S/ {{ totales.morosidad|soles }}</td>
+        <td>{{ totales.pct|floatformat:0 }}%</td>
+        <td>S/ {{ totales.egreso|soles }}</td>
+        <td class="{% if totales.saldo < 0 %}dc-neg{% endif %}">S/ {{ totales.saldo|soles }}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="dc-bloque">
+    <h3>Deuda anterior (heredada, antes de {{ deuda_anterior.corte|date:"F Y" }})</h3>
+    <div class="dc-brow"><span>Saldo heredado</span><span>S/ {{ deuda_anterior.heredado|soles }}</span></div>
+    <div class="dc-brow"><span>Recuperado a la fecha</span><span>S/ {{ deuda_anterior.recuperado|soles }}</span></div>
+    <div class="dc-brow dest"><span>Pendiente por cobrar</span><span>S/ {{ deuda_anterior.pendiente|soles }}</span></div>
+  </div>
+
+  <div class="dc-firmas">
+    <span>Fiorella Mendoza<br>Administración.</span>
+    <span>Presidenta de Comité de Vigilancia.</span>
+  </div>
+</div>
+{% endblock %}

@@ -7,4 +7,5 @@ urlpatterns = [
     path('caja/cobrado-pagado/', v.cobrado_vs_pagado_vista, name='cobrado_vs_pagado'),
     path('caja/morosidad/', v.morosidad_vista, name='morosidad'),
     path('caja/estado-cuenta/', v.estado_cuenta, name='estado_cuenta'),
+    path('caja/detalle-cobranza/', v.detalle_cobranza, name='detalle_cobranza'),
 ]

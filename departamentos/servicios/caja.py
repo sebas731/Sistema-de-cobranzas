@@ -16,6 +16,11 @@ from .cuenta import registrar_pago
 CERO = Decimal('0.00')
 Ti = MovimientoCaja.Tipo
 
+# La administración actual (Fiorella Mendoza) arranca en agosto 2026. Todo lo
+# facturado ANTES de esta fecha es "deuda anterior" (heredada); de aquí en
+# adelante es cobranza corriente de la administración.
+CORTE_ADMIN = date(2026, 8, 1)
+
 
 def _vigentes():
     return MovimientoCaja.objects.filter(estado=MovimientoCaja.Estado.VIGENTE)
@@ -37,17 +42,21 @@ def _gastos_mes_qs(desde, hasta):
     (cuotas extraordinarias, multas, etc.): esos son cobros a los vecinos, no un
     egreso de servicios del condominio."""
     from ..models import GastoEdificio
-    ini = date(desde.year, desde.month, 1)
+    # La administración actual arranca en CORTE_ADMIN: egresos anteriores (ej.
+    # julio, cuyo recibo es del 5-jul al 5-ago) son de la gestión anterior.
+    ini = max(date(desde.year, desde.month, 1), CORTE_ADMIN)
     fin = date(hasta.year, hasta.month, 1)
     return (GastoEdificio.objects.filter(periodo__gte=ini, periodo__lte=fin)
             .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
 
 
 def _gastos_mes_antes(fecha):
-    """Total de gastos de MANTENIMIENTO de periodos ANTERIORES al mes de `fecha`."""
+    """Total de gastos de MANTENIMIENTO de la administración actual (periodo entre
+    CORTE_ADMIN y el mes de `fecha`, sin incluirlo)."""
     from ..models import GastoEdificio
-    return _suma(GastoEdificio.objects.filter(periodo__lt=date(fecha.year, fecha.month, 1))
-                 .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
+    return _suma(GastoEdificio.objects.filter(
+        periodo__gte=CORTE_ADMIN, periodo__lt=date(fecha.year, fecha.month, 1))
+        .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
 
 
 def _egresos_por_mes(egresos_qs, gastos_qs):
@@ -102,10 +111,12 @@ def saldo_inicial(anio, mes):
     return apertura + pagos_prev + ing_prev - egr_prev - gastos_prev
 
 
-def _ingresos_por_concepto(inicio, sig, ref=None):
+def _ingresos_por_concepto(inicio, sig, ref=None, corte=None):
     """Pagos del rango agrupados por concepto (+ otros ingresos). `ref=(anio,mes)`
     separa 'Mantenimiento del mes' vs 'meses anteriores'; ref=None etiqueta cada
-    mantenimiento por su mes (Mto. Julio…), útil para rangos largos."""
+    mantenimiento por su mes (Mto. Julio…), útil para rangos largos. Si se pasa
+    `corte` (fecha), todo lo pagado sobre cuotas con periodo ANTERIOR a esa fecha
+    se agrupa como 'Recuperación de deuda anterior' (deuda heredada)."""
     pagos = (Pago.objects.filter(fecha_pago__gte=inicio, fecha_pago__lt=sig)
              .prefetch_related('imputaciones__cargo__concepto'))
     agg = defaultdict(lambda: CERO)
@@ -115,7 +126,9 @@ def _ingresos_por_concepto(inicio, sig, ref=None):
         imputado = CERO
         for i in p.imputaciones.all():
             c, per = i.cargo.concepto, i.cargo.periodo
-            if c.codigo == Concepto.MANTENIMIENTO:
+            if corte and per < corte:
+                etq = 'Recuperación de deuda anterior'
+            elif c.codigo == Concepto.MANTENIMIENTO:
                 if ref is None:
                     etq = f'Mto. {MESES_ES[per.month]}'
                 else:
@@ -131,6 +144,46 @@ def _ingresos_por_concepto(inicio, sig, ref=None):
     for mov in _vigentes().filter(tipo=Ti.INGRESO_OTRO, fecha__gte=inicio, fecha__lt=sig):
         agg[mov.descripcion or 'Otro ingreso'] += mov.monto
     filas = [{'concepto': k, 'monto': v} for k, v in sorted(agg.items(), key=lambda x: -x[1])]
+    return filas
+
+
+def deuda_anterior_resumen(corte=CORTE_ADMIN):
+    """Resumen de la deuda HEREDADA (cuotas con periodo anterior a `corte`):
+    cuánto se debía, cuánto se ha recuperado y cuánto queda pendiente."""
+    from ..models import Cargo, Imputacion
+    heredado = Cargo.objects.filter(periodo__lt=corte).aggregate(s=Sum('monto'))['s'] or CERO
+    recuperado = Imputacion.objects.filter(cargo__periodo__lt=corte).aggregate(s=Sum('monto'))['s'] or CERO
+    return {'corte': corte, 'heredado': heredado, 'recuperado': recuperado,
+            'pendiente': heredado - recuperado}
+
+
+def cobranza_mensual(desde, hasta, corte=CORTE_ADMIN):
+    """Una fila por mes corriente (desde max(desde, corte) hasta hasta) con lo
+    cobrado y lo pagado de ese mes:
+      - emitido:   total de cuotas generadas del mes (lo que debían pagar).
+      - cobrado:   lo efectivamente pagado de esas cuotas (por mes de la cuota).
+      - morosidad: emitido − cobrado (lo que falta cobrar del mes).
+      - egreso:    gastos de mantenimiento pagados ese mes.
+      - saldo:     cobrado − egreso (resultado de caja del mes)."""
+    from ..models import Cargo, GastoEdificio, Imputacion
+    from ..forms import MESES_ES
+    ini = max(date(desde.year, desde.month, 1), corte)
+    fin = date(hasta.year, hasta.month, 1)
+    filas = []
+    m = ini
+    while m <= fin:
+        emitido = Cargo.objects.filter(periodo=m).aggregate(s=Sum('monto'))['s'] or CERO
+        cobrado = Imputacion.objects.filter(cargo__periodo=m).aggregate(s=Sum('monto'))['s'] or CERO
+        egreso = (GastoEdificio.objects.filter(periodo=m)
+                  .exclude(categoria=GastoEdificio.Categoria.ADICIONAL)
+                  .aggregate(s=Sum('monto'))['s'] or CERO)
+        filas.append({
+            'mes': m, 'nombre': MESES_ES[m.month], 'anio': m.year,
+            'emitido': emitido, 'cobrado': cobrado, 'morosidad': emitido - cobrado,
+            'pct': (cobrado / emitido * 100) if emitido else CERO,
+            'egreso': egreso, 'saldo': cobrado - egreso,
+        })
+        m = sumar_meses(m, 1)
     return filas
 
 
@@ -203,7 +256,7 @@ def estado_caja_rango(desde, hasta):
     return {
         'desde': desde, 'hasta': hasta,
         'saldo_inicial': s_ini,
-        'ingresos': _ingresos_por_concepto(desde, sig, ref=None),
+        'ingresos': _ingresos_por_concepto(desde, sig, ref=None, corte=CORTE_ADMIN),
         'ingresos_total': ingresos_total, 'pagos_total': pagos_total,
         'por_identificar': por_ident, 'por_identificar_total': por_ident_total,
         'egresos': egresos_filas, 'egresos_total': egresos_total,
