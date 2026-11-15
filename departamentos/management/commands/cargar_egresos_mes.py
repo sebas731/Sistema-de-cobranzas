@@ -26,7 +26,8 @@ T, C = TS.TORRE, TS.CONDOMINIO
 # aplicados a TODOS los departamentos (sin lista personalizada).
 DATOS = {
     date(2026, 7, 1): [
-        ('SEDAPAL', '4487.53', C),   # 3855.90 (por depto) + 631.63 (área común)
+        ('SEDAPAL', '3224.27', C),       # agua consumo de los vecinos
+        ('Agua común', '631.63', C),     # agua de área común (iba sumada por error)
         ('VIGILANCIA', '3097.93', C),
         ('PLUZ', '1084.36', C),
         ('LIMPIEZA', '1200.00', T),
@@ -39,7 +40,8 @@ DATOS = {
         ('ENERGÍA ELÉCTRICA (BOMBA SUMERGIBLE / 89 DPTOS)', '42.92', C),
     ],
     date(2026, 8, 1): [
-        ('SEDAPAL', '3636.50', C),   # 3120.30 (por depto) + 516.20 (área común)
+        ('SEDAPAL', '2604.10', C),       # agua consumo de los vecinos
+        ('Agua común', '516.20', C),     # agua de área común (iba sumada por error)
         ('VIGILANCIA', '3097.93', C),
         ('PLUZ', '1091.64', C),
         ('LIMPIEZA', '1200.00', T),

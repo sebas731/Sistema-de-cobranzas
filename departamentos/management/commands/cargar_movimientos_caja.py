@@ -27,6 +27,9 @@ from departamentos.models import MovimientoCaja
 
 TIPOS = {t.value for t in MovimientoCaja.Tipo}
 RUBROS = {r.value for r in MovimientoCaja.Rubro}
+# El CSV puede traer 'categoria' (etiqueta) en vez de 'rubro' (código): mapeamos
+# por la etiqueta del rubro (ej. 'Personal de limpieza' -> LIMPIEZA_PERSONAL).
+RUBRO_POR_LABEL = {label.lower(): code for code, label in MovimientoCaja.Rubro.choices}
 
 
 class Ensayo(Exception):
@@ -60,8 +63,12 @@ class Command(BaseCommand):
         if not desc:
             raise CommandError(f'Fila {i}: falta descripcion.')
         rubro = (r.get('rubro') or '').strip().upper()
+        if not rubro:
+            rubro = RUBRO_POR_LABEL.get((r.get('categoria') or '').strip().lower(), '')
         if rubro and rubro not in RUBROS:
             raise CommandError(f'Fila {i}: rubro {rubro!r} inválido. Usa: {", ".join(sorted(RUBROS))}.')
+        if tipo == 'EGRESO' and not rubro:
+            rubro = MovimientoCaja.Rubro.OTROS.value  # egreso sin categoría reconocida
         return {'fecha': fecha, 'tipo': tipo, 'monto': monto, 'descripcion': desc[:200],
                 'rubro': rubro, 'nota': (r.get('nota') or '').strip()[:255],
                 'comprobante': (r.get('comprobante') or '').strip()[:100]}
