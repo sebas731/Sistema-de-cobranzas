@@ -36,7 +36,8 @@ def _limpiar_nombre(s):
     s = re.sub(r"\s*/\s*\d+\s*DPTOS\.?", "", s)          # "/ 89 DPTOS" (deja el ')')
     s = re.sub(r"\s+\)", ")", s)                          # espacio antes de ')'
     s = s.strip()
-    return s[:-1].strip() if s.endswith('.') else s
+    s = s[:-1].strip() if s.endswith('.') else s
+    return s.upper()                                       # todo en MAYÚSCULAS
 
 
 def corte_admin():
