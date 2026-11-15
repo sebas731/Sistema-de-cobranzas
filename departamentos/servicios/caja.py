@@ -66,12 +66,17 @@ def _gastos_mes_antes(fecha):
         .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
 
 
-def _egresos_por_mes(egresos_qs):
-    """Egresos de caja (MovimientoCaja EGRESO) agrupados por MES, etiquetados
-    'Egreso Agosto', 'Egreso Setiembre'… (vista de rango/año). El detalle de cada
-    mes queda en 'movs'."""
+def _egresos_por_mes(egresos_qs, gastos_qs):
+    """Egresos agrupados por MES, etiquetados 'Egreso Agosto', 'Egreso Setiembre'…
+    (vista de rango/año). Combina gastos del mes (GastoEdificio) y egresos de caja
+    (MovimientoCaja). El detalle de cada mes queda en 'movs'."""
     from ..forms import MESES_ES
     por_mes = defaultdict(lambda: {'monto': CERO, 'movs': []})
+    for g in gastos_qs:
+        k = (g.periodo.year, g.periodo.month)
+        por_mes[k]['monto'] += g.monto
+        por_mes[k]['movs'].append(
+            {'fecha': g.periodo, 'ref': g.descripcion, 'monto': f'{g.monto:.2f}', 'nota': ''})
     for m in egresos_qs:
         k = (m.fecha.year, m.fecha.month)
         por_mes[k]['monto'] += m.monto
@@ -80,14 +85,19 @@ def _egresos_por_mes(egresos_qs):
             for (yr, mth), v in sorted(por_mes.items())]
 
 
-def _egresos_filas(egresos_qs):
-    """Egresos de caja (MovimientoCaja EGRESO) agrupados por rubro, para la vista."""
+def _egresos_filas(egresos_qs, gastos_qs):
+    """Egresos agrupados por rubro/descripción: gastos del mes (GastoEdificio) +
+    egresos de caja (MovimientoCaja), para la vista."""
     por_etq = defaultdict(lambda: {'monto': CERO, 'movs': []})
     rubros_label = dict(MovimientoCaja.Rubro.choices)
     for m in egresos_qs:
         etq = rubros_label.get(m.rubro, 'Sin rubro')
         por_etq[etq]['monto'] += m.monto
         por_etq[etq]['movs'].append(m)
+    for g in gastos_qs:
+        por_etq[g.descripcion]['monto'] += g.monto
+        por_etq[g.descripcion]['movs'].append(
+            {'fecha': g.periodo, 'ref': 'Gasto del mes', 'monto': f'{g.monto:.2f}', 'nota': ''})
     return [{'rubro': k, 'monto': v['monto'], 'movs': v['movs']}
             for k, v in sorted(por_etq.items(), key=lambda x: -x[1]['monto'])]
 
@@ -105,7 +115,7 @@ def saldo_inicial(anio, mes):
     pagos_prev = Pago.objects.filter(fecha_pago__lt=inicio).aggregate(s=Sum('monto'))['s'] or CERO
     ing_prev = _suma(_vigentes().filter(tipo__in=[Ti.INGRESO_OTRO, Ti.POR_IDENTIFICAR], fecha__lt=inicio))
     egr_prev = _suma(_vigentes().filter(tipo=Ti.EGRESO, fecha__lt=inicio))
-    return apertura + pagos_prev + ing_prev - egr_prev
+    return apertura + pagos_prev + ing_prev - egr_prev - _gastos_mes_antes(inicio)
 
 
 def _ingresos_por_concepto(inicio, sig, ref=None, corte=None):
@@ -161,29 +171,25 @@ def cobranza_mensual(desde, hasta, corte=None):
       - emitido:   total de cuotas generadas del mes (lo que debían pagar).
       - cobrado:   lo efectivamente pagado de esas cuotas (por mes de la cuota).
       - morosidad: emitido − cobrado (lo que falta cobrar del mes).
-      - egreso:    lo realmente pagado desde la caja ese mes (MovimientoCaja).
-      - saldo:     cobrado − egreso (resultado de caja del mes)."""
-    from ..models import Cargo, Imputacion
+      - egreso:    gastos del mes (GastoEdificio) que paga el condominio.
+      - saldo:     cobrado − egreso (resultado del mes)."""
+    from ..models import Cargo, GastoEdificio, Imputacion
     from ..forms import MESES_ES
     corte = corte or corte_admin()
     ini = max(date(desde.year, desde.month, 1), corte)
     fin = date(hasta.year, hasta.month, 1)
-    rubros_label = dict(MovimientoCaja.Rubro.choices)
     filas = []
     m = ini
     while m <= fin:
-        sigm = sumar_meses(m, 1)
         emitido = Cargo.objects.filter(periodo=m).aggregate(s=Sum('monto'))['s'] or CERO
         cobrado = Imputacion.objects.filter(cargo__periodo=m).aggregate(s=Sum('monto'))['s'] or CERO
-        mov_eg = _vigentes().filter(tipo=Ti.EGRESO, fecha__gte=m, fecha__lt=sigm)
-        egreso = _suma(mov_eg)
-        # Desglose: egresos de caja por rubro (lo pagado) y cobros por concepto
+        egresos_qs = (GastoEdificio.objects.filter(periodo=m)
+                      .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
+        egreso = egresos_qs.aggregate(s=Sum('monto'))['s'] or CERO
+        # Desglose: gastos del mes por concepto (lo pagado) y cobros por concepto
         # (lo cobrado del recibo de ese mes). No cuadran exacto: no todos pagan todo.
-        por_rubro = defaultdict(lambda: CERO)
-        for mv in mov_eg:
-            por_rubro[rubros_label.get(mv.rubro, 'Otros')] += mv.monto
-        gastos_detalle = [{'concepto': k, 'monto': v}
-                          for k, v in sorted(por_rubro.items(), key=lambda x: -x[1])]
+        gastos_detalle = [{'concepto': g.descripcion, 'monto': g.monto}
+                          for g in egresos_qs.order_by('-monto')]
         cobros_detalle = [
             {'concepto': r['cargo__concepto__nombre'], 'monto': r['t']}
             for r in (Imputacion.objects.filter(cargo__periodo=m)
@@ -214,15 +220,16 @@ def estado_caja(anio, mes):
     otros = _vigentes().filter(tipo=Ti.INGRESO_OTRO, **rango)
     por_ident = list(_vigentes().filter(tipo=Ti.POR_IDENTIFICAR, **rango))
     egresos_qs = _vigentes().filter(tipo=Ti.EGRESO, **rango)
+    gastos_qs = list(_gastos_mes_qs(inicio, inicio))
 
     otros_total = _suma(otros)
     por_ident_total = sum((m.monto for m in por_ident), CERO)
-    egresos_total = _suma(egresos_qs)
+    egresos_total = _suma(egresos_qs) + sum((g.monto for g in gastos_qs), CERO)
     ingresos_total = pagos_total + otros_total + por_ident_total
     s_fin = s_ini + ingresos_total - egresos_total
 
-    # Egresos = lo realmente pagado desde la caja (MovimientoCaja EGRESO).
-    egresos_filas = _egresos_filas(egresos_qs)
+    # Egresos = gastos del mes (lo que paga el condominio) + egresos de caja.
+    egresos_filas = _egresos_filas(egresos_qs, gastos_qs)
 
     return {
         'anio': anio, 'mes': mes,
@@ -248,19 +255,21 @@ def estado_caja_rango(desde, hasta):
     s_ini = (_suma(_vigentes().filter(tipo=Ti.SALDO_INICIAL, fecha__lte=hasta))
              + (Pago.objects.filter(fecha_pago__lt=desde).aggregate(s=Sum('monto'))['s'] or CERO)
              + _suma(_vigentes().filter(tipo__in=[Ti.INGRESO_OTRO, Ti.POR_IDENTIFICAR], fecha__lt=desde))
-             - _suma(_vigentes().filter(tipo=Ti.EGRESO, fecha__lt=desde)))
+             - _suma(_vigentes().filter(tipo=Ti.EGRESO, fecha__lt=desde))
+             - _gastos_mes_antes(desde))
 
     rango = {'fecha__gte': desde, 'fecha__lt': sig}
     pagos_total = Pago.objects.filter(fecha_pago__gte=desde, fecha_pago__lt=sig).aggregate(
         s=Sum('monto'))['s'] or CERO
     por_ident = list(_vigentes().filter(tipo=Ti.POR_IDENTIFICAR, **rango))
     egresos_qs = _vigentes().filter(tipo=Ti.EGRESO, **rango)
+    gastos_qs = list(_gastos_mes_qs(desde, hasta))
     otros_total = _suma(_vigentes().filter(tipo=Ti.INGRESO_OTRO, **rango))
     por_ident_total = sum((m.monto for m in por_ident), CERO)
-    egresos_total = _suma(egresos_qs)
+    egresos_total = _suma(egresos_qs) + sum((g.monto for g in gastos_qs), CERO)
     ingresos_total = pagos_total + otros_total + por_ident_total
 
-    egresos_filas = _egresos_por_mes(egresos_qs)
+    egresos_filas = _egresos_por_mes(egresos_qs, gastos_qs)
 
     return {
         'desde': desde, 'hasta': hasta,
