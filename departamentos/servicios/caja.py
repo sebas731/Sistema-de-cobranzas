@@ -19,6 +19,25 @@ Ti = MovimientoCaja.Tipo
 # Fecha por defecto si no hay configuración: la administración arranca agosto 2026.
 CORTE_ADMIN = date(2026, 8, 1)
 
+# Clasificación de conceptos para el Detalle de cobranza:
+#  - CUOTA: lo que se cobra TODOS los meses (cuota corriente del mes).
+#  - ESPECIALES: fondos/cobros de deudas pasadas -> van a "deuda anterior".
+#  - PENALIDAD: multas y moras -> bloque aparte "Multas y moras".
+CONCEPTOS_CUOTA = ['MANTENIMIENTO', 'AGUA', 'AREA_COMUN', 'COCHERA', 'CUOTA']
+CONCEPTOS_ESPECIALES = ['ASCENSORES', 'CAMARA', 'PUERTAS']
+CONCEPTOS_PENALIDAD = ['MULTA', 'MORA']
+
+
+def _limpiar_nombre(s):
+    """Quita el sufijo '/ 89 DPTOS' o '(89 DPTOS)' de la descripción, SIN borrar
+    el resto del paréntesis (así 'BOMBA SUMERGIBLE' y 'BOMBA CONTRA INCENDIO'
+    quedan distintos)."""
+    s = re.sub(r"\s*\(\s*\d+\s*DPTOS\.?\s*\)", "", s)   # "(89 DPTOS)" completo
+    s = re.sub(r"\s*/\s*\d+\s*DPTOS\.?", "", s)          # "/ 89 DPTOS" (deja el ')')
+    s = re.sub(r"\s+\)", ")", s)                          # espacio antes de ')'
+    s = s.strip()
+    return s[:-1].strip() if s.endswith('.') else s
+
 
 def corte_admin():
     """Fecha de inicio de la administración (configurable en Configuración del
@@ -155,14 +174,32 @@ def _ingresos_por_concepto(inicio, sig, ref=None, corte=None):
 
 
 def deuda_anterior_resumen(corte=None):
-    """Resumen de la deuda HEREDADA (cuotas con periodo anterior a `corte`):
-    cuánto se debía, cuánto se ha recuperado y cuánto queda pendiente."""
+    """Deuda anterior (heredada): cargos anteriores al `corte` + conceptos
+    especiales de deudas pasadas (ascensores, cámaras, puertas) de cualquier mes.
+    NO incluye multas ni moras (esas van a su propio bloque). Devuelve lo debido,
+    lo recuperado (pagado) y lo pendiente."""
+    from django.db.models import Q
     from ..models import Cargo, Imputacion
     corte = corte or corte_admin()
-    heredado = Cargo.objects.filter(periodo__lt=corte).aggregate(s=Sum('monto'))['s'] or CERO
-    recuperado = Imputacion.objects.filter(cargo__periodo__lt=corte).aggregate(s=Sum('monto'))['s'] or CERO
+    es_ant = ((Q(periodo__lt=corte) | Q(concepto__codigo__in=CONCEPTOS_ESPECIALES))
+              & ~Q(concepto__codigo__in=CONCEPTOS_PENALIDAD))
+    es_ant_imp = ((Q(cargo__periodo__lt=corte) | Q(cargo__concepto__codigo__in=CONCEPTOS_ESPECIALES))
+                  & ~Q(cargo__concepto__codigo__in=CONCEPTOS_PENALIDAD))
+    heredado = Cargo.objects.filter(es_ant).aggregate(s=Sum('monto'))['s'] or CERO
+    recuperado = Imputacion.objects.filter(es_ant_imp).aggregate(s=Sum('monto'))['s'] or CERO
     return {'corte': corte, 'heredado': heredado, 'recuperado': recuperado,
             'pendiente': heredado - recuperado}
+
+
+def multas_moras_resumen():
+    """Multas y moras (penalidades), en su propio bloque: lo cobrado y lo
+    pendiente, de cualquier mes."""
+    from ..models import Cargo, Imputacion
+    f = {'concepto__codigo__in': CONCEPTOS_PENALIDAD}
+    fi = {'cargo__concepto__codigo__in': CONCEPTOS_PENALIDAD}
+    debido = Cargo.objects.filter(**f).aggregate(s=Sum('monto'))['s'] or CERO
+    cobrado = Imputacion.objects.filter(**fi).aggregate(s=Sum('monto'))['s'] or CERO
+    return {'debido': debido, 'cobrado': cobrado, 'pendiente': debido - cobrado}
 
 
 def cobranza_mensual(desde, hasta, corte=None):
@@ -181,14 +218,16 @@ def cobranza_mensual(desde, hasta, corte=None):
     filas = []
     m = ini
     while m <= fin:
-        emitido = Cargo.objects.filter(periodo=m).aggregate(s=Sum('monto'))['s'] or CERO
-        cobrado = Imputacion.objects.filter(cargo__periodo=m).aggregate(s=Sum('monto'))['s'] or CERO
+        emitido = (Cargo.objects.filter(periodo=m, concepto__codigo__in=CONCEPTOS_CUOTA)
+                   .aggregate(s=Sum('monto'))['s'] or CERO)
+        cobrado = (Imputacion.objects.filter(cargo__periodo=m, cargo__concepto__codigo__in=CONCEPTOS_CUOTA)
+                   .aggregate(s=Sum('monto'))['s'] or CERO)
         egresos_qs = (GastoEdificio.objects.filter(periodo=m)
                       .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
         egreso = egresos_qs.aggregate(s=Sum('monto'))['s'] or CERO
         # Desglose: gastos del mes por concepto (lo pagado) y cobros por concepto
         # (lo cobrado del recibo de ese mes). No cuadran exacto: no todos pagan todo.
-        gastos_detalle = [{'concepto': re.sub(r"[\(/].*", "", g.descripcion).rstrip(), 'monto': g.monto}
+        gastos_detalle = [{'concepto': _limpiar_nombre(g.descripcion), 'monto': g.monto}
                           for g in egresos_qs.order_by('-monto')]
         cobros_detalle = [
             {'concepto': r['cargo__concepto__nombre'], 'monto': r['t']}

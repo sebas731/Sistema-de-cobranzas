@@ -12,7 +12,7 @@ from ..forms import MESES_ES
 from ..models import ConfiguracionCondominio, Departamento, MovimientoCaja
 from ..servicios import (
     asignar_por_identificar, cobranza_mensual, cobrado_vs_pagado,
-    deuda_anterior_resumen, estado_caja, estado_caja_rango, morosidad,
+    deuda_anterior_resumen, estado_caja, estado_caja_rango, morosidad, multas_moras_resumen,
 )
 from ..servicios.caja import corte_admin
 from ..servicios.cuenta import deudores as servicio_deudores
@@ -144,6 +144,7 @@ def detalle_cobranza(request):
         'periodo_form': form, 'periodo': periodo, 'anual': anual,
         'desde': desde, 'hasta': hasta, 'filas': filas, 'totales': totales,
         'deuda_anterior': deuda_anterior_resumen(),
+        'multas_moras': multas_moras_resumen(),
         'config': ConfiguracionCondominio.vigente(),
     })
 

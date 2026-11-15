@@ -102,10 +102,24 @@
   </table>
 
   <div class="dc-bloque">
-    <h3>Deuda anterior (heredada, antes de {{ deuda_anterior.corte|date:"F Y" }})</h3>
-    <div class="dc-brow"><span>Saldo heredado</span><span>S/ {{ deuda_anterior.heredado|soles }}</span></div>
-    <div class="dc-brow"><span>Recuperado a la fecha</span><span>S/ {{ deuda_anterior.recuperado|soles }}</span></div>
+    <h3>Deuda anterior (heredada)</h3>
+    <div style="font-size:11px; color:#555; margin-bottom:6px;">
+      Deudas pasadas: lo facturado antes de {{ deuda_anterior.corte|date:"F Y" }}
+      más ascensores, cámaras y puertas (de cualquier mes). No es cuota corriente.
+    </div>
+    <div class="dc-brow"><span>Total debido</span><span>S/ {{ deuda_anterior.heredado|soles }}</span></div>
+    <div class="dc-brow"><span>Recuperado a la fecha (cobrado)</span><span>S/ {{ deuda_anterior.recuperado|soles }}</span></div>
     <div class="dc-brow dest"><span>Pendiente por cobrar</span><span>S/ {{ deuda_anterior.pendiente|soles }}</span></div>
+  </div>
+
+  <div class="dc-bloque">
+    <h3>Multas y moras</h3>
+    <div style="font-size:11px; color:#555; margin-bottom:6px;">
+      Penalidades (multas y moras de S/ 15), de cualquier mes. Van aparte de la cuota.
+    </div>
+    <div class="dc-brow"><span>Total aplicado</span><span>S/ {{ multas_moras.debido|soles }}</span></div>
+    <div class="dc-brow"><span>Cobrado</span><span>S/ {{ multas_moras.cobrado|soles }}</span></div>
+    <div class="dc-brow dest"><span>Pendiente por cobrar</span><span>S/ {{ multas_moras.pendiente|soles }}</span></div>
   </div>
 
   <div class="dc-desglose">

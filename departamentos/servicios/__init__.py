@@ -17,7 +17,8 @@ from .agua import (
 from .boleta import EDIFICIO, datos_boleta
 from .caja import (
     CORTE_ADMIN, asignar_por_identificar, cobranza_mensual, cobrado_vs_pagado, corte_admin,
-    deuda_anterior_resumen, estado_caja, estado_caja_rango, morosidad, saldo_inicial,
+    deuda_anterior_resumen, estado_caja, estado_caja_rango, morosidad, multas_moras_resumen,
+    saldo_inicial,
 )
 from .comun import (
     CENTIMOS, REDONDEAR_CENTIMOS, REDONDEAR_DECIMAS, TRUNCAR_CENTIMOS, TRUNCAR_DECIMAS,
