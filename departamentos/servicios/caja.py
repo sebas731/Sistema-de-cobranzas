@@ -188,7 +188,7 @@ def cobranza_mensual(desde, hasta, corte=None):
         egreso = egresos_qs.aggregate(s=Sum('monto'))['s'] or CERO
         # Desglose: gastos del mes por concepto (lo pagado) y cobros por concepto
         # (lo cobrado del recibo de ese mes). No cuadran exacto: no todos pagan todo.
-        gastos_detalle = [{'concepto': g.descripcion, 'monto': g.monto}
+        gastos_detalle = [{'concepto': re.sub(r"[\(/].*", "", g.descripcion).rstrip(), 'monto': g.monto}
                           for g in egresos_qs.order_by('-monto')]
         cobros_detalle = [
             {'concepto': r['cargo__concepto__nombre'], 'monto': r['t']}
