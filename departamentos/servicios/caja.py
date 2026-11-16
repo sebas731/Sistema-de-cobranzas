@@ -225,16 +225,32 @@ def cobranza_mensual(desde, hasta, corte=None):
                    .aggregate(s=Sum('monto'))['s'] or CERO)
         egresos_qs = (GastoEdificio.objects.filter(periodo=m)
                       .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
-        egreso = egresos_qs.aggregate(s=Sum('monto'))['s'] or CERO
-        # Desglose: gastos del mes por concepto (lo pagado) y cobros por concepto
-        # (lo cobrado del recibo de ese mes). No cuadran exacto: no todos pagan todo.
+        # Cochera: S/5 por cochera (≈60). Se paga al vigilante (cuida las cocheras),
+        # así que se SUMA a vigilancia en egresos; en ingresos va dentro de
+        # mantenimiento, no como línea aparte.
+        cochera_mes = (Cargo.objects.filter(periodo=m, concepto__codigo='COCHERA')
+                       .aggregate(s=Sum('monto'))['s'] or CERO)
+        egreso = (egresos_qs.aggregate(s=Sum('monto'))['s'] or CERO) + cochera_mes
+        # Desglose de gastos (lo pagado); los 60 de cochera van a la línea de vigilancia.
         gastos_detalle = [{'concepto': _limpiar_nombre(g.descripcion), 'monto': g.monto}
                           for g in egresos_qs.order_by('-monto')]
-        cobros_detalle = [
-            {'concepto': r['cargo__concepto__nombre'], 'monto': r['t']}
-            for r in (Imputacion.objects.filter(cargo__periodo=m)
-                      .values('cargo__concepto__nombre')
-                      .annotate(t=Sum('monto')).order_by('-t'))]
+        if cochera_mes:
+            vig = next((x for x in gastos_detalle
+                        if 'VIGILANCIA' in x['concepto'].upper() and x['monto'] > 100), None)
+            if vig:
+                vig['monto'] += cochera_mes
+            else:
+                gastos_detalle.append({'concepto': 'VIGILANCIA (COCHERAS)', 'monto': cochera_mes})
+            gastos_detalle.sort(key=lambda x: -x['monto'])
+        # Cobros por concepto; la cochera se muestra DENTRO de mantenimiento.
+        cobros_agg = defaultdict(lambda: CERO)
+        for r in (Imputacion.objects.filter(cargo__periodo=m, cargo__concepto__codigo__in=CONCEPTOS_CUOTA)
+                  .values('cargo__concepto__nombre', 'cargo__concepto__codigo')
+                  .annotate(t=Sum('monto'))):
+            nombre = 'Mantenimiento' if r['cargo__concepto__codigo'] == 'COCHERA' else r['cargo__concepto__nombre']
+            cobros_agg[nombre] += r['t']
+        cobros_detalle = [{'concepto': k, 'monto': v}
+                          for k, v in sorted(cobros_agg.items(), key=lambda x: -x[1])]
         filas.append({
             'mes': m, 'nombre': MESES_ES[m.month], 'anio': m.year,
             'emitido': emitido, 'cobrado': cobrado, 'morosidad': emitido - cobrado,
