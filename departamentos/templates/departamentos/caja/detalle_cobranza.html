@@ -140,7 +140,7 @@
         <div class="dc-col">
           <h5>Cobros del mes (por concepto)</h5>
           {% for c in f.cobros_detalle %}
-          <div class="dc-li"><span>{{ c.concepto }}</span><span>S/ {{ c.monto|soles }}</span></div>
+          <div class="dc-li" style="text-transform: uppercase;"><span>{{ c.concepto}}</span><span>S/ {{ c.monto|soles }}</span></div>
           {% empty %}
           <div class="dc-li"><span class="text-muted">Sin cobros</span><span>—</span></div>
           {% endfor %}
