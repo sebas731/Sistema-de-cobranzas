@@ -43,27 +43,11 @@ def deudas_actuales(request):
     # "Solo este mes": cuenta únicamente los cargos del periodo de referencia
     # (ej. elegir octubre → solo las deudas generadas en octubre).
     solo_mes = request.GET.get('solo') == '1'
-    filas = filas_deudas(ref, meses, solo_mes)
-    cols = COLS_DEUDA
 
-    if q:
-        filas = [f for f in filas
-                 if q in f['depto'].numero_domicilio.lower()
-                 or q in (f['depto'].propietario or '').lower()]
-    return _responder_deudas(request, form, ref, meses, filas, cols, solo_mes)
-
-
-COLS_DEUDA = ['puertas', 'camara', 'ascensores', 'ant', 'm0', 'm1', 'm2',
-              'cuota', 'multa', 'mora', 'total']
-
-
-def filas_deudas(ref, meses, solo_mes=False, incluir_sin_deuda=False, deps=None):
-    """Una fila por depto con el saldo por columna (forma del Excel «DEUDORES»).
-    Con `incluir_sin_deuda` también salen los deptos al día (total 0)."""
-    cols = COLS_DEUDA
-    if deps is None:
-        deps = (Departamento.objects.filter(activo=True)
-                .prefetch_related('cargos__concepto', 'cargos__imputaciones'))
+    deps = (Departamento.objects.filter(activo=True)
+            .prefetch_related('cargos__concepto', 'cargos__imputaciones'))
+    cols = ['puertas', 'camara', 'ascensores', 'ant', 'm0', 'm1', 'm2',
+            'cuota', 'multa', 'mora', 'total']
     filas = []
     for dep in deps:
         r = {k: CERO for k in cols}
@@ -86,32 +70,19 @@ def filas_deudas(ref, meses, solo_mes=False, incluir_sin_deuda=False, deps=None)
                 r['m2'] += s
             else:   # general anterior (o posterior) = acumulado
                 r['ant'] += s
-        if r['total'] > 0 or incluir_sin_deuda:
+        if r['total'] > 0:
             filas.append(r)
+
+    if q:
+        filas = [f for f in filas
+                 if q in f['depto'].numero_domicilio.lower()
+                 or q in (f['depto'].propietario or '').lower()]
     filas.sort(key=lambda f: _num_key(f['depto'].numero_domicilio))
-    return filas
-
-
-def _responder_deudas(request, form, ref, meses, filas, cols, solo_mes):
     tot = {k: sum((f[k] for f in filas), CERO) for k in cols}
     mes_labels = [MESES_ES[m.month] for m in meses]
 
     if request.GET.get('formato') == 'xlsx':
         return _exportar_deudas_xlsx(filas, tot, ref, mes_labels, solo_mes)
-
-    if request.GET.get('formato') == 'lista':
-        from ..models import ConfiguracionCondominio
-        etq = [('Deuda anterior', 'ant'), (mes_labels[0], 'm0'), (mes_labels[1], 'm1'),
-               (mes_labels[2], 'm2'), ('Cuota extra', 'cuota'), ('Multa', 'multa'),
-               ('Mora', 'mora'), ('Puertas', 'puertas'), ('Cámaras', 'camara'),
-               ('Ascensores', 'ascensores')]
-        for f in filas:
-            f['detalle'] = [{'label': lab, 'monto': f[k]} for lab, k in etq if f[k] > 0]
-        return render(request, 'departamentos/deudores/deudas_actuales_lista.html', {
-            'ref': ref, 'filas': filas, 'tot': tot, 'n': len(filas),
-            'mes_labels': mes_labels, 'solo_mes': solo_mes,
-            'config': ConfiguracionCondominio.vigente(),
-        })
 
     return render(request, 'departamentos/deudores/deudas_actuales.html', {
         'periodo_form': form, 'ref': ref, 'filas': filas, 'tot': tot, 'n': len(filas),

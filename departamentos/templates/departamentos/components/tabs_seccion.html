@@ -1,8 +1,0 @@
-{% if tabs %}
-<nav class="sec-tabs no-print" aria-label="{{ titulo }}">
-  {% for t in tabs %}
-  <a href="{{ t.href }}" class="sec-tabs__item{% if t.activa %} is-active{% endif %}"
-     {% if t.activa %}aria-current="page"{% endif %}>{{ t.label }}</a>
-  {% endfor %}
-</nav>
-{% endif %}
