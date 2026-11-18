@@ -1,0 +1,296 @@
+{% extends 'departamentos/layouts/base.html' %}
+{% load moneda %}
+{% block title %}Cobranza{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Cobranza</h1>
+    <p class="page-header__subtitle">Haz clic en un departamento (o en <strong>Cobrar</strong>) para registrar qué está pagando.</p>
+  </div>
+  <form method="get" class="d-flex gap-2 align-items-end flex-wrap no-print">
+    <input type="search" id="cbBuscar" class="form-control form-control-sm" style="width:200px"
+           placeholder="Buscar depto o propietario...">
+    <div>{{ periodo_form.mes }}</div>
+    <div>{{ periodo_form.anio }}</div>
+    <label class="d-flex align-items-center gap-1 small mb-0">
+      <input type="checkbox" name="todos" value="1" {% if not solo_deuda %}checked{% endif %}
+             onchange="this.form.submit()"> Mostrar también los que están al día
+    </label>
+    <button class="btn btn-sm btn-outline-secondary">Ver</button>
+  </form>
+</div>
+
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-3"><div class="c p-3"><div class="small text-muted">Por cobrar</div>
+    <div class="fs-5 fw-bold">S/ {{ tot.total|soles }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="c p-3"><div class="small text-muted">Cobrado en {{ ref|date:"F"|lower }}</div>
+    <div class="fs-5 fw-bold">S/ {{ cobrado_mes|soles }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="c p-3"><div class="small text-muted">Deptos con deuda</div>
+    <div class="fs-5 fw-bold">{{ n_deudores }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="c p-3"><div class="small text-muted">Deuda del mes ({{ mes_labels.2 }})</div>
+    <div class="fs-5 fw-bold">S/ {{ tot.m2|soles }}</div></div></div>
+</div>
+
+<div class="c" style="overflow-x:auto">
+  <table class="table ds-table cb-table mb-0">
+    <thead>
+      <tr>
+        <th class="l">Depto</th><th class="l">Propietario</th>
+        <th>Puertas</th><th>Cámara</th><th>Ascensor</th><th>Anterior</th>
+        <th>{{ mes_labels.0 }}</th><th>{{ mes_labels.1 }}</th><th>{{ mes_labels.2 }}</th>
+        <th>Cuota</th><th>Multa</th><th>Mora</th><th>TOTAL</th>
+        <th class="l">Último pago</th><th class="l">Estado</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in filas %}
+      <tr data-dep="{{ f.depto.pk }}" data-buscar="{{ f.depto.numero_domicilio }} {{ f.depto.propietario|lower }}">
+        <td class="l fw-semibold">{{ f.depto.numero_domicilio }}</td>
+        <td class="l">{{ f.depto.propietario|default:"—" }}</td>
+        <td class="{% if not f.puertas %}z{% endif %}">{% if f.puertas %}{{ f.puertas|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.camara %}z{% endif %}">{% if f.camara %}{{ f.camara|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.ascensores %}z{% endif %}">{% if f.ascensores %}{{ f.ascensores|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.ant %}z{% endif %}">{% if f.ant %}{{ f.ant|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.m0 %}z{% endif %}">{% if f.m0 %}{{ f.m0|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.m1 %}z{% endif %}">{% if f.m1 %}{{ f.m1|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.m2 %}z{% endif %}">{% if f.m2 %}{{ f.m2|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.cuota %}z{% endif %}">{% if f.cuota %}{{ f.cuota|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.multa %}z{% endif %}">{% if f.multa %}{{ f.multa|soles }}{% else %}·{% endif %}</td>
+        <td class="{% if not f.mora %}z{% endif %}">{% if f.mora %}{{ f.mora|soles }}{% else %}·{% endif %}</td>
+        <td class="fw-bold">{{ f.total|soles }}</td>
+        <td class="l small">{% if f.ultimo %}{{ f.ultimo.fecha_pago|date:"d/m" }} · S/ {{ f.ultimo.monto|soles }}{% else %}—{% endif %}</td>
+        <td class="l"><span class="cb-estado cb-estado--{{ f.estado_cls }}">{{ f.estado }}</span></td>
+        <td>{% if f.total > 0 %}<button type="button" class="btn btn-sm btn-primary py-0">Cobrar</button>{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="16" class="text-center text-muted py-4">Nadie debe en este filtro. 🎉</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="fw-bold">
+        <td class="l" colspan="2">TOTAL</td>
+        <td>{{ tot.puertas|soles }}</td><td>{{ tot.camara|soles }}</td><td>{{ tot.ascensores|soles }}</td>
+        <td>{{ tot.ant|soles }}</td><td>{{ tot.m0|soles }}</td><td>{{ tot.m1|soles }}</td><td>{{ tot.m2|soles }}</td>
+        <td>{{ tot.cuota|soles }}</td><td>{{ tot.multa|soles }}</td><td>{{ tot.mora|soles }}</td>
+        <td>{{ tot.total|soles }}</td><td colspan="3"></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<!-- Panel "Registrar cobro" -->
+<div class="offcanvas offcanvas-end cb-drawer" tabindex="-1" id="cbPanel">
+  <div class="offcanvas-header border-bottom">
+    <div>
+      <div class="small text-muted">Registrar cobro</div>
+      <h5 class="mb-0" id="cbTitulo">Depto</h5>
+      <div class="small text-muted" id="cbProp"></div>
+    </div>
+    <div class="text-end">
+      <div class="small text-muted">Debe en total</div>
+      <div class="cb-total-deuda" id="cbDeuda">S/ 0.00</div>
+    </div>
+  </div>
+  <div class="offcanvas-body d-flex flex-column">
+    <div class="fw-semibold">1. ¿Qué está pagando?</div>
+    <div class="cb-rapidos d-flex flex-wrap gap-1 my-2">
+      <button type="button" class="btn btn-outline-secondary" data-rapido="mes">Solo el último mes</button>
+      <button type="button" class="btn btn-outline-secondary" data-rapido="mant">Todo el mantenimiento</button>
+      <button type="button" class="btn btn-outline-secondary" data-rapido="todo">Todo</button>
+      <button type="button" class="btn btn-outline-secondary" data-rapido="nada">Limpiar</button>
+    </div>
+    <div class="input-group input-group-sm mb-2">
+      <span class="input-group-text">El vecino pagó S/</span>
+      <input type="number" step="0.01" min="0" class="form-control" id="cbRepartirMonto">
+      <button type="button" class="btn btn-outline-primary" id="cbRepartir"
+              title="Marca las deudas de la más antigua a la más nueva hasta completar el monto">Repartir automáticamente</button>
+    </div>
+    <div id="cbLista"></div>
+
+    <div class="fw-semibold mt-3">2. ¿Cómo pagó?</div>
+    <div class="row g-2 mt-1">
+      <div class="col-6"><label class="form-label small mb-0">Fecha de pago</label>
+        <input type="date" class="form-control form-control-sm" id="cbFecha" value="{{ hoy|date:'Y-m-d' }}"></div>
+      <div class="col-6"><label class="form-label small mb-0">N° de operación</label>
+        <input type="text" class="form-control form-control-sm" id="cbOperacion" maxlength="60"></div>
+    </div>
+    <div class="cb-medios btn-group btn-group-sm mt-2 flex-wrap" role="group" aria-label="Medio de pago">
+      {% for m in medios %}
+      <input type="radio" class="btn-check" name="cbMedio" id="cbMedio{{ forloop.counter }}" value="{{ m }}" {% if forloop.first %}checked{% endif %}>
+      <label class="btn btn-outline-primary" for="cbMedio{{ forloop.counter }}">{{ m }}</label>
+      {% endfor %}
+    </div>
+    <input type="text" class="form-control form-control-sm mt-2" id="cbNota" maxlength="120"
+           placeholder="Nota (opcional): ej. pagó el inquilino">
+
+    <div class="cb-pie mt-auto">
+      <div id="cbAviso" class="alert alert-warning py-1 px-2 small mb-2 d-none"></div>
+      <div id="cbError" class="alert alert-danger py-1 px-2 small mb-2 d-none"></div>
+      <div class="d-flex justify-content-between align-items-end">
+        <div>
+          <div class="small text-muted">Total a cobrar</div>
+          <div class="cb-a-cobrar" id="cbACobrar">S/ 0.00</div>
+          <div class="small text-muted" id="cbDespues"></div>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="cbGuardar">Registrar cobro</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ deudas_json|json_script:"cb-deudas" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const DEUDAS = JSON.parse(document.getElementById('cb-deudas').textContent);
+  const URL_COBRAR = "{% url 'cobrar' %}";
+  const CSRF = "{{ csrf_token }}";
+  const $ = (id) => document.getElementById(id);
+  const panel = new bootstrap.Offcanvas($('cbPanel'));
+  const MANT = ['MANTENIMIENTO', 'AGUA', 'AGUA_BASICO', 'AREA_COMUN', 'LUZ_COMUN', 'COCHERA', 'GASTO_ADIC'];
+  const fmt = (n) => 'S/ ' + Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const c2 = (n) => Math.round(Number(n) * 100) / 100;
+  let actual = null, excedente = 0;
+
+  // Buscar en la tabla
+  $('cbBuscar').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('.cb-table tbody tr[data-dep]').forEach((tr) => {
+      tr.style.display = !q || tr.dataset.buscar.includes(q) ? '' : 'none';
+    });
+  });
+  document.querySelectorAll('.cb-table tbody tr[data-dep]').forEach((tr) => {
+    tr.addEventListener('click', () => abrir(tr.dataset.dep));
+  });
+
+  function abrir(pk) {
+    const d = DEUDAS[pk];
+    if (!d || !d.deudas.length) return;
+    actual = pk; excedente = 0;
+    $('cbTitulo').textContent = 'Depto ' + d.numero;
+    $('cbProp').textContent = d.propietario;
+    $('cbDeuda').textContent = fmt(d.total);
+    $('cbRepartirMonto').value = ''; $('cbOperacion').value = ''; $('cbNota').value = '';
+    $('cbError').classList.add('d-none');
+    // Agrupar por concepto, del más antiguo al más nuevo (ya viene ordenado por mes)
+    const grupos = {};
+    d.deudas.forEach((x) => (grupos[x.concepto] = grupos[x.concepto] || []).push(x));
+    let html = '';
+    Object.keys(grupos).forEach((g) => {
+      html += `<div class="cb-grupo">${g}</div>`;
+      grupos[g].forEach((x) => {
+        html += `<div class="cb-linea" data-id="${x.id}" data-codigo="${x.codigo}" data-saldo="${x.saldo}">
+          <input type="checkbox" class="form-check-input" id="cbl${x.id}">
+          <label for="cbl${x.id}">${x.mes}${x.detalle ? ' · ' + x.detalle : ''}
+            <div class="cb-saldo">debe ${fmt(x.saldo)}</div></label>
+          <input type="number" step="0.01" min="0" max="${x.saldo}" class="form-control form-control-sm" disabled>
+        </div>`;
+      });
+    });
+    $('cbLista').innerHTML = html;
+    lineas().forEach((el) => {
+      const chk = el.querySelector('input[type=checkbox]'), inp = el.querySelector('input[type=number]');
+      chk.addEventListener('change', () => { marcar(el, chk.checked); excedente = 0; recalcular(); });
+      inp.addEventListener('input', () => { excedente = 0; recalcular(); });
+    });
+    recalcular();
+    panel.show();
+  }
+
+  const lineas = () => Array.from(document.querySelectorAll('#cbLista .cb-linea'));
+  function marcar(el, on, monto) {
+    const chk = el.querySelector('input[type=checkbox]'), inp = el.querySelector('input[type=number]');
+    chk.checked = on; inp.disabled = !on; el.classList.toggle('is-on', on);
+    inp.value = on ? (monto !== undefined ? monto : el.dataset.saldo) : '';
+  }
+
+  function recalcular() {
+    let total = 0, error = '';
+    lineas().forEach((el) => {
+      if (!el.querySelector('input[type=checkbox]').checked) return;
+      const v = c2(el.querySelector('input[type=number]').value || 0);
+      if (v > c2(el.dataset.saldo)) error = 'Un monto supera lo que se debe en esa línea.';
+      total += v;
+    });
+    total = c2(total + excedente);
+    $('cbACobrar').textContent = fmt(total);
+    const deuda = c2(DEUDAS[actual].total);
+    $('cbDespues').textContent = `Deuda: ${fmt(deuda)} → ${fmt(Math.max(0, c2(deuda - total + excedente)))}`;
+    const aviso = $('cbAviso');
+    aviso.classList.toggle('d-none', excedente <= 0);
+    aviso.textContent = excedente > 0 ? `Quedan ${fmt(excedente)} como saldo a favor del depto.` : '';
+    mostrarError(error);
+    return {total, error};
+  }
+
+  function mostrarError(msg) {
+    $('cbError').textContent = msg; $('cbError').classList.toggle('d-none', !msg);
+  }
+
+  // Accesos rápidos
+  document.querySelectorAll('[data-rapido]').forEach((b) => b.addEventListener('click', () => {
+    const tipo = b.dataset.rapido, ls = lineas();
+    excedente = 0;
+    // "Último mes" = el mes más reciente que tiene deuda
+    const ultimoMes = DEUDAS[actual].deudas.slice(-1)[0].mes;
+    ls.forEach((el) => {
+      const x = DEUDAS[actual].deudas.find((d) => String(d.id) === el.dataset.id);
+      const on = tipo === 'todo' || (tipo === 'mant' && MANT.includes(el.dataset.codigo))
+        || (tipo === 'mes' && x.mes === ultimoMes);
+      marcar(el, on);
+    });
+    recalcular();
+  }));
+
+  // Repartir un monto de lo más antiguo a lo más nuevo
+  $('cbRepartir').addEventListener('click', () => {
+    let resto = c2($('cbRepartirMonto').value || 0);
+    if (resto <= 0) return mostrarError('Escribe cuánto pagó el vecino.');
+    const ids = DEUDAS[actual].deudas.map((d) => String(d.id));   // orden: más antiguo primero
+    const porId = Object.fromEntries(lineas().map((el) => [el.dataset.id, el]));
+    ids.forEach((id) => {
+      const el = porId[id], saldo = c2(el.dataset.saldo);
+      if (resto <= 0) return marcar(el, false);
+      const aplicar = Math.min(resto, saldo);
+      marcar(el, true, aplicar.toFixed(2)); resto = c2(resto - aplicar);
+    });
+    excedente = resto;
+    recalcular();
+  });
+
+  // Guardar
+  $('cbGuardar').addEventListener('click', async () => {
+    const {total, error} = recalcular();
+    if (error) return;
+    if (total <= 0) return mostrarError('Marca al menos una deuda a pagar.');
+    const medio = document.querySelector('input[name=cbMedio]:checked').value;
+    if (medio !== 'Efectivo' && !$('cbOperacion').value.trim()) {
+      $('cbOperacion').focus(); return mostrarError('Falta el N° de operación (o elige Efectivo).');
+    }
+    const items = lineas().filter((el) => el.querySelector('input[type=checkbox]').checked)
+      .map((el) => ({id: el.dataset.id, monto: el.querySelector('input[type=number]').value}));
+    $('cbGuardar').disabled = true;
+    try {
+      const r = await fetch(URL_COBRAR, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({depto: actual, items, excedente, medio, fecha: $('cbFecha').value,
+                              operacion: $('cbOperacion').value, nota: $('cbNota').value}),
+      });
+      const j = await r.json();
+      if (!j.ok) { mostrarError(j.error); return; }
+      window.location.reload();
+    } catch (e) {
+      mostrarError('No se pudo guardar. Revisa tu conexión e inténtalo otra vez.');
+    } finally {
+      $('cbGuardar').disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

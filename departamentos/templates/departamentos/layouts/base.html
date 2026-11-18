@@ -48,6 +48,7 @@
             </div>
           {% endfor %}
         {% endif %}
+        {% if user.is_authenticated %}{% load secciones %}{% tabs_seccion %}{% endif %}
         {% block content %}{% endblock %}
 
   {% if user.is_authenticated %}

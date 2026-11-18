@@ -1115,3 +1115,36 @@ revo-grid.cd-grid--cob { --grid-h: 42vh; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* ---- Pestañas de sección (menú simplificado) ---- */
+.sec-tabs { display: flex; flex-wrap: wrap; gap: .25rem; border-bottom: 1px solid var(--border); margin: 0 0 1rem; }
+.sec-tabs__item { padding: .5rem .85rem; font-size: .875rem; font-weight: 500; color: var(--text-muted, #666);
+  text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 6px 6px 0 0; }
+.sec-tabs__item:hover { color: var(--primary); background: var(--primary-soft); }
+.sec-tabs__item.is-active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+/* ---- Cobranza: tabla + panel de cobro ---- */
+.cb-table th, .cb-table td { text-align: right; white-space: nowrap; }
+.cb-table th.l, .cb-table td.l { text-align: left; }
+.cb-table td.z { color: var(--text-muted, #aaa); }
+.cb-table tbody tr { cursor: pointer; }
+.cb-table tbody tr:hover td { background: var(--primary-soft); }
+.cb-estado { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+.cb-estado--aldia { background: #e6f4ea; color: #1e6b34; }
+.cb-estado--parcial { background: #fff4d6; color: #8a5a00; }
+.cb-estado--debe { background: #fde8e8; color: #a12828; }
+.cb-drawer { width: min(520px, 96vw) !important; }
+.cb-total-deuda { font-size: 1.6rem; font-weight: 800; }
+.cb-grupo { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--text-muted, #777); margin: .75rem 0 .25rem; }
+.cb-linea { display: grid; grid-template-columns: 22px 1fr 92px; align-items: center; gap: .5rem;
+  padding: .35rem .25rem; border-bottom: 1px solid var(--border); }
+.cb-linea label { margin: 0; cursor: pointer; }
+.cb-linea .cb-saldo { font-size: .75rem; color: var(--text-muted, #777); }
+.cb-linea input[type=number] { text-align: right; }
+.cb-linea.is-on { background: var(--primary-soft); }
+.cb-rapidos .btn { font-size: .75rem; padding: .15rem .5rem; }
+.cb-medios .btn { font-size: .8rem; }
+.cb-pie { position: sticky; bottom: 0; background: var(--surface, #fff); border-top: 1px solid var(--border);
+  padding: .75rem 1rem; margin: 0 -1rem -1rem; }
+.cb-pie .cb-a-cobrar { font-size: 1.3rem; font-weight: 800; }

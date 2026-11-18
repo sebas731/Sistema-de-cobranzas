@@ -2,6 +2,7 @@
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 
 from ..models import Cargo, Concepto, Departamento, GastoEdificio, Imputacion, LecturaMedidor, Pago
 from .agua import costo_agua
@@ -241,6 +242,47 @@ def registrar_pago(departamento, monto, concepto=None, metodo='', nota='', perio
             cargo.monto = cargo.monto - rebaba
             cargo.save(update_fields=['monto'])
 
+    return pago
+
+
+@transaction.atomic
+def cobrar_cargos(departamento, items, fecha=None, metodo='', operacion='', nota='',
+                  excedente=CERO):
+    """Registra UN cobro eligiendo exactamente qué deudas se pagan.
+
+    `items` = [(cargo_id, monto)]: cada cargo debe ser del depto y el monto debe
+    ser > 0 y <= su saldo (pago parcial permitido). `excedente` (>= 0) es lo que
+    el vecino pagó de más: queda como saldo a favor del pago (sin imputar).
+    El n° de operación se guarda en la nota del pago. Devuelve el Pago creado.
+    Lanza ValueError con un mensaje legible si algo no cuadra.
+    """
+    if not items and excedente <= 0:
+        raise ValueError('Marca al menos una deuda a pagar.')
+    cargos = {c.pk: c for c in departamento.cargos.select_related('concepto')
+              .prefetch_related('imputaciones').filter(pk__in=[i for i, _ in items])}
+    lineas = []
+    for cargo_id, monto in items:
+        cargo = cargos.get(int(cargo_id))
+        if cargo is None:
+            raise ValueError('Una de las deudas no pertenece a este departamento.')
+        monto = redondear(monto)
+        if monto <= 0:
+            raise ValueError(f'El monto de «{cargo.concepto.nombre}» debe ser mayor a 0.')
+        if monto > cargo.saldo:
+            raise ValueError(f'«{cargo.concepto.nombre} {cargo.periodo:%m/%Y}»: el monto '
+                             f'S/ {monto} supera su saldo S/ {cargo.saldo}.')
+        lineas.append((cargo, monto))
+    excedente = redondear(excedente or CERO)
+    if excedente < 0:
+        raise ValueError('El saldo a favor no puede ser negativo.')
+
+    total = sum((m for _, m in lineas), CERO) + excedente
+    partes = [p for p in (f'Op. {operacion.strip()}' if operacion.strip() else '', nota.strip()) if p]
+    pago = Pago.objects.create(departamento=departamento, monto=total, metodo=metodo[:50],
+                               nota=' · '.join(partes)[:200],
+                               fecha_pago=fecha or timezone.localdate())
+    for cargo, monto in lineas:
+        Imputacion.objects.create(pago=pago, cargo=cargo, monto=monto)
     return pago
 
 

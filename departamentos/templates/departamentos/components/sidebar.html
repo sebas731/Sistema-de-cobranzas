@@ -1,71 +1,17 @@
-{% comment %}Sidebar simplificado: lo frecuente arriba, configuración escondida
-en un desplegable. Estado activo por url_name.{% endcomment %}
-{% with cur=request.resolver_match.url_name %}
-{% with conf="configuracion balance balance_mes gastos_fijos gasto_fijo_editar tarifas tarifa_nueva tarifa_editar departamento_lista departamento_detalle departamento_editar departamento_nuevo proveedores proveedor_editar importar_excel importar_deudas estilos carga_deudas" %}
+{% comment %}Sidebar simplificado: Inicio + 6 secciones. Las pantallas de cada
+sección se muestran como pestañas arriba del contenido (templatetags/secciones.py).{% endcomment %}
+{% load secciones %}
+{% menu_secciones as secciones %}
 <aside class="sidebar">
   <a href="{% url 'inicio' %}" class="sidebar__brand">
     <span class="logo">C</span> Cobranzas
   </a>
   <nav class="sidebar__nav">
-    <a href="{% url 'inicio' %}" class="nav-item-ds {% if cur == 'inicio' %}active{% endif %}">
+    <a href="{% url 'inicio' %}" class="nav-item-ds {% if request.resolver_match.url_name == 'inicio' %}active{% endif %}">
       <svg><use href="#i-grid"/></svg> Inicio</a>
-    <a href="{% url 'balance' %}" class="nav-item-ds {% if cur == 'balance' %}active{% endif %}">
-      <svg><use href="#i-grid"/></svg> Balance general</a>
-    <a href="{% url 'estado_caja' %}" class="nav-item-ds {% if cur == 'estado_caja' %}active{% endif %}">
-      <svg><use href="#i-cash"/></svg> Estado de caja</a>
-    <a href="{% url 'cobrado_vs_pagado' %}" class="nav-item-ds {% if cur == 'cobrado_vs_pagado' %}active{% endif %}">
-      <svg><use href="#i-grid"/></svg> Cobrado vs pagado</a>
-    <a href="{% url 'morosidad' %}" class="nav-item-ds {% if cur == 'morosidad' %}active{% endif %}">
-      <svg><use href="#i-wallet"/></svg> Cobranza y morosidad</a>
-    <a href="{% url 'estado_cuenta' %}" class="nav-item-ds {% if cur == 'estado_cuenta' %}active{% endif %}">
-      <svg><use href="#i-receipt"/></svg> Estado de cuenta (PDF)</a>
-    <a href="{% url 'detalle_cobranza' %}" class="nav-item-ds {% if cur == 'detalle_cobranza' %}active{% endif %}">
-      <svg><use href="#i-receipt"/></svg> Detalle de cobranza (PDF)</a>
-    <a href="{% url 'panel' %}" class="nav-item-ds {% if cur == 'panel' %}active{% endif %}">
-      <svg><use href="#i-calendar"/></svg> Panel del mes</a>
-
-    <div class="sidebar__group">Cobranzas</div>
-    <a href="{% url 'deudas_actuales' %}" class="nav-item-ds {% if cur == 'deudas_actuales' %}active{% endif %}">
-      <svg><use href="#i-people"/></svg> Deudas actuales</a>
-    <a href="{% url 'deudores' %}" class="nav-item-ds {% if cur == 'deudores' %}active{% endif %}">
-      <svg><use href="#i-wallet"/></svg> Deudores (resumen)</a>
-    <a href="{% url 'registrar_pagos' %}" class="nav-item-ds {% if cur == 'registrar_pagos' %}active{% endif %}">
-      <svg><use href="#i-cash"/></svg> Registrar pagos</a>
-    <a href="{% url 'pagos_departamento' %}" class="nav-item-ds {% if cur == 'pagos_departamento' %}active{% endif %}">
-      <svg><use href="#i-receipt"/></svg> Pagos por depto</a>
-    <a href="{% url 'registrar_cargos' %}" class="nav-item-ds {% if cur == 'registrar_cargos' %}active{% endif %}">
-      <svg><use href="#i-alert"/></svg> Multas / cargos</a>
-
-    <div class="sidebar__group">Cada mes</div>
-    <a href="{% url 'gastos_mes' %}" class="nav-item-ds {% if cur == 'gastos_mes' %}active{% endif %}">
-      <svg><use href="#i-file"/></svg> Gastos del mes</a>
-    <a href="{% url 'facturas_agua' %}" class="nav-item-ds {% if cur == 'facturas_agua' %}active{% endif %}">
-      <svg><use href="#i-droplet"/></svg> Facturas de agua</a>
-    <a href="{% url 'lecturas_mes' %}" class="nav-item-ds {% if cur == 'lecturas_mes' %}active{% endif %}">
-      <svg><use href="#i-droplet"/></svg> Lecturas de agua</a>
-    <a href="{% url 'generar_recibos' %}" class="nav-item-ds {% if cur == 'generar_recibos' %}active{% endif %}">
-      <svg><use href="#i-receipt"/></svg> Generar recibos</a>
-
-    <details class="sidebar__more" {% if cur in conf %}open{% endif %}>
-      <summary class="sidebar__group sidebar__more-sum">Configuración y reportes</summary>
-      <a href="{% url 'configuracion' %}" class="nav-item-ds {% if cur == 'configuracion' %}active{% endif %}">
-        <svg><use href="#i-sliders"/></svg> Configuración</a>
-      <a href="{% url 'gastos_fijos' %}" class="nav-item-ds {% if cur == 'gastos_fijos' or cur == 'gasto_fijo_editar' %}active{% endif %}">
-        <svg><use href="#i-sliders"/></svg> Gastos fijos</a>
-      <a href="{% url 'tarifas' %}" class="nav-item-ds {% if cur == 'tarifas' or cur == 'tarifa_nueva' or cur == 'tarifa_editar' %}active{% endif %}">
-        <svg><use href="#i-droplet"/></svg> Tarifa de agua</a>
-      <a href="{% url 'departamento_lista' %}" class="nav-item-ds {% if cur == 'departamento_lista' or cur == 'departamento_detalle' or cur == 'departamento_editar' or cur == 'departamento_nuevo' %}active{% endif %}">
-        <svg><use href="#i-building"/></svg> Departamentos</a>
-      <a href="{% url 'proveedores' %}" class="nav-item-ds {% if cur == 'proveedores' or cur == 'proveedor_editar' %}active{% endif %}">
-        <svg><use href="#i-truck"/></svg> Proveedores</a>
-      <a href="{% url 'carga_deudas' %}" class="nav-item-ds {% if cur == 'carga_deudas' %}active{% endif %}">
-        <svg><use href="#i-wallet"/></svg> Carga inicial de deudas</a>
-      <a href="{% url 'importar_excel' %}" class="nav-item-ds {% if cur == 'importar_excel' %}active{% endif %}">
-        <svg><use href="#i-upload"/></svg> Importar Excel</a>
-      <a href="{% url 'importar_deudas' %}" class="nav-item-ds {% if cur == 'importar_deudas' %}active{% endif %}">
-        <svg><use href="#i-upload"/></svg> Importar deudas</a>
-    </details>
+    {% for s in secciones %}
+    <a href="{{ s.href }}" class="nav-item-ds {% if s.activa %}active{% endif %}">
+      <svg><use href="#{{ s.icono }}"/></svg> {{ s.titulo }}</a>
+    {% endfor %}
   </nav>
 </aside>
-{% endwith %}
-{% endwith %}
