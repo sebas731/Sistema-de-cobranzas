@@ -434,14 +434,14 @@ def estado_caja_rango(desde, hasta, fuente_agua='sedapal'):
     ajuste_agua = _ajuste_agua_medidores(gastos_qs, desde, hasta) if fuente_agua == 'medidores' else {}
     otros_total = _suma(_vigentes().filter(tipo=Ti.INGRESO_OTRO, **rango))
     por_ident_total = sum((m.monto for m in por_ident), CERO)
-    # El egreso de mantenimiento es el gasto real del mes (GastoEdificio), SIN
-    # sumarle la cochera: la vigilancia pagada ya es el monto real. (Ej. agosto =
-    # 6156.48, no 6216.48.)
+    # El mantenimiento del egreso = gasto real del mes (GastoEdificio) + la cochera
+    # (S/5 por cochera = S/60/mes), que se paga a vigilancia. Ej. agosto:
+    # 6156.48 gasto + 60 cochera = 6216.48.
     egresos_total = (_suma(egresos_qs) + sum((g.monto for g in gastos_qs), CERO)
-                     + sum(ajuste_agua.values(), CERO))
+                     + sum(coch_map.values(), CERO) + sum(ajuste_agua.values(), CERO))
     ingresos_total = pagos_total + otros_total + por_ident_total
 
-    egresos_filas = _egresos_por_concepto(egresos_qs, gastos_qs, None, ajuste_agua)
+    egresos_filas = _egresos_por_concepto(egresos_qs, gastos_qs, coch_map, ajuste_agua)
 
     return {
         'desde': desde, 'hasta': hasta,
