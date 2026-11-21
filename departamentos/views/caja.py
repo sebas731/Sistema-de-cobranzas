@@ -104,13 +104,17 @@ def estado_cuenta(request):
         desde = date(periodo.year, periodo.month, 1)
         ultimo = calendar.monthrange(periodo.year, periodo.month)[1]
         hasta = min(hoy, date(periodo.year, periodo.month, ultimo))
-    datos = estado_caja_rango(desde, hasta)
+    # Balance personalizable: fuente del agua en egresos + título editable.
+    fuente_agua = 'medidores' if request.GET.get('agua') == 'medidores' else 'sedapal'
+    titulo = (request.GET.get('titulo') or '').strip()
+    datos = estado_caja_rango(desde, hasta, fuente_agua=fuente_agua)
     ingresos = list(datos['ingresos'])
     if datos['por_identificar_total']:
         ingresos.append({'concepto': 'Cuotas sin identificar', 'monto': datos['por_identificar_total']})
     return render(request, 'departamentos/caja/estado_cuenta.html', {
         'periodo_form': form, 'periodo': periodo, 'datos': datos, 'ingresos': ingresos,
         'desde': desde, 'hasta': hasta, 'anual': anual,
+        'fuente_agua': fuente_agua, 'titulo': titulo,
         'config': ConfiguracionCondominio.vigente(),
     })
 

@@ -99,10 +99,11 @@ def _cochera_por_mes(desde, hasta):
                       .values('periodo').annotate(s=Sum('monto')))}
 
 
-def _egresos_por_mes(egresos_qs, gastos_qs, cochera_map=None):
+def _egresos_por_mes(egresos_qs, gastos_qs, cochera_map=None, ajuste_agua=None):
     """Egresos agrupados por MES, etiquetados 'Egreso Agosto', 'Egreso Setiembre'…
     (vista de rango/año). Combina gastos del mes (GastoEdificio) + egresos de caja
-    (MovimientoCaja) + la cochera (que va a vigilancia). El detalle queda en 'movs'."""
+    (MovimientoCaja) + la cochera (que va a vigilancia). `ajuste_agua` (opcional)
+    cambia el agua del egreso a medidores. El detalle queda en 'movs'."""
     from ..forms import MESES_ES
     por_mes = defaultdict(lambda: {'monto': CERO, 'movs': []})
     for g in gastos_qs:
@@ -120,6 +121,12 @@ def _egresos_por_mes(egresos_qs, gastos_qs, cochera_map=None):
             por_mes[k]['movs'].append(
                 {'fecha': date(k[0], k[1], 1), 'ref': 'Cochera → vigilancia',
                  'monto': f'{coch:.2f}', 'nota': ''})
+    for k, aj in (ajuste_agua or {}).items():
+        if aj:
+            por_mes[k]['monto'] += aj
+            por_mes[k]['movs'].append(
+                {'fecha': date(k[0], k[1], 1), 'ref': 'Ajuste agua a medidores',
+                 'monto': f'{aj:.2f}', 'nota': ''})
     return [{'rubro': f'Egreso {MESES_ES[mth]}', 'monto': v['monto'], 'movs': v['movs']}
             for (yr, mth), v in sorted(por_mes.items())]
 
@@ -327,7 +334,31 @@ def estado_caja(anio, mes):
     }
 
 
-def estado_caja_rango(desde, hasta):
+def _es_agua(desc):
+    u = (desc or '').upper()
+    return 'SEDAPAL' in u or 'AGUA' in u or 'CONSUMO DE AGUA' in u
+
+
+def _ajuste_agua_medidores(gastos_qs, desde, hasta):
+    """Diferencia por mes para cambiar el agua del egreso de SEDAPAL (gastos del
+    mes) a MEDIDORES (cargos AGUA + ÁREA COMÚN). Devuelve {(anio,mes): medidores −
+    sedapal} para sumar al egreso del mes."""
+    from ..models import Cargo
+    ini = date(desde.year, desde.month, 1)
+    fin = date(hasta.year, hasta.month, 1)
+    sedapal = defaultdict(lambda: CERO)
+    for g in gastos_qs:
+        if _es_agua(g.descripcion):
+            sedapal[(g.periodo.year, g.periodo.month)] += g.monto
+    medidores = {(r['periodo'].year, r['periodo'].month): r['s']
+                 for r in (Cargo.objects.filter(concepto__codigo__in=['AGUA', 'AREA_COMUN'],
+                                                 periodo__gte=ini, periodo__lte=fin)
+                           .values('periodo').annotate(s=Sum('monto')))}
+    return {k: (medidores.get(k, CERO) - sedapal.get(k, CERO))
+            for k in set(sedapal) | set(medidores)}
+
+
+def estado_caja_rango(desde, hasta, fuente_agua='sedapal'):
     """Estado de caja entre dos fechas (inclusive), p.ej. todo el año o desde el
     inicio hasta hoy. La caja inicial (SALDO_INICIAL) se toma como apertura
     (génesis), así SIEMPRE aparece aunque sea de mitad de periodo."""
@@ -347,13 +378,16 @@ def estado_caja_rango(desde, hasta):
     egresos_qs = _vigentes().filter(tipo=Ti.EGRESO, **rango)
     gastos_qs = list(_gastos_mes_qs(desde, hasta))
     coch_map = _cochera_por_mes(desde, hasta)
+    # Fuente del agua en el egreso: 'sedapal' = gastos del mes (lo que se paga);
+    # 'medidores' = lo cobrado a los vecinos (cargos AGUA + ÁREA COMÚN).
+    ajuste_agua = _ajuste_agua_medidores(gastos_qs, desde, hasta) if fuente_agua == 'medidores' else {}
     otros_total = _suma(_vigentes().filter(tipo=Ti.INGRESO_OTRO, **rango))
     por_ident_total = sum((m.monto for m in por_ident), CERO)
     egresos_total = (_suma(egresos_qs) + sum((g.monto for g in gastos_qs), CERO)
-                     + sum(coch_map.values(), CERO))
+                     + sum(coch_map.values(), CERO) + sum(ajuste_agua.values(), CERO))
     ingresos_total = pagos_total + otros_total + por_ident_total
 
-    egresos_filas = _egresos_por_mes(egresos_qs, gastos_qs, coch_map)
+    egresos_filas = _egresos_por_mes(egresos_qs, gastos_qs, coch_map, ajuste_agua)
 
     return {
         'desde': desde, 'hasta': hasta,
