@@ -131,6 +131,42 @@ def _egresos_por_mes(egresos_qs, gastos_qs, cochera_map=None, ajuste_agua=None):
             for (yr, mth), v in sorted(por_mes.items())]
 
 
+def _egresos_por_concepto(egresos_qs, gastos_qs, cochera_map=None, ajuste_agua=None):
+    """Egresos del rango agrupados POR CONCEPTO (no por mes): 'Costo agua SEDAPAL',
+    'Mantenimiento', 'Vigilancia' (incl. cochera), 'Luz', 'Limpieza', etc.
+    Combina gastos del mes (GastoEdificio) + egresos de caja (MovimientoCaja) +
+    cochera (→ vigilancia) + ajuste de agua a medidores. Pensado para el balance
+    desglosado y editable. El detalle de cada concepto queda en 'movs'."""
+    rubros_label = dict(MovimientoCaja.Rubro.choices)
+    AGUA = 'Costo agua SEDAPAL'
+    VIG = rubros_label.get(MovimientoCaja.Rubro.VIGILANCIA, 'Vigilancia')
+    por = defaultdict(lambda: {'monto': CERO, 'movs': []})
+
+    for g in gastos_qs:
+        etq = AGUA if _es_agua(g.descripcion) else rubros_label.get(_rubro_de(g.descripcion), 'Mantenimiento')
+        por[etq]['monto'] += g.monto
+        por[etq]['movs'].append(
+            {'fecha': g.periodo, 'ref': g.descripcion, 'monto': f'{g.monto:.2f}', 'nota': ''})
+    for m in egresos_qs:
+        etq = AGUA if _es_agua(getattr(m, 'descripcion', '')) else rubros_label.get(m.rubro, 'Otros egresos')
+        por[etq]['monto'] += m.monto
+        por[etq]['movs'].append(m)
+    # Cochera → Vigilancia (se paga al vigilante).
+    coch = sum((cochera_map or {}).values(), CERO)
+    if coch:
+        por[VIG]['monto'] += coch
+        por[VIG]['movs'].append({'fecha': '', 'ref': 'Cochera (S/5 por cochera)',
+                                 'monto': f'{coch:.2f}', 'nota': ''})
+    # Ajuste a medidores → modifica la línea de agua.
+    aj = sum((ajuste_agua or {}).values(), CERO)
+    if aj:
+        por[AGUA]['monto'] += aj
+        por[AGUA]['movs'].append({'fecha': '', 'ref': 'Ajuste agua a medidores',
+                                  'monto': f'{aj:.2f}', 'nota': ''})
+    return [{'rubro': k, 'monto': v['monto'], 'movs': v['movs']}
+            for k, v in sorted(por.items(), key=lambda x: -x[1]['monto']) if v['monto']]
+
+
 def _egresos_filas(egresos_qs, gastos_qs, cochera=CERO):
     """Egresos agrupados por rubro/descripción: gastos del mes (GastoEdificio) +
     egresos de caja (MovimientoCaja) + la cochera (sumada a vigilancia), para la vista."""
@@ -392,7 +428,7 @@ def estado_caja_rango(desde, hasta, fuente_agua='sedapal'):
                      + sum(coch_map.values(), CERO) + sum(ajuste_agua.values(), CERO))
     ingresos_total = pagos_total + otros_total + por_ident_total
 
-    egresos_filas = _egresos_por_mes(egresos_qs, gastos_qs, coch_map, ajuste_agua)
+    egresos_filas = _egresos_por_concepto(egresos_qs, gastos_qs, coch_map, ajuste_agua)
 
     return {
         'desde': desde, 'hasta': hasta,

@@ -23,6 +23,7 @@
     width:90px; text-align:right; outline:none; }
   .ec-editing .ec-add, .ec-editing .ec-ctrl { display:inline-block; }
   .ec-editing #ec-ingresos .ec-item, .ec-editing #ec-egresos .ec-item { background:#fbfdfb; }
+  .ec-editing .ec-c[contenteditable] { outline:1px dashed #2E7D32; border-radius:3px; padding:0 3px; min-width:40px; }
   .ec-hoja {
     max-width:820px; margin:0 auto; background:#fff; color:#111;
     border:1px solid #d0d0d0; border-radius:6px; padding:34px 46px;
@@ -213,7 +214,14 @@ function ecAdd(sec){
   ecRecompute();
 }
 function ecToggleEdit(){
-  document.querySelector('.ec-hoja').classList.toggle('ec-editing');
+  var hoja=document.querySelector('.ec-hoja');
+  hoja.classList.toggle('ec-editing');
+  var on=hoja.classList.contains('ec-editing');
+  // Permite renombrar las líneas existentes (nombre del concepto).
+  hoja.querySelectorAll('.ec-c[data-edit]').forEach(function(s){
+    if(on){ s.setAttribute('contenteditable','true'); }
+    else { s.removeAttribute('contenteditable'); }
+  });
   var b=document.getElementById('ec-btn-edit');
   b.classList.toggle('btn-success'); b.classList.toggle('btn-outline-success');
 }
