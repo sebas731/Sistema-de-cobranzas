@@ -335,7 +335,12 @@ def estado_caja(anio, mes):
 
 
 def _es_agua(desc):
+    """Agua de CONSUMO que se intercambia entre SEDAPAL y medidores. Excluye el
+    agua de la caseta de vigilancia (costo fijo que va en mantenimiento, NO se
+    intercambia)."""
     u = (desc or '').upper()
+    if 'VIGILANCIA' in u or 'CASETA' in u:
+        return False
     return 'SEDAPAL' in u or 'AGUA' in u or 'CONSUMO DE AGUA' in u
 
 
