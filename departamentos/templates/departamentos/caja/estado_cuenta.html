@@ -10,6 +10,19 @@
   .ec-drawer-bg { position:absolute; inset:0; background:rgba(0,0,0,.35); }
   .ec-drawer-panel { position:absolute; top:0; right:0; height:100%; width:360px; max-width:90vw;
     background:#fff; box-shadow:-2px 0 14px rgba(0,0,0,.2); padding:20px; overflow:auto; }
+  .ec-item { position:relative; }
+  .ec-item .ec-c { flex:1; }
+  .ec-add { display:none; margin-left:10px; font-size:12px; border:1px solid #2E7D32; color:#2E7D32;
+    background:#fff; border-radius:4px; padding:1px 8px; cursor:pointer; font-weight:normal; }
+  .ec-ctrl { display:none; margin-left:8px; white-space:nowrap; }
+  .ec-ctrl button { border:1px solid #bbb; background:#f6f6f6; border-radius:3px; width:22px; height:20px;
+    font-size:11px; line-height:1; cursor:pointer; padding:0; }
+  .ec-ctrl button:last-child { color:#b00020; border-color:#e0a0a0; }
+  .ec-in-c { border:none; border-bottom:1px dashed #999; font-family:inherit; font-size:inherit; width:70%; outline:none; }
+  .ec-in-m { border:none; border-bottom:1px dashed #999; font-family:inherit; font-size:inherit; font-weight:bold;
+    width:90px; text-align:right; outline:none; }
+  .ec-editing .ec-add, .ec-editing .ec-ctrl { display:inline-block; }
+  .ec-editing #ec-ingresos .ec-item, .ec-editing #ec-egresos .ec-item { background:#fbfdfb; }
   .ec-hoja {
     max-width:820px; margin:0 auto; background:#fff; color:#111;
     border:1px solid #d0d0d0; border-radius:6px; padding:34px 46px;
@@ -35,6 +48,7 @@
     .sidebar, .app-header, .appbar, header, .no-print { display:none !important; }
     .page-container, .main, main, .content { margin:0 !important; padding:0 !important; max-width:none !important; }
     .ec-hoja { border:0; border-radius:0; max-width:none; padding:0 6mm; }
+    .ec-in-c, .ec-in-m { border:none !important; }
     @page { size:A4 portrait; margin:14mm; }
   }
 </style>
@@ -50,6 +64,7 @@
     <button name="modo" value="anio" class="btn btn-sm {% if anual %}btn-success{% else %}btn-outline-secondary{% endif %}">Todo el año (hasta hoy)</button>
   </form>
   <button type="button" onclick="document.getElementById('ec-drawer').classList.add('open')" class="btn btn-sm btn-success">⚙️ Personalizar</button>
+  <button type="button" id="ec-btn-edit" onclick="ecToggleEdit()" class="btn btn-sm btn-outline-success">✏️ Editar líneas</button>
   <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary">🖨️ Exportar PDF</button>
   <span class="badge {% if fuente_agua == 'medidores' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
     Agua: {% if fuente_agua == 'medidores' %}Medidores (cobrado){% else %}SEDAPAL (pagado){% endif %}</span>
@@ -130,28 +145,30 @@
 
   <div class="ec-row ec-row--band">
     <span class="l">{{ doc.lbl_saldo_ini }} al {{ desde|date:"d" }} de {{ desde|date:"F" }} de {{ desde|date:"Y" }}.</span>
-    <span class="m">{{ datos.saldo_inicial|soles }}</span>
+    <span class="m" id="ec-saldo-ini" data-monto="{{ datos.saldo_inicial|stringformat:'.2f' }}">{{ datos.saldo_inicial|soles }}</span>
   </div>
 
-  <div class="ec-seccion">{{ doc.lbl_ingresos }}.</div>
+  <div class="ec-seccion">{{ doc.lbl_ingresos }}.
+    <button type="button" class="ec-add no-print" onclick="ecAdd('ingresos')">＋ agregar</button></div>
+  <div id="ec-ingresos">
   {% for f in ingresos %}
-  <div class="ec-item"><span>{{ f.concepto }}</span><span class="m">{{ f.monto|soles }}</span></div>
-  {% empty %}
-  <div class="ec-item"><span class="text-muted">Sin ingresos en el periodo.</span><span class="m">0.00</span></div>
+    <div class="ec-item" data-monto="{{ f.monto|stringformat:'.2f' }}">{% include 'departamentos/caja/_ec_linea.html' with concepto=f.concepto monto=f.monto %}</div>
   {% endfor %}
-  <div class="ec-total"><span>Total de {{ doc.lbl_ingresos|lower }}.</span><span class="m">{{ datos.ingresos_total|soles }}</span></div>
+  </div>
+  <div class="ec-total"><span>Total de {{ doc.lbl_ingresos|lower }}.</span><span class="m" id="ec-tot-ing">{{ datos.ingresos_total|soles }}</span></div>
 
-  <div class="ec-seccion">{{ doc.lbl_egresos }}.</div>
+  <div class="ec-seccion">{{ doc.lbl_egresos }}.
+    <button type="button" class="ec-add no-print" onclick="ecAdd('egresos')">＋ agregar</button></div>
+  <div id="ec-egresos">
   {% for f in datos.egresos %}
-  <div class="ec-item"><span>{{ f.rubro }}</span><span class="m">{{ f.monto|soles }}</span></div>
-  {% empty %}
-  <div class="ec-item"><span class="text-muted">Sin egresos en el periodo.</span><span class="m">0.00</span></div>
+    <div class="ec-item" data-monto="{{ f.monto|stringformat:'.2f' }}">{% include 'departamentos/caja/_ec_linea.html' with concepto=f.rubro monto=f.monto %}</div>
   {% endfor %}
-  <div class="ec-total"><span>Total de {{ doc.lbl_egresos|lower }}.</span><span class="m">{{ datos.egresos_total|soles }}</span></div>
+  </div>
+  <div class="ec-total"><span>Total de {{ doc.lbl_egresos|lower }}.</span><span class="m" id="ec-tot-egr">{{ datos.egresos_total|soles }}</span></div>
 
   <div class="ec-row ec-row--band" style="margin-top:18px;">
     <span class="l">{{ doc.lbl_saldo_fin }} al {{ hasta|date:"d" }} de {{ hasta|date:"F" }} de {{ hasta|date:"Y" }}.</span>
-    <span class="m">{{ datos.saldo_final|soles }}</span>
+    <span class="m" id="ec-saldo-fin">{{ datos.saldo_final|soles }}</span>
   </div>
 
   {% if doc.firmas %}
@@ -161,4 +178,44 @@
   </div>
   {% endif %}
 </div>
+
+<script>
+function ecNum(s){ return parseFloat(String(s==null?'':s).replace(/,/g,''))||0; }
+function ecFmt(n){ return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function ecRecompute(){
+  var ti=0, te=0;
+  document.querySelectorAll('#ec-ingresos .ec-item').forEach(function(r){ ti+=ecNum(r.dataset.monto); });
+  document.querySelectorAll('#ec-egresos .ec-item').forEach(function(r){ te+=ecNum(r.dataset.monto); });
+  var si=ecNum(document.getElementById('ec-saldo-ini').dataset.monto);
+  document.getElementById('ec-tot-ing').textContent=ecFmt(ti);
+  document.getElementById('ec-tot-egr').textContent=ecFmt(te);
+  document.getElementById('ec-saldo-fin').textContent=ecFmt(si+ti-te);
+}
+function ecMove(btn,dir){
+  var r=btn.closest('.ec-item');
+  if(dir<0 && r.previousElementSibling){ r.parentNode.insertBefore(r,r.previousElementSibling); }
+  if(dir>0 && r.nextElementSibling){ r.parentNode.insertBefore(r.nextElementSibling,r); }
+}
+function ecDel(btn){ btn.closest('.ec-item').remove(); ecRecompute(); }
+function ecAdd(sec){
+  var cont=document.getElementById('ec-'+sec);
+  var div=document.createElement('div');
+  div.className='ec-item'; div.dataset.monto='0';
+  div.innerHTML='<span class="ec-c"><input class="ec-in-c" placeholder="Concepto"></span>'+
+    '<span class="m"><input class="ec-in-m" type="number" step="0.01" value="0.00" '+
+    'oninput="this.closest(\'.ec-item\').dataset.monto=this.value; ecRecompute();"></span>'+
+    '<span class="ec-ctrl no-print"><button type="button" onclick="ecMove(this,-1)">↑</button>'+
+    '<button type="button" onclick="ecMove(this,1)">↓</button>'+
+    '<button type="button" onclick="ecDel(this)">✕</button></span>';
+  cont.appendChild(div);
+  document.querySelector('.ec-hoja').classList.add('ec-editing');
+  var i=div.querySelector('.ec-in-c'); if(i) i.focus();
+  ecRecompute();
+}
+function ecToggleEdit(){
+  document.querySelector('.ec-hoja').classList.toggle('ec-editing');
+  var b=document.getElementById('ec-btn-edit');
+  b.classList.toggle('btn-success'); b.classList.toggle('btn-outline-success');
+}
+</script>
 {% endblock %}
