@@ -45,8 +45,7 @@
   <form method="get" class="d-flex gap-2 align-items-end">
     <div>{{ periodo_form.mes }}</div>
     <div>{{ periodo_form.anio }}</div>
-    {% if fuente_agua == 'medidores' %}<input type="hidden" name="agua" value="medidores">{% endif %}
-    {% if titulo %}<input type="hidden" name="titulo" value="{{ titulo }}">{% endif %}
+    {% for k, v in g.items %}{% if k != 'mes' and k != 'anio' and k != 'modo' %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
     <button class="btn btn-sm {% if not anual %}btn-success{% else %}btn-outline-secondary{% endif %}">Ver mes</button>
     <button name="modo" value="anio" class="btn btn-sm {% if anual %}btn-success{% else %}btn-outline-secondary{% endif %}">Todo el año (hasta hoy)</button>
   </form>
@@ -68,11 +67,7 @@
       <input type="hidden" name="mes" value="{{ periodo.month }}">
       <input type="hidden" name="anio" value="{{ periodo.year }}">
       {% if anual %}<input type="hidden" name="modo" value="anio">{% endif %}
-      <div class="mb-3">
-        <label class="form-label">Título del balance</label>
-        <input type="text" name="titulo" class="form-control" value="{{ titulo }}"
-               placeholder="Balance Mensual {{ config.nombre|default:'Condominio' }}">
-      </div>
+
       <div class="mb-3">
         <label class="form-label">Agua en egresos</label>
         <select name="agua" class="form-select">
@@ -81,47 +76,89 @@
         </select>
         <div class="form-text">Cambia solo el agua del egreso. Así generas los 2 balances sin tocar la base.</div>
       </div>
+
+      <h6 class="text-success fw-bold border-bottom pb-1 mt-4">Textos del documento</h6>
+      <div class="mb-2">
+        <label class="form-label mb-1">Título</label>
+        <input type="text" name="titulo" class="form-control form-control-sm" value="{{ g.titulo }}" placeholder="{{ doc.titulo }}">
+      </div>
+      <div class="mb-2">
+        <label class="form-label mb-1">Subtítulo</label>
+        <input type="text" name="subtitulo" class="form-control form-control-sm" value="{{ g.subtitulo }}" placeholder="{{ doc.subtitulo }}">
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-6"><label class="form-label mb-1">Etiqueta Ingresos</label>
+          <input type="text" name="lbl_ingresos" class="form-control form-control-sm" value="{{ g.lbl_ingresos }}" placeholder="{{ doc.lbl_ingresos }}"></div>
+        <div class="col-6"><label class="form-label mb-1">Etiqueta Egresos</label>
+          <input type="text" name="lbl_egresos" class="form-control form-control-sm" value="{{ g.lbl_egresos }}" placeholder="{{ doc.lbl_egresos }}"></div>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-6"><label class="form-label mb-1">Label saldo inicial</label>
+          <input type="text" name="lbl_saldo_ini" class="form-control form-control-sm" value="{{ g.lbl_saldo_ini }}" placeholder="{{ doc.lbl_saldo_ini }}"></div>
+        <div class="col-6"><label class="form-label mb-1">Label saldo final</label>
+          <input type="text" name="lbl_saldo_fin" class="form-control form-control-sm" value="{{ g.lbl_saldo_fin }}" placeholder="{{ doc.lbl_saldo_fin }}"></div>
+      </div>
+
+      <h6 class="text-success fw-bold border-bottom pb-1 mt-4">Pie / firmas</h6>
+      <div class="form-check form-switch mb-2">
+        <input type="hidden" name="firmas" value="0">
+        <input class="form-check-input" type="checkbox" name="firmas" value="1" id="sw-firmas" {% if doc.firmas %}checked{% endif %}>
+        <label class="form-check-label" for="sw-firmas">Mostrar firmas en el pie</label>
+      </div>
+      <div class="mb-2">
+        <label class="form-label mb-1">Firma izquierda</label>
+        <input type="text" name="firma1" class="form-control form-control-sm" value="{{ g.firma1 }}" placeholder="{{ doc.firma1 }}">
+        <div class="form-text">Vacío = se oculta esa firma. Usa un salto de línea para nombre + cargo.</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label mb-1">Firma derecha</label>
+        <input type="text" name="firma2" class="form-control form-control-sm" value="{{ g.firma2 }}" placeholder="{{ doc.firma2 }}">
+      </div>
+
       <button class="btn btn-success w-100">Aplicar</button>
+      <a href="?mes={{ periodo.month }}&anio={{ periodo.year }}{% if anual %}&modo=anio{% endif %}" class="btn btn-link btn-sm w-100 mt-1">Restablecer todo</a>
     </form>
   </div>
 </div>
 
 <div class="ec-hoja">
   {% if config.logo %}<div style="text-align:center;"><img src="/static/{{ config.logo }}" class="ec-logo" alt=""></div>{% endif %}
-  <h1>{{ titulo|default:"Balance Mensual" }} {% if not titulo %}{{ config.nombre|default:"Condominio" }}{% endif %}</h1>
-  <h2>Estado de cuenta de fondo de administración y mantenimiento.</h2>
+  <h1>{{ doc.titulo }}</h1>
+  <h2>{{ doc.subtitulo }}</h2>
 
   <div class="ec-periodo">Período del {{ desde|date:"d" }} de {{ desde|date:"F" }} al {{ hasta|date:"d" }} de {{ hasta|date:"F" }} del año {{ hasta|date:"Y" }}.</div>
 
   <div class="ec-row ec-row--band">
-    <span class="l">Saldo en CTA al {{ desde|date:"d" }} de {{ desde|date:"F" }} de {{ desde|date:"Y" }}.</span>
+    <span class="l">{{ doc.lbl_saldo_ini }} al {{ desde|date:"d" }} de {{ desde|date:"F" }} de {{ desde|date:"Y" }}.</span>
     <span class="m">{{ datos.saldo_inicial|soles }}</span>
   </div>
 
-  <div class="ec-seccion">INGRESOS.</div>
+  <div class="ec-seccion">{{ doc.lbl_ingresos }}.</div>
   {% for f in ingresos %}
   <div class="ec-item"><span>{{ f.concepto }}</span><span class="m">{{ f.monto|soles }}</span></div>
   {% empty %}
   <div class="ec-item"><span class="text-muted">Sin ingresos en el periodo.</span><span class="m">0.00</span></div>
   {% endfor %}
-  <div class="ec-total"><span>Total de ingresos.</span><span class="m">{{ datos.ingresos_total|soles }}</span></div>
+  <div class="ec-total"><span>Total de {{ doc.lbl_ingresos|lower }}.</span><span class="m">{{ datos.ingresos_total|soles }}</span></div>
 
-  <div class="ec-seccion">EGRESOS.</div>
+  <div class="ec-seccion">{{ doc.lbl_egresos }}.</div>
   {% for f in datos.egresos %}
   <div class="ec-item"><span>{{ f.rubro }}</span><span class="m">{{ f.monto|soles }}</span></div>
   {% empty %}
   <div class="ec-item"><span class="text-muted">Sin egresos en el periodo.</span><span class="m">0.00</span></div>
   {% endfor %}
-  <div class="ec-total"><span>Total de egresos.</span><span class="m">{{ datos.egresos_total|soles }}</span></div>
+  <div class="ec-total"><span>Total de {{ doc.lbl_egresos|lower }}.</span><span class="m">{{ datos.egresos_total|soles }}</span></div>
 
   <div class="ec-row ec-row--band" style="margin-top:18px;">
-    <span class="l">Saldo final en CTA al {{ hasta|date:"d" }} de {{ hasta|date:"F" }} de {{ hasta|date:"Y" }}.</span>
+    <span class="l">{{ doc.lbl_saldo_fin }} al {{ hasta|date:"d" }} de {{ hasta|date:"F" }} de {{ hasta|date:"Y" }}.</span>
     <span class="m">{{ datos.saldo_final|soles }}</span>
   </div>
 
+  {% if doc.firmas %}
   <div class="ec-firmas">
-    <span>{{ config.firma_administracion|default:"Fiorella Mendoza" }}<br>Administración.</span>
-    <span>{% if config.firma_vigilancia %}{{ config.firma_vigilancia }}<br>{% endif %}Presidenta de Comité de Vigilancia.</span>
+    {% if doc.firma1 %}<span>{{ doc.firma1|linebreaksbr }}</span>{% endif %}
+    {% if doc.firma2 %}<span>{{ doc.firma2|linebreaksbr }}</span>{% endif %}
   </div>
+  {% endif %}
 </div>
 {% endblock %}

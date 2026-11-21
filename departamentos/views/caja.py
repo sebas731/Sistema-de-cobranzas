@@ -104,9 +104,22 @@ def estado_cuenta(request):
         desde = date(periodo.year, periodo.month, 1)
         ultimo = calendar.monthrange(periodo.year, periodo.month)[1]
         hasta = min(hoy, date(periodo.year, periodo.month, ultimo))
-    # Balance personalizable: fuente del agua en egresos + título editable.
-    fuente_agua = 'medidores' if request.GET.get('agua') == 'medidores' else 'sedapal'
-    titulo = (request.GET.get('titulo') or '').strip()
+    # Balance personalizable: fuente del agua + textos editables del documento.
+    g = request.GET
+    fuente_agua = 'medidores' if g.get('agua') == 'medidores' else 'sedapal'
+    cfg = ConfiguracionCondominio.vigente()
+    nombre = cfg.nombre if cfg else 'Condominio'
+    doc = {
+        'titulo': (g.get('titulo') or '').strip() or f'Balance Mensual {nombre}',
+        'subtitulo': (g.get('subtitulo') or '').strip() or 'Estado de cuenta de fondo de administración y mantenimiento.',
+        'lbl_saldo_ini': (g.get('lbl_saldo_ini') or '').strip() or 'Saldo en CTA',
+        'lbl_ingresos': (g.get('lbl_ingresos') or '').strip() or 'INGRESOS',
+        'lbl_egresos': (g.get('lbl_egresos') or '').strip() or 'EGRESOS',
+        'lbl_saldo_fin': (g.get('lbl_saldo_fin') or '').strip() or 'Saldo final en CTA',
+        'firmas': g.get('firmas', '1') != '0',
+        'firma1': (g.get('firma1') or '').strip() or (cfg.firma_administracion if cfg and cfg.firma_administracion else 'Administración.'),
+        'firma2': (g.get('firma2') or '').strip() or (cfg.firma_vigilancia if cfg and cfg.firma_vigilancia else 'Presidenta de Comité de Vigilancia.'),
+    }
     datos = estado_caja_rango(desde, hasta, fuente_agua=fuente_agua)
     ingresos = list(datos['ingresos'])
     if datos['por_identificar_total']:
@@ -114,8 +127,8 @@ def estado_cuenta(request):
     return render(request, 'departamentos/caja/estado_cuenta.html', {
         'periodo_form': form, 'periodo': periodo, 'datos': datos, 'ingresos': ingresos,
         'desde': desde, 'hasta': hasta, 'anual': anual,
-        'fuente_agua': fuente_agua, 'titulo': titulo,
-        'config': ConfiguracionCondominio.vigente(),
+        'fuente_agua': fuente_agua, 'doc': doc, 'g': g,
+        'config': cfg,
     })
 
 
