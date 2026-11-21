@@ -132,39 +132,49 @@ def _egresos_por_mes(egresos_qs, gastos_qs, cochera_map=None, ajuste_agua=None):
 
 
 def _egresos_por_concepto(egresos_qs, gastos_qs, cochera_map=None, ajuste_agua=None):
-    """Egresos del rango agrupados POR CONCEPTO (no por mes): 'Costo agua SEDAPAL',
-    'Mantenimiento', 'Vigilancia' (incl. cochera), 'Luz', 'Limpieza', etc.
-    Combina gastos del mes (GastoEdificio) + egresos de caja (MovimientoCaja) +
-    cochera (→ vigilancia) + ajuste de agua a medidores. Pensado para el balance
-    desglosado y editable. El detalle de cada concepto queda en 'movs'."""
-    rubros_label = dict(MovimientoCaja.Rubro.choices)
+    """Egresos del rango en SOLO dos categorías: el MANTENIMIENTO de cada mes
+    ('Mantenimiento Julio', 'Mantenimiento Agosto', …) y el 'Costo agua SEDAPAL'
+    (una línea, total del periodo). El mantenimiento del mes junta todo lo que NO
+    es agua (vigilancia, limpieza, luz, cochera, etc.); el agua va aparte. El
+    detalle de cada línea queda en 'movs'. Pensado para el balance editable."""
+    from ..forms import MESES_ES
     AGUA = 'Costo agua SEDAPAL'
-    VIG = rubros_label.get(MovimientoCaja.Rubro.VIGILANCIA, 'Vigilancia')
-    por = defaultdict(lambda: {'monto': CERO, 'movs': []})
+    agua = {'monto': CERO, 'movs': []}
+    mant = defaultdict(lambda: {'monto': CERO, 'movs': []})  # (anio, mes) -> mant
 
     for g in gastos_qs:
-        etq = AGUA if _es_agua(g.descripcion) else rubros_label.get(_rubro_de(g.descripcion), 'Mantenimiento')
-        por[etq]['monto'] += g.monto
-        por[etq]['movs'].append(
-            {'fecha': g.periodo, 'ref': g.descripcion, 'monto': f'{g.monto:.2f}', 'nota': ''})
+        if _es_agua(g.descripcion):
+            agua['monto'] += g.monto
+            agua['movs'].append({'fecha': g.periodo, 'ref': g.descripcion, 'monto': f'{g.monto:.2f}', 'nota': ''})
+        else:
+            k = (g.periodo.year, g.periodo.month)
+            mant[k]['monto'] += g.monto
+            mant[k]['movs'].append({'fecha': g.periodo, 'ref': g.descripcion, 'monto': f'{g.monto:.2f}', 'nota': ''})
     for m in egresos_qs:
-        etq = AGUA if _es_agua(getattr(m, 'descripcion', '')) else rubros_label.get(m.rubro, 'Otros egresos')
-        por[etq]['monto'] += m.monto
-        por[etq]['movs'].append(m)
-    # Cochera → Vigilancia (se paga al vigilante).
-    coch = sum((cochera_map or {}).values(), CERO)
-    if coch:
-        por[VIG]['monto'] += coch
-        por[VIG]['movs'].append({'fecha': '', 'ref': 'Cochera (S/5 por cochera)',
-                                 'monto': f'{coch:.2f}', 'nota': ''})
-    # Ajuste a medidores → modifica la línea de agua.
+        if _es_agua(getattr(m, 'descripcion', '')):
+            agua['monto'] += m.monto
+            agua['movs'].append(m)
+        else:
+            k = (m.fecha.year, m.fecha.month)
+            mant[k]['monto'] += m.monto
+            mant[k]['movs'].append(m)
+    # Cochera → mantenimiento del mes (se paga al vigilante).
+    for k, coch in (cochera_map or {}).items():
+        if coch:
+            mant[k]['monto'] += coch
+            mant[k]['movs'].append({'fecha': date(k[0], k[1], 1), 'ref': 'Cochera (S/5 por cochera)',
+                                    'monto': f'{coch:.2f}', 'nota': ''})
+    # Ajuste a medidores → línea de agua.
     aj = sum((ajuste_agua or {}).values(), CERO)
     if aj:
-        por[AGUA]['monto'] += aj
-        por[AGUA]['movs'].append({'fecha': '', 'ref': 'Ajuste agua a medidores',
-                                  'monto': f'{aj:.2f}', 'nota': ''})
-    return [{'rubro': k, 'monto': v['monto'], 'movs': v['movs']}
-            for k, v in sorted(por.items(), key=lambda x: -x[1]['monto']) if v['monto']]
+        agua['monto'] += aj
+        agua['movs'].append({'fecha': '', 'ref': 'Ajuste agua a medidores', 'monto': f'{aj:.2f}', 'nota': ''})
+
+    filas = [{'rubro': f'Mantenimiento {MESES_ES[mth]}', 'monto': v['monto'], 'movs': v['movs']}
+             for (yr, mth), v in sorted(mant.items()) if v['monto']]
+    if agua['monto']:
+        filas.append({'rubro': AGUA, 'monto': agua['monto'], 'movs': agua['movs']})
+    return filas
 
 
 def _egresos_filas(egresos_qs, gastos_qs, cochera=CERO):
