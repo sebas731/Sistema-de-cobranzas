@@ -31,17 +31,14 @@
     border-top:5px solid #E8B923;
     font-family:"Times New Roman", Georgia, serif; font-size:15px; line-height:1.45;
   }
-  /* Marca de agua: girasol + nombre del condominio, tenue, detrás del contenido. */
+  /* Marca de agua: el logo del condominio (Torre D · Los Girasoles), tenue. */
   .ec-wm { position:absolute; inset:0; z-index:0; pointer-events:none;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    opacity:.06; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  .ec-wm svg { width:340px; height:340px; }
-  .ec-wm .ec-wm-txt { margin-top:-18px; font-size:30px; font-weight:bold; letter-spacing:5px;
-    text-transform:uppercase; color:#B8890A; text-align:center; }
+    display:flex; align-items:center; justify-content:center;
+    opacity:.05; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .ec-wm svg { width:78%; height:auto; transform:rotate(-18deg); }
   .ec-hoja > *:not(.ec-wm) { position:relative; z-index:1; }
-  .ec-marca { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:2px; }
-  .ec-marca svg { width:26px; height:26px; }
-  .ec-marca span { font-size:12px; letter-spacing:3px; text-transform:uppercase; color:#B8890A; font-weight:bold; }
+  .ec-logo-wrap { text-align:center; margin-bottom:6px; }
+  .ec-logo-wrap svg { width:300px; max-width:80%; height:auto; }
   .ec-hoja h1 { font-size:17px; text-align:center; margin:0; font-weight:bold; }
   .ec-hoja h2 { font-size:15px; text-align:center; font-weight:bold; margin:10px 0 2px; }
   .ec-periodo { text-align:center; font-weight:bold; background:#fbf3d6; border:1px solid #ecd98a;
@@ -152,37 +149,8 @@
 </div>
 
 <div class="ec-hoja">
-  {% spaceless %}
-  <div class="ec-wm" aria-hidden="true">
-    <svg viewBox="-100 -100 200 200" xmlns="http://www.w3.org/2000/svg">
-      <defs><ellipse id="ec-petal" cx="0" cy="-58" rx="13" ry="34" fill="#E8B923"/></defs>
-      <g>
-        <use href="#ec-petal" transform="rotate(0)"/><use href="#ec-petal" transform="rotate(30)"/>
-        <use href="#ec-petal" transform="rotate(60)"/><use href="#ec-petal" transform="rotate(90)"/>
-        <use href="#ec-petal" transform="rotate(120)"/><use href="#ec-petal" transform="rotate(150)"/>
-        <use href="#ec-petal" transform="rotate(180)"/><use href="#ec-petal" transform="rotate(210)"/>
-        <use href="#ec-petal" transform="rotate(240)"/><use href="#ec-petal" transform="rotate(270)"/>
-        <use href="#ec-petal" transform="rotate(300)"/><use href="#ec-petal" transform="rotate(330)"/>
-      </g>
-      <circle r="30" fill="#7A5A1E"/><circle r="30" fill="none" stroke="#5e4616" stroke-width="2"/>
-    </svg>
-    <div class="ec-wm-txt">{{ config.nombre|default:"Los Girasoles" }}</div>
-  </div>
-  {% endspaceless %}
-  {% if config.logo %}<div style="text-align:center;"><img src="/static/{{ config.logo }}" class="ec-logo" alt=""></div>
-  {% else %}
-  <div class="ec-marca">
-    <svg viewBox="-100 -100 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs><ellipse id="ec-petal2" cx="0" cy="-58" rx="13" ry="34" fill="#E8B923"/></defs>
-      <use href="#ec-petal2" transform="rotate(0)"/><use href="#ec-petal2" transform="rotate(45)"/>
-      <use href="#ec-petal2" transform="rotate(90)"/><use href="#ec-petal2" transform="rotate(135)"/>
-      <use href="#ec-petal2" transform="rotate(180)"/><use href="#ec-petal2" transform="rotate(225)"/>
-      <use href="#ec-petal2" transform="rotate(270)"/><use href="#ec-petal2" transform="rotate(315)"/>
-      <circle r="30" fill="#7A5A1E"/>
-    </svg>
-    <span>{{ config.nombre|default:"Condominio Los Girasoles" }}</span>
-  </div>
-  {% endif %}
+  <div class="ec-wm" aria-hidden="true">{% include 'departamentos/components/logo_girasoles.svg' %}</div>
+  <div class="ec-logo-wrap">{% include 'departamentos/components/logo_girasoles.svg' %}</div>
   <h1>{{ doc.titulo }}</h1>
   <h2>{{ doc.subtitulo }}</h2>
 
