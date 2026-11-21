@@ -86,10 +86,23 @@ def _gastos_mes_antes(fecha):
         .exclude(categoria=GastoEdificio.Categoria.ADICIONAL))
 
 
-def _egresos_por_mes(egresos_qs, gastos_qs):
+def _cochera_por_mes(desde, hasta):
+    """{(anio, mes): total cochera} de los cargos COCHERA en el rango. La cochera
+    (S/5 por cochera) se paga al vigilante, así que se suma a VIGILANCIA en los
+    egresos del balance."""
+    from ..models import Cargo
+    ini = date(desde.year, desde.month, 1)
+    fin = date(hasta.year, hasta.month, 1)
+    return {(r['periodo'].year, r['periodo'].month): r['s']
+            for r in (Cargo.objects.filter(concepto__codigo='COCHERA',
+                                           periodo__gte=ini, periodo__lte=fin)
+                      .values('periodo').annotate(s=Sum('monto')))}
+
+
+def _egresos_por_mes(egresos_qs, gastos_qs, cochera_map=None):
     """Egresos agrupados por MES, etiquetados 'Egreso Agosto', 'Egreso Setiembre'…
-    (vista de rango/año). Combina gastos del mes (GastoEdificio) y egresos de caja
-    (MovimientoCaja). El detalle de cada mes queda en 'movs'."""
+    (vista de rango/año). Combina gastos del mes (GastoEdificio) + egresos de caja
+    (MovimientoCaja) + la cochera (que va a vigilancia). El detalle queda en 'movs'."""
     from ..forms import MESES_ES
     por_mes = defaultdict(lambda: {'monto': CERO, 'movs': []})
     for g in gastos_qs:
@@ -101,13 +114,19 @@ def _egresos_por_mes(egresos_qs, gastos_qs):
         k = (m.fecha.year, m.fecha.month)
         por_mes[k]['monto'] += m.monto
         por_mes[k]['movs'].append(m)
+    for k, coch in (cochera_map or {}).items():
+        if coch:
+            por_mes[k]['monto'] += coch
+            por_mes[k]['movs'].append(
+                {'fecha': date(k[0], k[1], 1), 'ref': 'Cochera → vigilancia',
+                 'monto': f'{coch:.2f}', 'nota': ''})
     return [{'rubro': f'Egreso {MESES_ES[mth]}', 'monto': v['monto'], 'movs': v['movs']}
             for (yr, mth), v in sorted(por_mes.items())]
 
 
-def _egresos_filas(egresos_qs, gastos_qs):
+def _egresos_filas(egresos_qs, gastos_qs, cochera=CERO):
     """Egresos agrupados por rubro/descripción: gastos del mes (GastoEdificio) +
-    egresos de caja (MovimientoCaja), para la vista."""
+    egresos de caja (MovimientoCaja) + la cochera (sumada a vigilancia), para la vista."""
     por_etq = defaultdict(lambda: {'monto': CERO, 'movs': []})
     rubros_label = dict(MovimientoCaja.Rubro.choices)
     for m in egresos_qs:
@@ -118,6 +137,12 @@ def _egresos_filas(egresos_qs, gastos_qs):
         por_etq[g.descripcion]['monto'] += g.monto
         por_etq[g.descripcion]['movs'].append(
             {'fecha': g.periodo, 'ref': 'Gasto del mes', 'monto': f'{g.monto:.2f}', 'nota': ''})
+    if cochera:
+        vig = next((k for k in por_etq if 'VIGILANCIA' in k.upper() and por_etq[k]['monto'] > 100), None)
+        clave = vig or 'VIGILANCIA (COCHERAS)'
+        por_etq[clave]['monto'] += cochera
+        por_etq[clave]['movs'].append(
+            {'fecha': '', 'ref': 'Cochera', 'monto': f'{cochera:.2f}', 'nota': ''})
     return [{'rubro': k, 'monto': v['monto'], 'movs': v['movs']}
             for k, v in sorted(por_etq.items(), key=lambda x: -x[1]['monto'])]
 
@@ -277,15 +302,16 @@ def estado_caja(anio, mes):
     por_ident = list(_vigentes().filter(tipo=Ti.POR_IDENTIFICAR, **rango))
     egresos_qs = _vigentes().filter(tipo=Ti.EGRESO, **rango)
     gastos_qs = list(_gastos_mes_qs(inicio, inicio))
+    cochera = _cochera_por_mes(inicio, inicio).get((anio, mes), CERO)
 
     otros_total = _suma(otros)
     por_ident_total = sum((m.monto for m in por_ident), CERO)
-    egresos_total = _suma(egresos_qs) + sum((g.monto for g in gastos_qs), CERO)
+    egresos_total = _suma(egresos_qs) + sum((g.monto for g in gastos_qs), CERO) + cochera
     ingresos_total = pagos_total + otros_total + por_ident_total
     s_fin = s_ini + ingresos_total - egresos_total
 
-    # Egresos = gastos del mes (lo que paga el condominio) + egresos de caja.
-    egresos_filas = _egresos_filas(egresos_qs, gastos_qs)
+    # Egresos = gastos del mes + egresos de caja + cochera (a vigilancia).
+    egresos_filas = _egresos_filas(egresos_qs, gastos_qs, cochera)
 
     return {
         'anio': anio, 'mes': mes,
@@ -320,12 +346,14 @@ def estado_caja_rango(desde, hasta):
     por_ident = list(_vigentes().filter(tipo=Ti.POR_IDENTIFICAR, **rango))
     egresos_qs = _vigentes().filter(tipo=Ti.EGRESO, **rango)
     gastos_qs = list(_gastos_mes_qs(desde, hasta))
+    coch_map = _cochera_por_mes(desde, hasta)
     otros_total = _suma(_vigentes().filter(tipo=Ti.INGRESO_OTRO, **rango))
     por_ident_total = sum((m.monto for m in por_ident), CERO)
-    egresos_total = _suma(egresos_qs) + sum((g.monto for g in gastos_qs), CERO)
+    egresos_total = (_suma(egresos_qs) + sum((g.monto for g in gastos_qs), CERO)
+                     + sum(coch_map.values(), CERO))
     ingresos_total = pagos_total + otros_total + por_ident_total
 
-    egresos_filas = _egresos_por_mes(egresos_qs, gastos_qs)
+    egresos_filas = _egresos_por_mes(egresos_qs, gastos_qs, coch_map)
 
     return {
         'desde': desde, 'hasta': hasta,
