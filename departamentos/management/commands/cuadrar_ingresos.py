@@ -32,9 +32,10 @@ from departamentos.models import Cargo, Departamento, Imputacion, MovimientoCaja
 from departamentos.servicios import registrar_pago
 
 NOTA = 'Ajuste cuadre AYUDA'
-# Conceptos mensuales normales: los top-ups del cuadre se imputan SOLO aquí, para
-# no contaminar los conceptos especiales (ascensores/mora/multa/cuota).
-COLS_MES = ['mantenimiento', 'agua', 'area_comun', 'cochera']
+# Conceptos donde se imputan los top-ups del cuadre: los mensuales + cuota, para
+# que paguen deuda pendiente y no queden "a cuenta". Se EXCLUYEN ascensores, mora
+# y multa (los fija el Excel de detalle: 780 / 45 / 300).
+COLS_MES = ['mantenimiento', 'agua', 'area_comun', 'cochera', 'cuota']
 NOTAS_PREVIAS = [NOTA, 'Ajuste reconciliación Excel', 'Reconciliación Excel']
 DESC_SIN = 'Pago sin depto identificado (Excel AYUDA)'
 
