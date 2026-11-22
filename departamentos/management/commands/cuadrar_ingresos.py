@@ -174,22 +174,24 @@ class Command(BaseCommand):
                     w(f'   +{num}  S/ {mo}')
                 Pago.objects.filter(pk=pg.pk).update(fecha_pago=FECHA_AJUSTE)
 
-            # 3) Mueve el pago LILI 122.20 del 311 al 701 (borra y recrea, para
-            #    que las imputaciones queden contra los cargos del 701).
-            dep701 = self._dep(MOVE['a'])
-            mov = Pago.objects.filter(departamento__numero_domicilio=MOVE['de'],
-                                      monto=MOVE['monto'],
-                                      nota__icontains=MOVE['pista']).first()
-            if mov and dep701:
-                f = mov.fecha_pago
-                mov.delete()  # cascada: libera los cargos del 311
-                pg = registrar_pago(dep701, MOVE['monto'], metodo='Excel AYUDA',
-                                    nota=f"{NOTA} | VECINA LILI (movido de {MOVE['de']})",
+            # 3) El pago conjunto VECINA LILI (S/216.90 = 701+311) se DEJA repartido
+            #    como está en la BD: 94.70 al 701 y 122.20 al 311 (pagaron en
+            #    conjunto). NO se mueve nada. Si quedó movido de una corrida previa,
+            #    se devuelve al 311.
+            movido = Pago.objects.filter(departamento__numero_domicilio=MOVE['a'],
+                                         monto=MOVE['monto'],
+                                         nota__icontains='movido de').first()
+            dep311 = self._dep(MOVE['de'])
+            if movido and dep311:
+                fmov = movido.fecha_pago
+                movido.delete()
+                pg = registrar_pago(dep311, MOVE['monto'], metodo='Excel AYUDA',
+                                    nota=f"{NOTA} | VECINA LILI (devuelto a {MOVE['de']})",
                                     columnas=COLS_MES)
-                Pago.objects.filter(pk=pg.pk).update(fecha_pago=f)
-                w(f"\n3) MOVER S/{MOVE['monto']} LILI: {MOVE['de']} -> {MOVE['a']} (ok).")
+                Pago.objects.filter(pk=pg.pk).update(fecha_pago=fmov)
+                w("\n3) LILI: se devolvió el pago conjunto al 311 (split 94.70/122.20).")
             else:
-                w('\n3) MOVER LILI: nada que mover (ya estaba movido).')
+                w("\n3) LILI: pago conjunto queda repartido 94.70/122.20 (sin mover).")
 
             # 4) Borra duplicado 302 (cascada libera cargos).
             dups = list(Pago.objects.filter(departamento__numero_domicilio=DUP['depto'],

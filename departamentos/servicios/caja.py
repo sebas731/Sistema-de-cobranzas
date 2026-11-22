@@ -233,7 +233,8 @@ def _ingresos_por_concepto(inicio, sig, ref=None, corte=None):
             c, per = i.cargo.concepto, i.cargo.periodo
             if corte and per < corte:
                 etq = 'Recuperación de deuda anterior'
-            elif c.codigo == Concepto.MANTENIMIENTO:
+            elif c.codigo in (Concepto.MANTENIMIENTO, 'COCHERA'):
+                # La cochera se combina con el mantenimiento del MISMO mes.
                 if ref is None:
                     etq = f'Mto. {MESES_ES[per.month]}'
                 else:
